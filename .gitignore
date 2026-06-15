@@ -1,0 +1,28 @@
+# --- 비밀정보: 절대 커밋 금지 ---
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+secrets.*
+
+# --- 런타임 생성물 (일지/로그/캐시/DB) ---
+/data/
+/journal/
+*.log
+*.db
+*.sqlite
+
+# --- 파이썬 ---
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# --- 에디터/OS ---
+.idea/
+.vscode/
+.DS_Store

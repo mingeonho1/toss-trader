@@ -1,0 +1,12 @@
+[project]
+name = "toss-trader"
+version = "0.1.0"
+description = "토스증권 OpenAPI 기반 미국주식 스윙 자동매매 (규칙기반 + Gemini 보조)"
+requires-python = ">=3.11"
+# 의존성 최소주의: 핵심 클라이언트는 표준 라이브러리만 사용한다.
+# Gemini 보조(Phase 6)에서만 선택적으로 추가될 수 있다.
+dependencies = []
+
+[tool.toss-trader]
+# 명세 출처 (source of truth)
+openapi = "https://openapi.tossinvest.com/openapi-docs/latest/openapi.json"
