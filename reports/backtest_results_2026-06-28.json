@@ -1,0 +1,199 @@
+{
+  "meta": {
+    "seed_usd": 32.43383497664764,
+    "seed_krw": 50000.0,
+    "fx": 1541.6,
+    "universe": [
+      "AAPL",
+      "MSFT",
+      "NVDA",
+      "GOOGL",
+      "AMZN",
+      "META",
+      "AVGO",
+      "COST",
+      "QQQ",
+      "SCHD"
+    ],
+    "period": [
+      "2021-07-06",
+      "2026-06-26"
+    ],
+    "n_bars": 1250,
+    "cost_roundtrip_bps": 70.0,
+    "cost_model": {
+      "commission_bps": 10.0,
+      "fx_spread_bps": 20.0,
+      "slippage_bps": 5.0
+    }
+  },
+  "configs": [
+    {
+      "total_return": 0.5149271027887554,
+      "cagr": 0.08706909596428836,
+      "mdd": -0.38487937029218966,
+      "sharpe": 0.4687014989502777,
+      "trades": 241,
+      "win_rate": 0.4896265560165975,
+      "payoff": 1.4309667794713683,
+      "expectancy": 0.10845580835147137,
+      "total_cost": 19.36172018464295,
+      "end_equity": 49.13489565350141,
+      "days": 1816,
+      "name": "baseline 20/60 x3 rb5%",
+      "halt_days": 7,
+      "cost_pct_of_seed": 0.5969605567329115,
+      "params": {
+        "fast": 20,
+        "slow": 60,
+        "max_positions": 3,
+        "rebalance_threshold": 0.05
+      }
+    },
+    {
+      "total_return": 0.8631100094538284,
+      "cagr": 0.13322346168943144,
+      "mdd": -0.3553452798447062,
+      "sharpe": 0.662447931801846,
+      "trades": 174,
+      "win_rate": 0.40229885057471265,
+      "payoff": 2.3225151452580413,
+      "expectancy": 0.20607076187034495,
+      "total_cost": 16.552057572889233,
+      "end_equity": 60.42780258996589,
+      "days": 1816,
+      "name": "lowfreq 20/60 x3 rb20%",
+      "halt_days": 6,
+      "cost_pct_of_seed": 0.5103330390873209,
+      "params": {
+        "fast": 20,
+        "slow": 60,
+        "max_positions": 3,
+        "rebalance_threshold": 0.2
+      }
+    },
+    {
+      "total_return": 0.7607993467812588,
+      "cagr": 0.12043203805823599,
+      "mdd": -0.4319515516642939,
+      "sharpe": 0.5495305972538195,
+      "trades": 97,
+      "win_rate": 0.41237113402061853,
+      "payoff": 1.9184205172701452,
+      "expectancy": 0.3531703176371064,
+      "total_cost": 15.66069602619153,
+      "end_equity": 57.109475440492304,
+      "days": 1816,
+      "name": "slow 50/150 x2 rb20%",
+      "halt_days": 13,
+      "cost_pct_of_seed": 0.4828505798795373,
+      "params": {
+        "fast": 50,
+        "slow": 150,
+        "max_positions": 2,
+        "rebalance_threshold": 0.2
+      }
+    },
+    {
+      "total_return": 0.1904712165503426,
+      "cagr": 0.035663883997216095,
+      "mdd": -0.3995316795421866,
+      "sharpe": 0.26539570770862847,
+      "trades": 375,
+      "win_rate": 0.42933333333333334,
+      "payoff": 1.603635592537468,
+      "expectancy": 0.05367312541562703,
+      "total_cost": 28.00195906413859,
+      "end_equity": 38.61154698204277,
+      "days": 1816,
+      "name": "fast 10/30 x3 rb5%",
+      "halt_days": 4,
+      "cost_pct_of_seed": 0.863356401865521,
+      "params": {
+        "fast": 10,
+        "slow": 30,
+        "max_positions": 3,
+        "rebalance_threshold": 0.05
+      }
+    },
+    {
+      "total_return": 0.5348649167626882,
+      "cagr": 0.08992963876298843,
+      "mdd": -0.3117184662807426,
+      "sharpe": 0.5521563010556061,
+      "trades": 47,
+      "win_rate": 0.3829787234042553,
+      "payoff": 2.4596590541640473,
+      "expectancy": 0.4486722442825143,
+      "total_cost": 6.180748676687633,
+      "end_equity": 49.78155542172704,
+      "days": 1816,
+      "name": "concentrated 50/200 x1 rb25%",
+      "halt_days": 2,
+      "cost_pct_of_seed": 0.19056484319963313,
+      "params": {
+        "fast": 50,
+        "slow": 200,
+        "max_positions": 1,
+        "rebalance_threshold": 0.25
+      }
+    },
+    {
+      "total_return": 0.27889017276370187,
+      "cagr": 0.05068502391196672,
+      "mdd": -0.5080354193530299,
+      "sharpe": 0.3185739290638345,
+      "trades": 114,
+      "win_rate": 0.40350877192982454,
+      "payoff": 1.8296568836738722,
+      "expectancy": 0.1323699299442597,
+      "total_cost": 11.566993793108871,
+      "end_equity": 41.479312816674295,
+      "days": 1816,
+      "name": "midslow 30/100 x2 rb15%",
+      "halt_days": 9,
+      "cost_pct_of_seed": 0.3566335526291327,
+      "params": {
+        "fast": 30,
+        "slow": 100,
+        "max_positions": 2,
+        "rebalance_threshold": 0.15
+      }
+    }
+  ],
+  "benchmarks": {
+    "equal_weight_bh": {
+      "total_return": 2.148410607850388,
+      "cagr": 0.25925004860651546,
+      "mdd": -0.36902678550005763,
+      "sharpe": 0.9891346139696591,
+      "trades": 0,
+      "win_rate": 0.0,
+      "payoff": 0.0,
+      "expectancy": 0.0,
+      "total_cost": 0.09701047350941469,
+      "end_equity": 101.75872192891225,
+      "days": 1816
+    },
+    "qqq_bh": {
+      "total_return": 0.9615203087259501,
+      "cagr": 0.14500814674229567,
+      "mdd": -0.35617218247976434,
+      "sharpe": 0.7116123681214649,
+      "trades": 0,
+      "win_rate": 0.0,
+      "payoff": 0.0,
+      "expectancy": 0.0,
+      "total_cost": 0.09701047350941468,
+      "end_equity": 63.397639163031045,
+      "days": 1816
+    }
+  },
+  "cost_drag": {
+    "no_cost_return": 1.6423202419382918,
+    "with_cost_return": 0.5025197252141604,
+    "drag_pp": 1.1398005167241314,
+    "with_cost_trades": 228,
+    "with_cost_total_cost": 20.587435606247965
+  }
+}
