@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  토스 적립식(DCA) 자동 매수 LaunchAgent (macOS launchd).
+  - cron 대신 launchd를 쓰는 이유: 노트북이 잠들어 예정 시각을 놓쳐도, 깨어날 때 한 번 실행한다.
+  - KST 밤(미국 정규장 22:30~05:00) 여러 시각에 발화. run_dca.py가 '정규장 + 세션당 1회'를
+    스스로 검사하므로 여러 번 발화해도 중복 매수하지 않는다(안전).
+  - 기본은 dry-run(플랜만 기록). 실주문은 ProgramArguments에 <string>--execute</string> 추가
+    + .env TRADING_MODE=live. (scripts/install_dca_automation.sh --live 로도 설정 가능)
+  설치: scripts/install_dca_automation.sh
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.tosstrader.dca</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>/Users/mingh/Desktop/github/toss-trader/scripts/dca_cron.sh</string>
+    <!-- 실주문 전환 시 아래 줄 주석 해제:
+    <string>- -execute</string>
+    -->
+  </array>
+
+  <!-- 노트북을 켜자마자(로그인 시) 한 번 시도 -->
+  <key>RunAtLoad</key>
+  <true/>
+
+  <!-- KST 밤 미국 정규장 구간을 매시 발화(서머타임 22:30~05:00 / 겨울 23:30~06:00 모두 커버).
+       잠들어 있으면 깨어날 때 1회 실행. 정규장/세션당1회 가드로 중복 매수 없음. -->
+  <key>StartCalendarInterval</key>
+  <array>
+    <dict><key>Hour</key><integer>23</integer><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Hour</key><integer>0</integer><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Hour</key><integer>1</integer><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Hour</key><integer>2</integer><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Hour</key><integer>3</integer><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Hour</key><integer>4</integer><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Hour</key><integer>5</integer><key>Minute</key><integer>0</integer></dict>
+  </array>
+
+  <!-- launchd 자체 로그(디버그용). 매매 로그는 data/dca.log -->
+  <key>StandardOutPath</key>
+  <string>/Users/mingh/Desktop/github/toss-trader/data/launchd.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/mingh/Desktop/github/toss-trader/data/launchd.err.log</string>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/mingh/Desktop/github/toss-trader</string>
+
+  <key>ProcessType</key>
+  <string>Background</string>
+</dict>
+</plist>

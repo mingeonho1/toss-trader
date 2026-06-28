@@ -17,7 +17,7 @@ import argparse
 import json
 import logging
 import sys
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
@@ -37,7 +37,33 @@ logging.basicConfig(level=logging.WARNING, format="%(asctime)s %(levelname)s %(m
 # 성장 노출은 유지. 합 = 1.0.
 DEFAULT_ALLOCATION = {"QQQ": 0.60, "SCHD": 0.25, "GLD": 0.15}
 
-CACHE = Path(__file__).resolve().parent.parent / "data" / "_candle_cache"
+DATA = Path(__file__).resolve().parent.parent / "data"
+CACHE = DATA / "_candle_cache"
+LOG = DATA / "dca.log"
+STATE = DATA / "dca_state.json"
+
+
+def _log(msg: str) -> None:
+    """콘솔 + data/dca.log 동시 기록(자동 실행 추적용)."""
+    line = f"{datetime.now(timezone.utc).isoformat()} {msg}"
+    print(line)
+    DATA.mkdir(parents=True, exist_ok=True)
+    with LOG.open("a", encoding="utf-8") as f:
+        f.write(line + "\n")
+
+
+def _state() -> dict:
+    if STATE.exists():
+        try:
+            return json.loads(STATE.read_text())
+        except ValueError:
+            return {}
+    return {}
+
+
+def _save_state(d: dict) -> None:
+    DATA.mkdir(parents=True, exist_ok=True)
+    STATE.write_text(json.dumps(d, ensure_ascii=False, indent=2))
 ALLOC_CANDIDATES = {
     "QQQ 100%": {"QQQ": 1.0},
     "QQQ60/SCHD25/GLD15 (기본)": {"QQQ": 0.60, "SCHD": 0.25, "GLD": 0.15},
@@ -71,7 +97,8 @@ def backtest_mode() -> int:
     return 0
 
 
-def live_plan(execute: bool) -> int:
+def live_plan(execute: bool, auto: bool = False) -> int:
+    log = _log if auto else (lambda m: print(m))
     s = get_settings()
     s.require_credentials()
     client = TossClient(s)
@@ -80,69 +107,82 @@ def live_plan(execute: bool) -> int:
         import dataclasses
         client.s = dataclasses.replace(client.s, account_seq=str(accounts[0]["accountSeq"]))
     if not client.s.account_seq:
-        print("❌ accountSeq를 확인할 수 없습니다 (.env ACCOUNT_SEQ).")
+        log("❌ accountSeq를 확인할 수 없습니다 (.env ACCOUNT_SEQ).")
         return 1
 
+    # 자동 실행 + 실주문이면: 정규장 + 하루 1회 가드를 매수가능 조회보다 먼저 확인.
+    session_date = None
+    if execute:
+        cal = client.get_market_calendar("US")
+        today = cal.get("today", {}) or {}
+        reg = today.get("regularMarket")
+        session_date = today.get("date")
+        if not reg:
+            log(f"⏸ 미국 정규장 아님(금액주문 불가) → 매수 건너뜀. (US date={session_date})")
+            return 0
+        if auto and _state().get("last_session_date") == session_date:
+            log(f"✅ 이미 이번 세션({session_date})에 적립 매수 완료 → 중복 매수 방지, 종료.")
+            return 0
+
     krw = float(client.get_buying_power("KRW").get("cashBuyingPower", 0) or 0)
-    er = client.get_exchange_rate("USD", "KRW")
-    fx = float(er.get("rate", 0) or 0)
+    fx = float(client.get_exchange_rate("USD", "KRW").get("rate", 0) or 0)
     avail_usd = krw / fx if fx else 0.0
     holdings = client.get_holdings()
     held = {it["symbol"]: float(it.get("quantity", 0) or 0) * float(it.get("lastPrice", 0) or 0)
             for it in (holdings.get("items", []) if isinstance(holdings, dict) else [])}
     held_total = sum(held.values())
-    print(f"계좌 {client.s.account_seq} | 매수가능 ₩{krw:,.0f} (= ${avail_usd:.2f} @ {fx}) | "
-          f"보유평가 ${held_total:.2f}")
+    log(f"계좌 {client.s.account_seq} | 매수가능 ₩{krw:,.0f} (= ${avail_usd:.2f} @ {fx}) | "
+        f"보유평가 ${held_total:.2f}")
 
-    # 목표: (보유 + 가용)을 target 비중으로. 미달분을 가용현금으로 매수만.
+    # 목표: (보유 + 가용)을 target 비중으로. 미달분을 가용현금으로 매수만(매도 없음).
     total_after = held_total + avail_usd
-    print(f"\n적립 매수 플랜 (목표배분 {DEFAULT_ALLOCATION}):")
     plan = []
     remaining = avail_usd
-    targets = sorted(DEFAULT_ALLOCATION, key=lambda x: DEFAULT_ALLOCATION[x] * total_after - held.get(x, 0), reverse=True)
-    for sym in targets:
-        target_val = DEFAULT_ALLOCATION[sym] * total_after
-        need = max(0.0, target_val - held.get(sym, 0.0))
+    for sym in sorted(DEFAULT_ALLOCATION, key=lambda x: DEFAULT_ALLOCATION[x] * total_after - held.get(x, 0), reverse=True):
+        need = max(0.0, DEFAULT_ALLOCATION[sym] * total_after - held.get(sym, 0.0))
         buy = min(need, remaining)
-        if buy >= 1.0:   # 1달러 미만 조각 매수는 생략
+        if buy >= 1.0:   # 1달러 미만 조각 매수는 생략(소액 누적 후 매수)
             plan.append((sym, round(buy, 2)))
             remaining -= buy
+    log(f"적립 매수 플랜 (목표배분 {DEFAULT_ALLOCATION}): "
+        + (", ".join(f"{s}=${a:.2f}" for s, a in plan) if plan else "없음"))
     if not plan:
-        print("  (매수할 미달분 없음 또는 가용현금 부족)")
+        log("  (매수할 미달분 없음 또는 가용현금 < $1)")
         return 0
-    for sym, amt in plan:
-        print(f"  • {sym}: ${amt:.2f} 시장가 매수 (US MARKET, 정규장)")
 
     if not execute:
-        print("\nℹ️ dry-run입니다. 실제 주문하려면 --execute (TRADING_MODE=live 필요, 정규장에서만).")
+        log("ℹ️ dry-run(플랜만). 실주문은 --execute (+TRADING_MODE=live, 정규장).")
         return 0
-
     if not client.s.is_live:
-        print("\n❌ --execute에는 TRADING_MODE=live 필요. 지금은 paper라 주문하지 않습니다.")
+        log("❌ --execute에는 TRADING_MODE=live 필요. paper라 주문 안 함.")
         return 1
-    cal = client.get_market_calendar("US")
-    reg = (cal.get("today", {}) or {}).get("regularMarket")
-    if not reg:
-        print("\n❌ 오늘은 미국 정규장이 아닙니다(금액주문은 정규장 전용). 주문하지 않습니다.")
-        return 1
-    print("\n⚠️ 실주문 실행:")
+
+    ok = True
     for sym, amt in plan:
         try:
             resp = client.create_order(sym, "BUY", order_type="MARKET", order_amount=f"{amt:.2f}")
-            print(f"  ✅ {sym} ${amt:.2f} 주문 접수: orderId={resp.get('orderId')}")
+            log(f"  ✅ {sym} ${amt:.2f} 매수 접수: orderId={resp.get('orderId')}")
         except Exception as e:  # noqa: BLE001
-            print(f"  ❌ {sym} 주문 실패: {e}")
-    return 0
+            ok = False
+            log(f"  ❌ {sym} ${amt:.2f} 매수 실패: {e}")
+    if auto and ok and session_date:
+        st = _state()
+        st["last_session_date"] = session_date
+        st["last_run"] = datetime.now(timezone.utc).isoformat()
+        _save_state(st)
+    return 0 if ok else 1
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser()
+    ap = argparse.ArgumentParser(description="적립식(DCA) + 분산 바이앤홀드 실행기")
     ap.add_argument("--backtest", action="store_true", help="분산안 과거 검증")
     ap.add_argument("--execute", action="store_true", help="실주문 실행(정규장·live 필요)")
+    ap.add_argument("--auto", action="store_true",
+                    help="자동 실행 모드: data/dca.log 기록 + US세션당 1회 중복방지 가드")
     args = ap.parse_args()
     if args.backtest:
         return backtest_mode()
-    return live_plan(args.execute)
+    return live_plan(args.execute, auto=args.auto)
 
 
 if __name__ == "__main__":
