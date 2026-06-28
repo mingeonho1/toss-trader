@@ -17,6 +17,89 @@ from .strategy.base import Strategy, StrategyContext
 
 
 @dataclass
+class DcaResult:
+    deposited: float          # 누적 입금액 (USD)
+    final_value: float        # 최종 평가액 (USD)
+    profit: float             # final - deposited
+    profit_pct: float         # final/deposited - 1 (단순 수익률)
+    max_drawdown: float
+    total_cost: float
+    n_buys: int
+    days: int
+    equity_curve: list[tuple[date, float]]
+
+    def summary(self) -> str:
+        return (f"입금누계 ${self.deposited:,.2f} → 평가액 ${self.final_value:,.2f} "
+                f"(순익 ${self.profit:+,.2f}, {self.profit_pct*100:+.1f}%) | "
+                f"MDD {self.max_drawdown*100:.1f}% | 매수 {self.n_buys}회 | "
+                f"총비용 ${self.total_cost:.2f}")
+
+
+def run_dca(
+    panel: dict[str, list[Candle]],
+    weights: dict[str, float],
+    *,
+    monthly_usd: float,
+    cost_model: CostModel | None = None,
+    initial_usd: float = 0.0,
+) -> DcaResult:
+    """적립식(DCA) + 분산 바이앤홀드 백테스트.
+
+    매월 첫 거래일에 monthly_usd를 입금하고 target weights의 '미달분(underweight)'을
+    신규 현금으로 매수만 한다(매도 없음 → 저회전·세금/회전비용 최소, 리밸런싱 프리미엄은
+    적립 매수로 자연 확보). target weights 합은 1.0 권장.
+    """
+    cost_model = cost_model or CostModel()
+    broker = PaperBroker(cash=initial_usd, cost_model=cost_model)
+    syms = list(weights)
+    by_sym = {s: {c.dt: c.close for c in panel[s]} for s in syms}
+    dates = sorted({c.dt for s in syms for c in panel[s]})
+    last_px = {s: None for s in syms}
+    deposited = initial_usd
+    last_month = None
+    equity_curve: list[tuple[date, float]] = []
+
+    for d in dates:
+        for s in syms:
+            if by_sym[s].get(d):
+                last_px[s] = by_sym[s][d]
+        prices = {s: last_px[s] for s in syms if last_px[s]}
+        if (d.year, d.month) != last_month and prices:
+            last_month = (d.year, d.month)
+            broker.cash += monthly_usd
+            deposited += monthly_usd
+            equity = broker.equity(prices)
+            # 미달분이 큰 종목부터 신규 현금으로 매수(매도 없음)
+            order = sorted(syms, key=lambda s: (weights[s] * equity)
+                           - broker.position(s).market_value(prices.get(s, 0.0)),
+                           reverse=True)
+            for s in order:
+                px = prices.get(s)
+                if not px or broker.cash <= 0:
+                    continue
+                need = weights[s] * equity - broker.position(s).market_value(px)
+                if need > 0:
+                    broker.submit_market_order(s, "BUY", amount=min(need, broker.cash),
+                                               ref_price=px, dt=d)
+        equity_curve.append((d, broker.equity(prices)))
+
+    eq = [e for _, e in equity_curve]
+    peak, mdd = -1e18, 0.0
+    for v in eq:
+        peak = max(peak, v)
+        if peak > 0:
+            mdd = min(mdd, v / peak - 1.0)
+    final = eq[-1] if eq else 0.0
+    days = (dates[-1] - dates[0]).days if len(dates) >= 2 else 1
+    return DcaResult(
+        deposited=deposited, final_value=final, profit=final - deposited,
+        profit_pct=(final / deposited - 1.0) if deposited > 0 else 0.0,
+        max_drawdown=mdd, total_cost=sum(f.cost for f in broker.fills),
+        n_buys=len(broker.fills), days=days, equity_curve=equity_curve,
+    )
+
+
+@dataclass
 class BacktestResult:
     performance: Performance
     equity_curve: list[tuple[date, float]]
