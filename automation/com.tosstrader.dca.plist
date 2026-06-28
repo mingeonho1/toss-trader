@@ -1,55 +1,41 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!--
-  토스 적립식(DCA) 자동 매수 LaunchAgent (macOS launchd).
-  - cron 대신 launchd를 쓰는 이유: 노트북이 잠들어 예정 시각을 놓쳐도, 깨어날 때 한 번 실행한다.
-  - KST 밤(미국 정규장 22:30~05:00) 여러 시각에 발화. run_dca.py가 '정규장 + 세션당 1회'를
-    스스로 검사하므로 여러 번 발화해도 중복 매수하지 않는다(안전).
-  - 기본은 dry-run(플랜만 기록). 실주문은 ProgramArguments에 <string>--execute</string> 추가
-    + .env TRADING_MODE=live. (scripts/install_dca_automation.sh --live 로도 설정 가능)
-  설치: scripts/install_dca_automation.sh
+  토스 적립식(DCA) 자동 매수 LaunchAgent — 참조용 템플릿.
+  실제 설치는 scripts/install_dca_automation.sh 가 이 구조로 plist를 생성한다
+  (python 실제 경로를 해석해 넣음). 직접 편집/설치하지 말고 install 스크립트를 쓰세요.
+
+  설계:
+  - bash를 거치지 않고 python을 '직접' 실행 → 전체 디스크 접근(FDA)을 줄 대상이 python 하나.
+  - RunAtLoad=true → 로그인(전원 켜짐) 시 즉시 1회 실행.
+  - 기본 dry-run(주문 없이 data/dca.log에 '오늘 살 플랜'만 기록). 실주문은 --execute.
+  - 저장소가 ~/Desktop 아래면 macOS TCC로 접근 거부되므로, 위 python에 FDA 부여 필요
+    (시스템 설정 → 개인정보 보호 → 전체 디스크 접근).
 -->
 <plist version="1.0">
 <dict>
-  <key>Label</key>
-  <string>com.tosstrader.dca</string>
-
+  <key>Label</key><string>com.tosstrader.dca</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/bin/bash</string>
-    <string>/Users/mingh/Desktop/github/toss-trader/scripts/dca_cron.sh</string>
-    <!-- 실주문 전환 시 아래 줄 주석 해제:
+    <!-- python 실제 바이너리 경로(install 스크립트가 readlink로 해석해 채움) -->
+    <string>/Library/Frameworks/Python.framework/Versions/3.13/bin/python3.13</string>
+    <string>/Users/mingh/Desktop/github/toss-trader/scripts/run_dca.py</string>
+    <string>--auto</string>
+    <!-- 실주문 전환 시 추가 (비권장, 무인 실주문):
     <string>- -execute</string>
     -->
   </array>
-
-  <!-- 노트북을 켜자마자(로그인 시) 한 번 시도 -->
-  <key>RunAtLoad</key>
-  <true/>
-
-  <!-- KST 밤 미국 정규장 구간을 매시 발화(서머타임 22:30~05:00 / 겨울 23:30~06:00 모두 커버).
-       잠들어 있으면 깨어날 때 1회 실행. 정규장/세션당1회 가드로 중복 매수 없음. -->
+  <key>EnvironmentVariables</key>
+  <dict><key>PYTHONPATH</key><string>/Users/mingh/Desktop/github/toss-trader/src</string></dict>
+  <key>RunAtLoad</key><true/>
   <key>StartCalendarInterval</key>
   <array>
+    <dict><key>Hour</key><integer>9</integer><key>Minute</key><integer>0</integer></dict>
     <dict><key>Hour</key><integer>23</integer><key>Minute</key><integer>0</integer></dict>
-    <dict><key>Hour</key><integer>0</integer><key>Minute</key><integer>0</integer></dict>
-    <dict><key>Hour</key><integer>1</integer><key>Minute</key><integer>0</integer></dict>
-    <dict><key>Hour</key><integer>2</integer><key>Minute</key><integer>0</integer></dict>
-    <dict><key>Hour</key><integer>3</integer><key>Minute</key><integer>0</integer></dict>
-    <dict><key>Hour</key><integer>4</integer><key>Minute</key><integer>0</integer></dict>
-    <dict><key>Hour</key><integer>5</integer><key>Minute</key><integer>0</integer></dict>
   </array>
-
-  <!-- launchd 자체 로그(디버그용). 매매 로그는 data/dca.log -->
-  <key>StandardOutPath</key>
-  <string>/Users/mingh/Desktop/github/toss-trader/data/launchd.out.log</string>
-  <key>StandardErrorPath</key>
-  <string>/Users/mingh/Desktop/github/toss-trader/data/launchd.err.log</string>
-
-  <key>WorkingDirectory</key>
-  <string>/Users/mingh/Desktop/github/toss-trader</string>
-
-  <key>ProcessType</key>
-  <string>Background</string>
+  <key>StandardOutPath</key><string>/Users/mingh/Desktop/github/toss-trader/data/launchd.out.log</string>
+  <key>StandardErrorPath</key><string>/Users/mingh/Desktop/github/toss-trader/data/launchd.err.log</string>
+  <key>WorkingDirectory</key><string>/Users/mingh/Desktop/github/toss-trader</string>
+  <key>ProcessType</key><string>Background</string>
 </dict>
 </plist>

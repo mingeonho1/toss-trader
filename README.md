@@ -32,3 +32,27 @@ python scripts/run_dca.py              # 실계좌 적립 매수 플랜(dry-run,
 # python scripts/run_dca.py --execute  # 실주문(live·정규장에서만)
 ```
 근거·수치는 `reports/strategy_gate_2026-06-28.md`, `reports/improvement_roadmap_2026-06-28.md`.
+
+## 자동화 (항상 dry-run) & 실거래 전환
+**입금**은 API로 불가 → 은행 자동이체/토스 앱으로 설정(예: 매주 일요일 ₩50,000). 봇은 들어온 현금만 매수.
+
+**자동화(매수)**: macOS `launchd`로 **dry-run**(주문 없이 `data/dca.log`에 '오늘 살 플랜'만 기록).
+`cron`이 아니라 `launchd`인 이유 — 잠자다 깨거나 **전원이 켜지면(RunAtLoad) 즉시 실행**.
+```bash
+bash scripts/install_dca_automation.sh            # 설치(dry-run)
+bash scripts/install_dca_automation.sh --status   # 상태 + 최근 로그
+bash scripts/install_dca_automation.sh --uninstall # 제거
+tail -f data/dca.log                              # 봇이 뭘 하려는지 실시간 관찰
+```
+> ⚠️ macOS TCC: 프로젝트가 `~/Desktop`(또는 Documents/Downloads) 아래면 launchd가 접근 거부됨.
+> 자동화하려면 저장소를 보호되지 않는 경로(예: `~/github/toss-trader`)에 두거나 해당 실행기에 전체 디스크 접근 권한을 부여해야 한다.
+
+### 🔴 실거래(live)로 전환하는 법 — 직접 할 때
+자동화는 **항상 dry-run**으로 둔다. 실제 매수는 **본인이 직접** 다음으로 실행:
+```bash
+# 1) .env 에서 TRADING_MODE=live 로 변경
+# 2) 미국 정규장(KST 22:30~05:00, 금액주문은 정규장 전용)에 직접 실행:
+TRADING_MODE=live PYTHONPATH=src python scripts/run_dca.py --execute
+#    → 매수가능 현금을 QQQ60/SCHD25/GLD15로 시장가 매수. data/dca.log에 기록.
+```
+(원하면 자동화 자체를 live로: `bash scripts/install_dca_automation.sh --live` — 단 무인 실주문이므로 비권장. 기본은 dry-run.)
