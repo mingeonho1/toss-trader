@@ -9,6 +9,7 @@ Phase 2(marketdata/costs 정규화)의 근거로 삼는다.
 """
 from __future__ import annotations
 
+import dataclasses
 import json
 import logging
 import sys
@@ -23,17 +24,19 @@ from toss_trader.errors import TossError  # noqa: E402
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
 
-def show(label: str, fn) -> None:
+def show(label: str, fn):
     try:
         result = fn()
         preview = json.dumps(result, ensure_ascii=False, indent=2)
-        if len(preview) > 1500:
-            preview = preview[:1500] + "\n... (생략)"
+        if len(preview) > 1800:
+            preview = preview[:1800] + "\n... (생략)"
         print(f"\n=== {label} ===\n{preview}")
+        return result
     except TossError as e:
         print(f"\n=== {label} === ❌ {e}")
     except Exception as e:  # noqa: BLE001
         print(f"\n=== {label} === ⚠️ 예상치 못한 오류: {e!r}")
+    return None
 
 
 def main() -> int:
@@ -50,19 +53,28 @@ def main() -> int:
     # --- 인증/시세 (계좌 불필요) ---
     show("OAuth 토큰", lambda: {"ok": bool(client._ensure_token())})
     show("미국 장 캘린더", lambda: client.get_market_calendar("US"))
-    show("환율", client.get_exchange_rate)
+    show("환율 USD→KRW", lambda: client.get_exchange_rate("USD", "KRW"))
     show("현재가 AAPL,MSFT", lambda: client.get_prices(["AAPL", "MSFT"]))
     show("일봉 AAPL (5)", lambda: client.get_candles("AAPL", interval="1d", count=5))
-    show("종목정보 AAPL", lambda: client.get_stock_info("AAPL"))
+    show("종목정보 AAPL,MSFT", lambda: client.get_stocks(["AAPL", "MSFT"]))
 
-    # --- 계좌 (account_seq 필요) ---
-    show("계좌 목록", client.get_accounts)
-    if s.has_account:
+    # --- 계좌 목록 → accountSeq 자동 추출 ---
+    accounts = show("계좌 목록", client.get_accounts)
+    seq = s.account_seq
+    if not seq and isinstance(accounts, list) and accounts:
+        seq = str(accounts[0].get("accountSeq", "") or "")
+        if seq:
+            print(f"\nℹ️ .env에 ACCOUNT_SEQ 미설정 → 계좌 목록의 accountSeq={seq} 로 이어서 검증합니다.")
+            print(f"   (영구 설정하려면 .env에 ACCOUNT_SEQ={seq} 추가)")
+            client.s = dataclasses.replace(client.s, account_seq=seq)
+
+    # --- 계좌/자산 (account_seq 필요) ---
+    if seq:
         show("보유 주식", client.get_holdings)
-        show("매수가능금액", lambda: client.get_buying_power())
-        show("수수료", client.get_commissions)
+        show("매수가능금액(USD)", lambda: client.get_buying_power("USD"))
+        show("수수료율", client.get_commissions)
     else:
-        print("\nℹ️ TOSS_ACCOUNT_SEQ 미설정 → 계좌 목록에서 accountSeq를 확인해 .env에 넣으세요.")
+        print("\n⚠️ accountSeq를 확보하지 못해 계좌/자산 검증을 건너뜁니다.")
 
     print("\n✅ 스모크 테스트 완료 (주문은 실행하지 않음).")
     return 0

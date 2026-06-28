@@ -64,21 +64,32 @@ config / errors / ratelimit        # 인프라
 ## 3. 로드맵 / 진행상황
 
 - [x] **Phase 0** 디스커버리: 토스 실제 명세 확보 (엔드포인트/스키마/레이트리밋)
-- [~] **Phase 1** 인프라 + API 클라이언트
-  - [x] config / errors / ratelimit
+- [x] **Phase 1** 인프라 + API 클라이언트 — **실 API 검증 완료 (2026-06-28)**
+  - [x] config / errors / ratelimit (레이트리밋 그룹명을 실 스펙 10개 그룹으로 정합)
   - [x] TossClient (auth·marketdata·account·order, 멱등키, 429/5xx 재시도)
-  - [x] smoke_test (읽기전용, 키 발급 후 실API 검증)
-  - [ ] **(사용자 대기)** 토스 OpenAPI 키 발급 + `.env` 작성 → smoke_test 통과 확인
+  - [x] **공식 OpenAPI v1.1.5 대조로 클라이언트 정합화** (아래 §6 참고)
+  - [x] **smoke_test 실 API 통과** — OAuth/시세/캔들/환율/종목/계좌/보유/매수가능/수수료 전부 정상
+  - [x] **.env**: `API_KEY`/`SECRET_KEY`로 저장(코드가 dotenv로 로드, 키는 미기억). `accountSeq=1` 확인
+  - [x] **SSL CA 자동탐색**: macOS python.org 빌드 CA 미설치 이슈 → `/etc/ssl/cert.pem` 등 자동 사용(검증 유지)
 - [x] **Phase 2** costs(비용모델) + models + metrics
+  - [x] **실요율 확정**: 미국 수수료 0.1%(=10bps). `CostModel.from_commissions()`로 라이브 반영
 - [x] **Phase 3** PaperBroker(=백테스트·페이퍼 공용) + 백테스터 + 성과지표
   - 합성데이터로 엔진 전 경로 검증 완료. **실증 교훈 ↓**
 - [ ] **Phase 4** 전략 플러그인 1~2종 (듀얼모멘텀/이평크로스) + 파라미터 최적화·워크포워드
-  - 단, 실 캔들 확보(키) 전까지는 합성데이터 최적화 무의미 → 보류
-- [x] **Phase 5** risk(사이징·손절·익절·트레일링·일일손실차단) + engine + 매매일지 자동화
-  - 결정론적 자가검증(`scripts/selftest.py`) 통과. 무인 엔진 데모 정상.
-  - 교훈: 일일손실 차단 기준은 '당일 시작'이 아니라 **전일 종가 자본**이어야 갭다운을 잡는다.
+  - 이평크로스(`sma_cross`) 베이스라인 구현됨. **이제 실 캔들 확보 가능** → 실데이터 백테스트·워크포워드 착수 가능
+- [x] **Phase 5** risk + engine + 매매일지 + **LiveBroker** — 동일 인터페이스 완성
+  - 결정론적 자가검증(`scripts/selftest.py`) 통과(리스크/엔진/LiveBroker/비용모델). 무인 엔진 데모 정상.
+  - **LiveBroker**: 실주문(US MARKET 금액매수/수량매도) + 체결 폴링 + holdings/buying-power 동기화.
+    `require_live` 가드로 paper 모드 오작동 방지. 가짜 클라이언트로 결정론적 검증.
+  - 교훈①: 일일손실 차단 기준은 '당일 시작'이 아니라 **전일 종가 자본**이어야 갭다운을 잡는다.
+  - 교훈②(2026-06-28, 적대적 감사로 발견·수정): **일일손실 차단 = '거래 동결'이지 '투매'가 아니다.**
+    halt 시 `adjust_weights`가 빈 dict를 반환하는데, 이를 `_rebalance`에 넘기면 '전 종목 목표 0%'로
+    해석돼 보유 전량을 당일 급락 타이밍에 시장가 청산하던 버그(손실 확정+왕복비용)였다.
+    → 엔진이 `halted`면 리밸런싱을 건너뛰도록 가드. 보호청산(손절/익절/트레일링)은 그 전에 이미 처리.
+    `scripts/selftest.py`에 회귀 케이스 추가(손절 미발동·halt 발동 시 보유 유지 단언).
 - [ ] **Phase 6** Gemini 뉴스/필터 보조 (옵셔널, 실패격리)
 - [ ] **Phase 7** 페이퍼 포워드테스트 수 주 → 리뷰 → 실거래 소액 전환
+  - ⚠️ **현재 계좌 매수가능금액 $0(미입금)** — 실거래 전 입금 필요. 그 전까지 paper.
 
 ## 4. 검증되기 전엔 실거래 금지 (게이트)
 실거래(`TRADING_MODE=live`) 전환은 다음을 **모두** 만족할 때만:
@@ -87,7 +98,26 @@ config / errors / ratelimit        # 인프라
 3. 일일 최대손실 차단·멱등 중복주문 방지 동작 확인
 4. 사용자 명시적 승인
 
-## 5. 미해결/확인 필요 (실제 응답으로 검증)
-- `/buying-power`, `/sellable-quantity` 정확한 쿼리 파라미터 (명세 미기재) → smoke_test로 확인
-- prices/candles/holdings **응답 필드명** (가격/통화/체결시각 등) → smoke_test로 덤프 후 정규화
-- 토스 미국주식 수수료/환전 실제 요율 → `/commissions` 응답으로 확정
+## 5. 미해결/확인 필요 — **2026-06-28 실응답으로 해소**
+- ✅ `/buying-power`: 쿼리 `currency`(KRW|USD) **필수**. `symbol` 아님. 응답 `{currency, cashBuyingPower}`.
+- ✅ `/sellable-quantity`: 쿼리 `symbol` 필수. 응답 `{sellableQuantity}` (US 소수점 가능).
+- ✅ prices: 배열 `[{symbol, timestamp|null, lastPrice, currency}]` — 현재가는 **lastPrice**.
+- ✅ candles: `{candles:[{timestamp, openPrice, highPrice, lowPrice, closePrice, volume, currency}], nextBefore}` — **내림차순**으로 옴(오름차순 변환). 200봉 초과는 `before`/`nextBefore` 페이지네이션.
+- ✅ holdings: `{items:[{symbol, marketCountry, currency, quantity, lastPrice, averagePurchasePrice, marketValue, profitLoss, ...}], totalPurchaseAmount/marketValue/profitLoss(통화별 {krw,usd})}`.
+- ✅ 수수료: **미국 0.1%**(commissionRate "0.1", 퍼센트표기, endDate 2026-06-29 — 프로모 가능성 재확인), 국내 0%(~6/30 프로모).
+- ⚠️ **환전 스프레드 미확정**: exchange-rate의 rate(1541.6) vs midRate(1541.1) 표시 스프레드 ~3bps이나, 명세상 "실거래 환율은 표시환율과 다를 수 있음". 실 체결의 KRW 차감액으로 측정 전까지 비용모델은 보수적 20bps 유지.
+
+## 6. 공식 OpenAPI v1.1.5 정합화 메모 (client.py)
+> 출처: `https://openapi.tossinvest.com/openapi-docs/latest/openapi.json`
+- 인증: `POST /oauth2/token` (form: grant_type=client_credentials, client_id, client_secret).
+  응답 `{access_token, token_type:Bearer, expires_in}` — envelope 아님. 만료 86399s(~24h), refresh 없음.
+  토큰 에러는 OAuth2 표준 `{error, error_description}` 포맷(별도 파싱).
+- 성공 응답은 공통 envelope `{result: ...}` → client가 result만 벗겨 반환.
+- 에러 envelope `{error:{requestId, code, message, data?}}`. code는 flat string(unknown 허용).
+- 계좌 컨텍스트 API는 `X-Tossinvest-Account: {accountSeq}` 헤더 필수(정수).
+- exchange-rate `baseCurrency`/`quoteCurrency` 필수, stocks는 `symbols`(복수), modify는 `orderType` 필수,
+  list_orders는 `status`(OPEN|CLOSED) 필수 — 모두 정합화 완료.
+- 레이트리밋: 응답 헤더 `X-RateLimit-Limit/Remaining/Reset`(초당 버킷) + `Retry-After`(429).
+  client는 Remaining=0이면 Reset만큼 선제 대기(적응 throttle) + 429 Retry-After 준수.
+- 주문: `quantity`(기본 정수, US MARKET SELL만 소수점) | `orderAmount`(US MARKET 전용, 정규장만) 택1.
+  `confirmHighValueOrder`는 1억원↑ 주문에 필요.

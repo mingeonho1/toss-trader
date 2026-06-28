@@ -47,8 +47,8 @@ class Settings:
 
     def require_credentials(self) -> None:
         """시세 조회에도 필요한 최소 자격증명 검증."""
-        missing = [n for n, v in (("TOSS_CLIENT_ID", self.client_id),
-                                  ("TOSS_CLIENT_SECRET", self.client_secret)) if not v]
+        missing = [n for n, v in (("API_KEY(client_id)", self.client_id),
+                                  ("SECRET_KEY(client_secret)", self.client_secret)) if not v]
         if missing:
             raise RuntimeError(
                 f".env에 {', '.join(missing)} 가 필요합니다. .env.example을 참고하세요."
@@ -69,11 +69,21 @@ def get_settings(env_path: str | os.PathLike = ".env") -> Settings:
     mode = os.environ.get("TRADING_MODE", "paper").strip().lower()
     if mode not in ("paper", "live"):
         raise RuntimeError(f"TRADING_MODE는 paper 또는 live여야 합니다 (현재: {mode!r}).")
+    # 자격증명 환경변수 이름은 두 관례를 모두 지원한다:
+    #   - 토스 접두 표준: TOSS_CLIENT_ID / TOSS_CLIENT_SECRET / TOSS_ACCOUNT_SEQ
+    #   - 일반 표기(.env에 이렇게 저장됨): API_KEY / SECRET_KEY / ACCOUNT_SEQ
+    def _env(*names: str, default: str = "") -> str:
+        for n in names:
+            v = os.environ.get(n)
+            if v is not None and v.strip():
+                return v.strip()
+        return default
+
     return Settings(
-        client_id=os.environ.get("TOSS_CLIENT_ID", "").strip(),
-        client_secret=os.environ.get("TOSS_CLIENT_SECRET", "").strip(),
-        account_seq=os.environ.get("TOSS_ACCOUNT_SEQ", "").strip(),
-        base_url=os.environ.get("TOSS_BASE_URL", DEFAULT_BASE_URL).strip().rstrip("/"),
+        client_id=_env("TOSS_CLIENT_ID", "API_KEY"),
+        client_secret=_env("TOSS_CLIENT_SECRET", "SECRET_KEY"),
+        account_seq=_env("TOSS_ACCOUNT_SEQ", "ACCOUNT_SEQ"),
+        base_url=_env("TOSS_BASE_URL", default=DEFAULT_BASE_URL).rstrip("/"),
         trading_mode=mode,
-        gemini_api_key=os.environ.get("GEMINI_API_KEY", "").strip(),
+        gemini_api_key=_env("GEMINI_API_KEY"),
     )

@@ -71,8 +71,13 @@ class TradingEngine:
             weights = self.risk.adjust_weights(raw_weights, equity_now, exclude=exited)
             report.weights = weights
 
-            # 5) 리밸런싱
-            fills += self._rebalance(weights, prices, today, exited)
+            # 5) 리밸런싱 — 일일손실 차단(회로차단기)이 걸리면 거래를 동결한다.
+            #    차단은 '신규/추가 진입 중단'이지 '보유 투매'가 아니다. halt 시 adjust_weights가
+            #    빈 dict를 주는데, 이를 _rebalance에 넘기면 '전 종목 목표 0%'로 해석돼 보유 전량을
+            #    최악의 타이밍(당일 급락)에 시장가 청산해버린다 → 동결로 막는다.
+            #    보호청산(손절/익절/트레일링)은 위 2)단계에서 이미 처리됐다.
+            if not self.risk.halted:
+                fills += self._rebalance(weights, prices, today, exited)
 
             report.equity_end = self.broker.equity(self._collect_prices())
         except Exception as e:  # noqa: BLE001 — 무인 운용: 죽지 않고 기록
