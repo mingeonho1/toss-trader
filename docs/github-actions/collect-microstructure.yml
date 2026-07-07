@@ -1,0 +1,52 @@
+name: collect-microstructure
+
+# 호가/체결 스냅샷 수집기. 실주문 없음(읽기 전용 엔드포인트만).
+# 미국장 시간대에 매시 실행되어 55분씩 수집한다. --regular-only 가드가 있어
+# 휴장일/장외에는 아무것도 쓰지 않고 순환만 하다 종료된다.
+# 데이터(data/microstructure/)는 gitignore — self-hosted 러너 디스크에 누적된다.
+
+on:
+  schedule:
+    # 13:30~20:30 UTC 매시. EDT 정규장(13:30-20:00 UTC)과
+    # EST 정규장(14:30-21:00 UTC)을 모두 덮는다. 장 밖 구간은 가드가 스킵.
+    - cron: "30 13-20 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      duration_sec:
+        description: "수집 시간(초)"
+        default: "3300"
+
+concurrency:
+  group: collect-microstructure
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  collect:
+    runs-on: self-hosted
+    timeout-minutes: 70
+    env:
+      TOSS_CLIENT_ID: ${{ secrets.TOSS_CLIENT_ID }}
+      TOSS_CLIENT_SECRET: ${{ secrets.TOSS_CLIENT_SECRET }}
+      TRADING_MODE: paper
+      PYTHONPATH: src
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          clean: false   # 수집 누적분(data/microstructure/)을 보존
+
+      - name: 호가/체결 수집 (55분)
+        run: |
+          python3 scripts/collect_microstructure.py \
+            --symbols "${{ vars.MICRO_SYMBOLS || 'QQQ,SPY' }}" \
+            --interval-sec 30 \
+            --duration-sec "${{ inputs.duration_sec || '3300' }}" \
+            --regular-only
+
+      - name: 수집 현황 요약
+        if: always()
+        run: |
+          du -sh data/microstructure 2>/dev/null || echo "no data yet"
+          find data/microstructure -name '*.jsonl' -newer .git/FETCH_HEAD 2>/dev/null | head -20 || true

@@ -1,0 +1,51 @@
+name: dca-live
+
+# 실계좌 적립 매수. run_dca.py 자체에 3중 가드가 있음:
+#  (1) 미국 정규장 아니면 종료  (2) 세션당 1회 중복방지(data/dca_state)  (3) TRADING_MODE=live 필수
+# 토스 API가 IP 화이트리스트를 요구하므로 self-hosted 러너에서만 동작한다.
+# (docs/github_actions_setup.md 참고)
+
+on:
+  schedule:
+    # 15:00 UTC = 10:00 EST / 11:00 EDT — 서머타임 여부와 무관하게 미국 정규장 안.
+    - cron: "0 15 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      execute:
+        description: "실주문 실행 여부 (false면 플랜만 출력하는 dry-run)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: dca-live
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  dca:
+    runs-on: self-hosted
+    timeout-minutes: 15
+    env:
+      TOSS_CLIENT_ID: ${{ secrets.TOSS_CLIENT_ID }}
+      TOSS_CLIENT_SECRET: ${{ secrets.TOSS_CLIENT_SECRET }}
+      TOSS_ACCOUNT_SEQ: ${{ secrets.TOSS_ACCOUNT_SEQ }}
+      TRADING_MODE: live
+      PYTHONPATH: src
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          clean: false   # data/ (세션 가드 상태, 로그)를 러너 디스크에 보존
+
+      - name: DCA 실행
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ inputs.execute }}" = "true" ]; then
+            python3 scripts/run_dca.py --auto --execute
+          else
+            python3 scripts/run_dca.py --auto
+          fi
+
+      - name: 실행 로그 꼬리 출력
+        if: always()
+        run: tail -n 40 data/dca.log 2>/dev/null || true

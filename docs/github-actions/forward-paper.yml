@@ -1,0 +1,48 @@
+name: forward-paper
+
+# 전략 비교 페이퍼 장부 갱신. 실주문 없음(가상 체결만).
+# 미국장 마감 후 하루 1회 실행하고, 리포트(reports/)만 커밋백한다.
+# 상태(data/forward_paper_state.json)는 gitignore라 러너 디스크에 누적된다.
+# self-hosted 러너 필요 (토스 API IP 화이트리스트).
+
+on:
+  schedule:
+    # 21:30 UTC — 마감(20:00 UTC EDT / 21:00 UTC EST) 직후를 연중 커버.
+    - cron: "30 21 * * 1-5"
+  workflow_dispatch:
+
+concurrency:
+  group: forward-paper
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  paper:
+    runs-on: self-hosted
+    timeout-minutes: 15
+    env:
+      TOSS_CLIENT_ID: ${{ secrets.TOSS_CLIENT_ID }}
+      TOSS_CLIENT_SECRET: ${{ secrets.TOSS_CLIENT_SECRET }}
+      TOSS_ACCOUNT_SEQ: ${{ secrets.TOSS_ACCOUNT_SEQ }}
+      TRADING_MODE: paper
+      PYTHONPATH: src
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          clean: false   # data/의 페이퍼 장부 상태를 보존
+
+      - name: 페이퍼 장부 갱신
+        run: python3 scripts/forward_paper_compare.py
+
+      - name: 리포트 커밋백
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add reports/forward_paper_latest.md
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: forward paper daily report [skip ci]"
+            git pull --rebase origin main
+            git push
+          fi
