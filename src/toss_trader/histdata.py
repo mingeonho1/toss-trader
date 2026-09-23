@@ -682,7 +682,9 @@ def _parse_fred_csv(text: str) -> list[dict]:
 
 def _fetch_fred(series: str) -> list[dict]:
     url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={urllib.parse.quote(series)}"
-    return _parse_fred_csv(_http_get(url, timeout=60).decode("utf-8", "replace"))
+    # FRED는 브라우저 UA를 흉내 낸 비브라우저 요청을 지연(타임아웃)시킨다 → 정직한 클라이언트 UA 사용.
+    headers = {"User-Agent": "toss-trader-histdata/0.1 (python-urllib)", "Accept": "text/csv"}
+    return _parse_fred_csv(_http_get(url, timeout=60, headers=headers).decode("utf-8", "replace"))
 
 
 def load_fred(series: str, start: date | None = None, end: date | None = None, *,
