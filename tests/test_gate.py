@@ -9,6 +9,7 @@
 """
 from __future__ import annotations
 
+import json
 import math
 import random
 import sys
@@ -489,6 +490,103 @@ def test_gate_eval_renders_program_and_idea_dsr():
     row = ge.markdown_program_dsr_row("tsmom_v1", "holdout", pd_)
     assert "DSR(program)" in header and "DSR(idea)" in header
     assert "0.88" in row and "0.96" in row and "| 10 |" in row and "| 4 |" in row
+
+
+# ── 부록 v2.2: 프로그램 DSR 추정기 정정 (필터·로버스트 V·아이디어 N_eff) ──────────
+def _mk(idea, *, period="design", sr=0.03, lane=1, T=3000, mdd=-0.30,
+        ulcer=8.0, ch=None, **extra):
+    rec = {"idea_id": idea, "config_hash": ch or f"{idea}:{sr}", "lane": lane,
+           "period": period, "sr_daily": sr, "T": T, "mdd": mdd, "ulcer": ulcer}
+    rec.update(extra)
+    return rec
+
+
+def test_filter_trial_records_excludes_nondesign_lane3_shortT_degenerate():
+    recs = [
+        _mk("a", sr=0.03),                          # keep
+        _mk("a", sr=0.04),                          # keep (같은 아이디어 2번째 config)
+        _mk("b", period="holdout", sr=0.9),         # drop: 비설계 분할
+        _mk("c", lane=3, sr=0.5),                   # drop: 레인3(거래단위)
+        _mk("d", T=100, sr=0.2),                    # drop: 관측수 < 252
+        _mk("e", sr=2.28, mdd=0.0, ulcer=0.0),      # drop: 무낙폭 현금성(퇴화)
+        _mk("f", sr=0.05, mdd=-1e-12),              # drop: |MDD| < min_abs_mdd
+    ]
+    assert sorted(r["idea_id"] for r in gate.filter_trial_records(recs)) == ["a", "a"]
+    # 모든 필터 끄기 → 전부 유지(하위호환/유연성).
+    allk = gate.filter_trial_records(recs, splits=None, exclude_lanes=(), min_obs=None,
+                                     min_abs_mdd=None, exclude_flags=())
+    assert len(allk) == len(recs)
+
+
+def test_filter_trial_records_honors_sidecar_flags():
+    recs = [_mk("a", ch="h1", sr=0.03), _mk("diag", ch="h2", sr=0.9)]
+    flags = {"h2": {"idea_id": "diag", "flags": ["diagnostic"]}}
+    assert [r["idea_id"] for r in gate.filter_trial_records(recs, flags=flags)] == ["a"]
+    # idea_id 불일치면 사이드카 플래그 미적용(config_hash 충돌 방어).
+    flags_wrong = {"h2": {"idea_id": "other", "flags": ["diagnostic"]}}
+    assert len(gate.filter_trial_records(recs, flags=flags_wrong)) == 2
+
+
+def test_robust_sr_variance_winsorizes_outlier_but_matches_clean():
+    clean = [0.02, 0.03, 0.025, 0.028, 0.031, 0.027, 0.024, 0.029, 0.026, 0.030]
+    base = gate.robust_sr_variance(clean)
+    assert base["n_winsorized"] == 0
+    assert abs(base["V"] - base["V_raw"]) < 1e-12       # 이상치 없으면 V=V_raw
+    rob = gate.robust_sr_variance(clean + [2.28])       # 퇴화 시도 1개 오염
+    assert rob["n_winsorized"] >= 1
+    assert rob["hi"] < 0.1                               # 이상치는 median±5σ_MAD 로 클리핑
+    assert rob["V_raw"] > 50 * rob["V"]                 # raw V 는 폭증
+    assert rob["V"] < 5 * base["V"]                      # 로버스트 V 는 같은 자릿수(억제)
+
+
+def test_idea_cluster_n_eff_one_representative_per_idea():
+    recs = [_mk("a", sr=0.03), _mk("a", sr=0.05), _mk("a", sr=0.04),
+            _mk("b", sr=0.02), _mk("c", sr=0.06)]
+    res = gate.idea_cluster_n_eff(recs)
+    assert res["n_ideas"] == 3 and res["N_eff"] == 3    # 그리드 이웃 흡수(a 3개 → 1)
+    assert res["representatives"]["a"] == pytest.approx(0.04)   # config 평균
+
+
+def test_load_ledger_flags_roundtrip(tmp_path):
+    p = tmp_path / "flags.json"
+    p.write_text(json.dumps({"flags": {"h1": {"flags": ["degenerate"]}}}), encoding="utf-8")
+    assert gate.load_ledger_flags(str(p)) == {"h1": {"flags": ["degenerate"]}}
+    assert gate.load_ledger_flags(str(tmp_path / "missing.json")) == {}
+
+
+def test_dsr_program_robust_removes_degenerate_and_raises_dsr(tmp_path):
+    path = str(tmp_path / "ledger.jsonl")
+    rng = random.Random(4)
+    for i in range(12):                                 # 실전략 설계 시도 12개
+        gate.ledger_append(path, _mk(f"idea{i}", ch=f"c{i}", sr=0.02 + 0.004 * (i % 5)))
+    gate.ledger_append(path, _mk("vix", ch="cvix", sr=2.3, mdd=0.0, ulcer=0.0))  # 퇴화
+    rets = [rng.gauss(0.0009, 0.01) for _ in range(1000)]     # 후보 일 SR ~0.09
+    plain = gate.dsr_program(rets, path, "idea0")
+    rob = gate.dsr_program(rets, path, "idea0", robust=True)
+    assert plain["method"] == "idea_id_fallback"
+    assert rob["method"] == "robust_v2.2"
+    assert rob["N_trials"] == 12                        # 퇴화 vix 제외
+    assert rob["V"] < 0.02 * rob["V_raw"] + 0.01        # 로버스트 V ≪ (오염된) 개념
+    # 퇴화 시도가 구 추정기의 문턱을 부풀려 DSR 을 눌렀다 → 로버스트가 DSR 을 회복.
+    assert rob["dsr_program"] > plain["dsr_program"]
+
+
+def test_gate_eval_program_dsr_recheck_old_vs_new(tmp_path):
+    ge = _load_gate_eval()
+    path = str(tmp_path / "ledger.jsonl")
+    for i in range(10):
+        gate.ledger_append(path, _mk(f"idea{i}", ch=f"c{i}", sr=0.02 + 0.003 * (i % 4),
+                                     skew=0.0, kurt=3.0))
+    gate.ledger_append(path, _mk("vix", ch="cvix", sr=2.3, mdd=0.0, ulcer=0.0,
+                                 skew=0.0, kurt=3.0))          # 퇴화
+    gate.ledger_append(path, _mk("idea0", ch="c0h", period="holdout", sr=0.05, T=1200,
+                                 skew=0.0, kurt=3.0))          # 판정 축(홀드아웃) 행
+    res = ge.program_dsr_recheck(path)
+    assert res["new"]["star"] < res["old"]["star"]     # 퇴화 제거로 SR*0 하락
+    assert res["new"]["n_trials"] == 10                # 퇴화 vix 제외
+    assert res["old"]["N_eff"] == 11                   # idea_id 폴백(전 아이디어)
+    row = next(r for r in res["rows"] if r["idea_id"] == "idea0")
+    assert row["axis"] == "holdout" and row["dsr_new"] >= row["dsr_old"]
 
 
 def test_gate_eval_run_splits_program_dsr_endtoend(tmp_path):
