@@ -255,11 +255,24 @@ def test_live_broker() -> None:
 
 
 def test_cost_from_commissions() -> None:
-    commissions = [{"marketCountry": "KR", "commissionRate": "0"},
-                   {"marketCountry": "US", "commissionRate": "0.1"}]
-    cm = CostModel.from_commissions(commissions, market="US")
-    assert abs(cm.commission_bps - 10.0) < 1e-9, cm.commission_bps  # 0.1% = 10bps
-    print("  ✓ CostModel.from_commissions 통과 (US 0.1% → 10bps)")
+    # v1.2.17: commissionRate는 '소수 비율'(0.0025=0.25%=25bps, 0.001=0.1%=10bps)이며
+    # 각 행은 [startDate, endDate] 유효기간을 가진다. 오늘을 포함하는 행을 선택한다.
+    today = date(2026, 9, 23)
+    commissions = [
+        {"marketCountry": "KR", "commissionRate": "0.00015", "startDate": "2026-01-01", "endDate": None},
+        {"marketCountry": "US", "commissionRate": "0.001", "startDate": None, "endDate": "2026-06-30"},   # 프로모(만료)
+        {"marketCountry": "US", "commissionRate": "0.0025", "startDate": None, "endDate": None},           # 무기한
+    ]
+    cm = CostModel.from_commissions(commissions, market="US", today=today)
+    assert abs(cm.commission_bps - 25.0) < 1e-9, cm.commission_bps   # 오늘=프로모 만료 → 0.25%=25bps
+    cm_promo = CostModel.from_commissions(commissions, market="US", today=date(2026, 3, 1))
+    assert abs(cm_promo.commission_bps - 10.0) < 1e-9, cm_promo.commission_bps  # 프로모 기간 → 0.1%=10bps
+    # 오늘을 포함하는 행이 없으면 보수적 폴백(0.25%=25bps)
+    only_expired = [{"marketCountry": "US", "commissionRate": "0.001",
+                     "startDate": None, "endDate": "2026-06-30"}]
+    cm_fb = CostModel.from_commissions(only_expired, market="US", today=today)
+    assert abs(cm_fb.commission_bps - 25.0) < 1e-9, cm_fb.commission_bps
+    print("  ✓ CostModel.from_commissions 통과 (ratio→bps, 유효기간 선택, 만료시 0.25% 폴백)")
 
 
 def main() -> int:

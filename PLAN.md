@@ -135,6 +135,11 @@ config / errors / ratelimit        # 인프라
 - ✅ 수수료: **미국 0.1%**(commissionRate "0.1", 퍼센트표기, endDate 2026-06-29 — 프로모 가능성 재확인), 국내 0%(~6/30 프로모).
 - ⚠️ **환전 스프레드 미확정**: exchange-rate의 rate(1541.6) vs midRate(1541.1) 표시 스프레드 ~3bps이나, 명세상 "실거래 환율은 표시환율과 다를 수 있음". 실 체결의 KRW 차감액으로 측정 전까지 비용모델은 보수적 20bps 유지.
 
+### v1.2.17로 갱신된 사실 (2026-09-23)
+- ✅ **금액주문 접수창**: `orderAmount`·소수점 수량 주문은 **정규장 시작 ~ 종료 1시간 전**까지만 접수(그 외 `422 amount-order-outside-regular-hours` / `fractional-quantity-outside-regular-hours`, data에 `regularHours`/`orderableHours` 포함). market-calendar `today.regularMarket.{startTime,endTime}`(ISO8601 KST)로 판정. `run_dca.order_window_status()`가 실주문 전 검사. 서머타임(EDT) 정규장 22:30~05:00 KST(접수마감 04:00), 표준시(EST, 11/1~) 23:30~06:00 KST(접수마감 05:00).
+- ⚠️ **수수료 단위 변경(중요)**: `/commissions.commissionRate`가 **퍼센트→소수 비율(ratio)**. 예 US `"0.0025"`=0.25%(무기한), `"0.001"`=0.1%(프로모, endDate 2026-06-30), KR `"0.00015"`=0.015%. bps=ratio×10000. 각 행에 `startDate`/`endDate`. **오늘(2026-09-23)은 0.1% 프로모 만료 후 → 실요율 0.25%**. `CostModel.from_commissions`가 오늘 포함 행을 선택, 없으면 보수적 25bps 폴백.
+- ⚠️ **주문 목록/상세(Order)는 clientOrderId를 응답하지 않음**(생성 응답만 echo). 멱등 조회는 서버측 cid dedup(동일 cid 재요청=원주문 반환, 10분)에 의존하고, list_orders 기반 사전확인은 symbol/OPEN 기준 best-effort.
+
 ## 6. 공식 OpenAPI v1.1.5 정합화 메모 (client.py)
 > 출처: `https://openapi.tossinvest.com/openapi-docs/latest/openapi.json`
 - 인증: `POST /oauth2/token` (form: grant_type=client_credentials, client_id, client_secret).
@@ -149,3 +154,25 @@ config / errors / ratelimit        # 인프라
   client는 Remaining=0이면 Reset만큼 선제 대기(적응 throttle) + 429 Retry-After 준수.
 - 주문: `quantity`(기본 정수, US MARKET SELL만 소수점) | `orderAmount`(US MARKET 전용, 정규장만) 택1.
   `confirmHighValueOrder`는 1억원↑ 주문에 필요.
+
+### v1.2.17 정합화 (2026-09-23) — `upgrade/loop-engineering`
+> 출처: `openapi.json` v1.2.17 / `asyncapi.json`. client 정합 대상 변경점만 요약.
+- **엔드포인트 추가**: `/stocks/all`(유니버스), `/rankings`, `/market-indicators/*`, KR 수급동향 5종, 조건주문 5종
+  (`/conditional-orders` create/list/get/cancel(DELETE)/modify). client에 얇은 래퍼 추가:
+  `stocks_all(market)`, `rankings(type,marketCountry,duration,...)`, `create/list/get/cancel/modify_conditional_order`.
+  파라미터·본문 키는 스펙과 정확히 일치(예 `marketCountry`, `expireDate`, leg `orderSide`/`triggerPrice`/`orderPrice`).
+- **Rate Limits Group 확장**: `STOCK_ALL`·`STOCK_TRADING_TREND`·`RANKING`·`MARKET_INDICATOR(_CHART)`·
+  `CONDITIONAL_ORDER(_HISTORY)` 추가(수치 비공개 → 보수적 선제 버킷 + X-RateLimit 적응 throttle 유지).
+- **멱등/신뢰성(주문)**: 결정론적 `clientOrderId`(`dca-{session}-{sym}`, ≤36자, `[A-Za-z0-9_-]`).
+  `_request`가 409 `request-in-progress` 백오프 재시도, 422 `idempotency-key-conflict`는 기존 주문 조회로 대체,
+  500 `maintenance`는 `data.retryAfterSeconds`≤임계치면 대기 재시도·초과면 즉시 실패, 그 외 4xx 비즈니스는 재시도 안 함.
+  새 코드 힌트를 `errors.py`에 추가(+ `RequestInProgressError`/`IdempotencyConflictError`/`MaintenanceError`).
+- **토큰 공유**: 발급이 이전 토큰을 무효화하므로 `data/.token_cache.json`(chmod 600 + fcntl 락, 월클록 만료)로
+  프로세스 간 1토큰 공유. 401 시 캐시 재확인 후 필요할 때만 재발급.
+- **정정/체결**: `time_in_force`에 `OPG` 허용. `LiveBroker` 소수점 매도는 Decimal로 6자리 내림·정수는 정수 직렬화,
+  체결 반영은 `execution.filledAmount` 우선.
+- **`list_orders`/조건주문 목록** `limit`은 1~100 클램프.
+- **금액주문 접수창 가드 + launchd 스케줄**: `run_dca`가 정규장 종료 1시간 전까지만 실주문(§5 참고).
+  DST 전환 후 정규장 시작이 23:30 KST로 이동 → 단일 23:00 트리거 실패. plist를 23:35·00:45·02:00 KST
+  다중 트리거 + 세션당 1회 완료 가드로 교체(EDT/EST 접수창 교집합에서 발화).
+- 결정론적 테스트: `tests/test_client_v12.py`(409/멱등충돌/점검/토큰공유/소수점직렬화/수수료행선택/접수창 DST).

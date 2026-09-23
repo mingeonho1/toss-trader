@@ -9,6 +9,7 @@ import logging
 import time
 from abc import ABC, abstractmethod
 from datetime import date
+from decimal import ROUND_DOWN, Decimal, InvalidOperation
 
 from .costs import CostModel
 from .models import Fill, Position
@@ -196,8 +197,13 @@ class LiveBroker(Broker):
                 qty = quantity if quantity is not None else self.position(symbol).quantity
                 if not qty or qty <= 0:
                     return None
+                # US 시장가 매도만 소수점 허용 → 소수점 6자리로 '내림'하고 float 아티팩트 없이 직렬화.
+                # (보유수량 초과 방지: 항상 내림. 정수는 정수 문자열로.)
+                qty_str = _fmt_sell_qty(qty)
+                if qty_str is None:
+                    return None
                 resp = self.client.create_order(
-                    symbol, "SELL", order_type="MARKET", quantity=qty)
+                    symbol, "SELL", order_type="MARKET", quantity=qty_str)
         except Exception as e:  # noqa: BLE001 — 주문 거절/오류는 상위(엔진)가 기록
             logger.warning("주문 실패 %s %s: %s", side, symbol, e)
             raise
@@ -235,7 +241,16 @@ class LiveBroker(Broker):
         qty = _f(exe.get("filledQuantity"))
         if qty <= 0:
             return None
+        # v1.2.17 OrderExecution: filledAmount(총 체결금액, native)가 있으면 그것을 진실로 삼는다.
+        # 평균단가(averageFilledPrice)가 null이어도 filledAmount/qty로 체결가를 복원할 수 있다.
+        filled_amount = exe.get("filledAmount")
         price = _f(exe.get("averageFilledPrice"))
+        if filled_amount not in (None, ""):
+            notional = _f(filled_amount)
+            if price <= 0 and notional > 0 and qty > 0:
+                price = notional / qty
+        else:
+            notional = price * qty
         # 실 체결 수수료+세금(native USD). 환전 스프레드는 주문단위로 분리 제공되지 않아
         # 포트폴리오 환전 시점에 반영된다(metrics는 broker 수수료만 집계).
         cost = _f(exe.get("commission")) + _f(exe.get("tax"))
@@ -243,8 +258,35 @@ class LiveBroker(Broker):
         if side == "SELL":
             prev = self.position(symbol)
             if prev.avg_price > 0:
-                realized = (price - prev.avg_price) * qty
+                # notional(실 체결금액) 기준으로 실현손익 산정 = filledAmount − 평단×수량.
+                realized = notional - prev.avg_price * qty
         return Fill(symbol, side, qty, price, cost, dt, realized_pnl=realized)
+
+
+_SELL_QTY_STEP = Decimal("0.000001")  # US 소수점 매도 최소 단위(소수점 6자리)
+
+
+def _fmt_sell_qty(qty) -> str | None:
+    """US 시장가 매도 수량을 소수점 6자리로 '내림'하고 float 아티팩트 없이 직렬화한다.
+
+    - 보유수량 초과·6자리 초과(400 fractional-quantity-scale-exceeded) 방지를 위해 항상 내림.
+    - 정수는 정수 문자열('5')로, 소수는 불필요한 0을 제거한 고정소수 표기('0.4995')로 반환.
+    - 0 이하로 떨어지면 None(매도 스킵).
+    Decimal을 쓰는 이유: float은 str(0.1+0.2) 같은 아티팩트('0.30000000000000004')를 만들어
+    서버가 400을 낼 수 있다.
+    """
+    try:
+        d = Decimal(str(qty))
+    except (InvalidOperation, ValueError):
+        return None
+    if d <= 0:
+        return None
+    d = d.quantize(_SELL_QTY_STEP, rounding=ROUND_DOWN)
+    if d <= 0:
+        return None
+    if d == d.to_integral_value():
+        return str(int(d))
+    return format(d.normalize(), "f")
 
 
 def _f(v) -> float:

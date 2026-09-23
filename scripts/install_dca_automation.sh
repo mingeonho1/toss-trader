@@ -62,10 +62,14 @@ $EXEC_ARG
   <key>EnvironmentVariables</key>
   <dict><key>PYTHONPATH</key><string>$PROJECT/src</string></dict>
   <key>RunAtLoad</key><true/>
+  <!-- 미국 금액주문 접수창: EDT 22:30~04:00 / EST 23:30~05:00 (KST, 정규장 종료 1시간 전 마감).
+       두 체제 교집합(23:30~04:00 KST)에 드는 KST 트리거 다수 + run_dca.py의 접수시간창·세션가드로
+       DST 전환 후에도 창 안에서만 발화(구 단일 23:00 트리거는 표준시 전환 후 정규장 시작 전이라 실패). -->
   <key>StartCalendarInterval</key>
   <array>
-    <dict><key>Hour</key><integer>9</integer><key>Minute</key><integer>0</integer></dict>
-    <dict><key>Hour</key><integer>23</integer><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Hour</key><integer>23</integer><key>Minute</key><integer>35</integer></dict>
+    <dict><key>Hour</key><integer>0</integer><key>Minute</key><integer>45</integer></dict>
+    <dict><key>Hour</key><integer>2</integer><key>Minute</key><integer>0</integer></dict>
   </array>
   <key>StandardOutPath</key><string>$PROJECT/data/launchd.out.log</string>
   <key>StandardErrorPath</key><string>$PROJECT/data/launchd.err.log</string>

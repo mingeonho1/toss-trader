@@ -31,21 +31,31 @@ class TokenBucket:
             time.sleep(max(0.0, sleep_for))
 
 
-# 토스 OpenAPI v1.1.5의 실제 Rate Limits Group(엔드포인트별 태그).
+# 토스 OpenAPI v1.2.17의 실제 Rate Limits Group(엔드포인트 description의 "Rate Limits Group" 태그).
 # 명세는 구체 수치를 공개하지 않고 응답 헤더(X-RateLimit-Limit/Remaining/Reset)로
 # 동적 전달한다(예시 burst=10/sec). 여기서는 그 한도 아래로 보수적 선제 제어만 하고,
 # 실제 한도는 client가 X-RateLimit 헤더로 적응 throttle + 429 Retry-After로 처리한다.
+# 스펙에 수치가 없으므로 조회성은 다소 넉넉히, 계좌/주문성은 보수적으로 잡는다.
 GROUP_RATES: dict[str, float] = {
-    "AUTH": 1.0,               # 액세스 토큰은 1개만 유효, 재발급은 드물다
-    "MARKET_DATA": 8.0,        # 호가/현재가/체결/상하한가
-    "MARKET_DATA_CHART": 4.0,  # 캔들 차트(별도 그룹)
-    "MARKET_INFO": 4.0,        # 환율/장 운영 정보
-    "STOCK": 4.0,              # 종목 기본정보/유의사항
-    "ACCOUNT": 2.0,            # 계좌 목록
-    "ASSET": 4.0,              # 보유 주식
-    "ORDER_INFO": 4.0,         # 매수가능금액/매도가능수량/수수료
-    "ORDER": 4.0,              # 주문 생성/정정/취소
-    "ORDER_HISTORY": 4.0,      # 주문 목록/상세
+    "AUTH": 1.0,                     # 액세스 토큰은 1개만 유효, 재발급은 드물다
+    # --- 시세/시장정보 (계좌 무관, 토큰만) ---
+    "MARKET_DATA": 8.0,              # 호가/현재가/체결/상하한가
+    "MARKET_DATA_CHART": 4.0,        # 캔들 차트(별도 그룹)
+    "MARKET_INFO": 4.0,              # 환율/장 운영 캘린더
+    "STOCK": 4.0,                    # 종목 기본정보/유의사항
+    "STOCK_ALL": 1.0,               # /stocks/all: 마켓 전체 유니버스(수천건, 일1회 캐싱 권장) → 낮게
+    "STOCK_TRADING_TREND": 2.0,      # KR 수급동향(투자자별/프로그램/공매도/신용/대차) 시계열
+    "RANKING": 2.0,                  # 랭킹(거래대금/거래량/등락률)
+    "MARKET_INDICATOR": 4.0,         # 지수/국채 현재가·투자자별 매매대금
+    "MARKET_INDICATOR_CHART": 4.0,   # 지수/국채 캔들
+    # --- 계좌/주문 (X-Tossinvest-Account 필요) ---
+    "ACCOUNT": 2.0,                  # 계좌 목록
+    "ASSET": 4.0,                    # 보유 주식
+    "ORDER_INFO": 4.0,               # 매수가능금액/매도가능수량/수수료
+    "ORDER": 4.0,                    # 주문 생성/정정/취소
+    "ORDER_HISTORY": 4.0,            # 주문 목록/상세
+    "CONDITIONAL_ORDER": 2.0,        # 조건주문 생성/정정/취소
+    "CONDITIONAL_ORDER_HISTORY": 4.0,  # 조건주문 목록/상세
 }
 
 # 알 수 없는 그룹이 들어오면 안전하게 떨어질 기본 버킷 키.
