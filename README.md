@@ -86,6 +86,39 @@ PYTHONPATH=src python scripts/analyze_microstructure.py --symbol QQQ
 저장 경로는 `data/microstructure/YYYY-MM-DD/SYMBOL.jsonl`, 계획서는
 `docs/microstructure_collector_plan.md`에 있다.
 
+## 인트라데이 분봉 수집 (키 없음, 누적)
+데이트레이딩 아이디어(ORB·초반30분→막판30분 모멘텀·VWAP 되돌림·gap-and-go) 테스트용
+1분/5분 미국주식 바를 **키 없이** 모아 자체 데이터셋을 쌓는다. 모듈은
+`src/toss_trader/intraday_sources.py`, 수집기는 `scripts/collect_intraday.py`.
+`histdata.py`는 건드리지 않고, 캐시는 `data/_hist_cache/intraday/{SYM}_{interval}.json`
+(histdata 인트라데이 캐시와 **동일 레이아웃**, `histdata.load_intraday`로도 읽힌다).
+
+소스(2026-09 이 네트워크 실측):
+- **Nasdaq** `api.nasdaq.com/api/quote/{SYM}/chart` — 키 없이 **직전(현재) 세션**의 1분 데이터
+  (확장장 04:00~20:00 ET 포함, 완결 세션 ≈960틱). 매 호출 1세션만 → 마감 후 크론으로 **누적**해야
+  히스토리가 쌓인다. ⚠️ **분당 체결 last-price만**(OHLC 아님) → `o=h=l=c`, 거래량은 신뢰 소스가
+  없어 `v=0`. 5분봉은 1분 last-price를 버킷 집계(버킷 내 진짜 고저 범위 생성).
+- **Yahoo v8** `chart?interval=1m|5m|60m` — 진짜 OHLCV + 히스토리(1m≈7일·5m≈60일·60m≈730일).
+  단 이 네트워크에서 **429 스로틀이 잦다** → 요청 간격 ≥1.5s, 429면 그 실행 동안 Yahoo 중단(우회 금지).
+- **Nasdaq** `api.nasdaq.com/api/marketmovers` — 당일 상승률/거래량 상위 → 워치리스트 자동 확장.
+
+```bash
+# 마감 후 1회: 워치리스트(SPY QQQ TQQQ NVDA TSLA AAPL AMD META MSFT AMZN PLTR MSTR SMCI COIN)
+# 1분·5분 누적 + 당일 무버스 12종목 추가 (Nasdaq만; Yahoo 재-throttle 방지)
+PYTHONPATH=src python scripts/collect_intraday.py --source nasdaq --intervals 1m,5m --movers 12
+
+# Yahoo가 열릴 때 백필(넓은 범위); 429면 자동으로 Nasdaq 폴백
+PYTHONPATH=src python scripts/collect_intraday.py --backfill --intervals 1m,5m,60m
+
+# 특정 종목만 / 정규장 봉만 / 미리보기
+PYTHONPATH=src python scripts/collect_intraday.py --symbols NVDA,TSLA --regular-only --dry-run
+```
+
+자동화(마감 후 1회): 참조용 LaunchAgent 템플릿 `automation/com.tosstrader.intraday.plist`
+(**설치 안 됨** — 경로 치환 후 수동 `launchctl load`). KST 09:10·10:10 트리거로 미 확장장
+마감(20:00 ET, EDT/EST 양쪽)을 커버하고, 수집기는 병합-누적이라 이중 실행이 무해하다.
+오프라인 테스트: `PYTHONPATH=src python -m unittest tests.test_intraday_sources`.
+
 ## 자동화 (항상 dry-run) & 실거래 전환
 **입금**은 API로 불가 → 은행 자동이체/토스 앱으로 설정(예: 매주 일요일 ₩50,000). 봇은 들어온 현금만 매수.
 
