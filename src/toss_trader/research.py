@@ -44,6 +44,7 @@ __all__ = [
     # 헬퍼 지표
     "to_returns", "sma", "ema", "rsi", "atr", "realized_vol",
     "rolling_max", "rolling_min", "zscore", "percentile_rank",
+    "unit_drawdown", "dollar_drawdown",
     # 캘린더
     "month_start_flags", "month_end_flags", "turn_of_month_flags",
     "first_trading_day_of_month", "last_trading_day_of_month",
@@ -437,6 +438,11 @@ class DcaOverlayResult:
     total_fx_cost: float
     n_buys: int
     final_value: float
+    # ── 아래는 뒤에 추가된 선택 필드(하위호환: 기본값 有) ──
+    mode: str = "buy_only"                       # "buy_only" | "rebalance"
+    trade_count: int = 0                         # 총 체결 레그 수(매수+매도)
+    total_commission: float = 0.0                # 수수료(commission_bps) 성분 합(USD)
+    total_turnover: float = 0.0                  # 총 매매 노셔널(USD, 절대값 합)
 
     @property
     def equity_curve(self) -> list[tuple[date, float]]:
@@ -446,6 +452,17 @@ class DcaOverlayResult:
     @property
     def profit(self) -> float:
         return self.final_value - self.total_deposited
+
+    @property
+    def deposit_series(self) -> list[float]:
+        """equity와 같은 길이의 인덱스별 입금액(입금 없는 날 0.0) — dollar_drawdown 입력용."""
+        pos = {d: i for i, d in enumerate(self.dates)}
+        out = [0.0] * len(self.dates)
+        for d, amt in self.deposits:
+            i = pos.get(d)
+            if i is not None:
+                out[i] += amt
+        return out
 
 
 def _dca_cashflows(deposits: Sequence[tuple[date, float]], final_value: float,
@@ -461,16 +478,30 @@ def run_dca_overlay(panel_closes: Mapping[str, Sequence[float]], dates: Sequence
                     monthly_usd: float = 35.0, initial_usd: float = 32.0,
                     cost: CostSpec | None = None,
                     cash_rate: Sequence[float] | None = None,
-                    exec_lag: int = 0) -> DcaOverlayResult:
-    """월 첫 거래일에 입금해 전략 목표비중대로 **매수전용**(buy-only) 투자하는 DCA 오버레이.
+                    exec_lag: int | None = None,
+                    mode: str = "buy_only",
+                    rebalance_band: float = 0.0) -> DcaOverlayResult:
+    """월 첫 거래일에 입금해 전략 목표비중대로 투자하는 DCA 오버레이(매수전용/리밸런싱).
 
     - 입금: 시드 initial_usd(첫날) + 매월 첫 거래일 monthly_usd(사양 §0의 실계좌 현금흐름).
-      FX 스프레드는 **입금(신규자본)에만** 부과(사양 §7 티어A). 매매비는 매수마다 부과.
-    - 투자: 입금일에 (총평가액×목표비중) 미달분을 신규 현금으로 매수(매도 없음 → 저회전).
-      exec_lag=0 이면 입금일 종가 신호로 그날 체결(레인1 배분은 종가체결 근사 허용, 사양 §2.3).
-    - 반환: 일별 자본곡선 + gate.xirr용 현금흐름(입금 −, 최종 평가액 +). FX 드래그는 최종
-      평가액에 반영되므로 XIRR에 정직하게 나타난다(현금흐름은 명목 입금액).
+      FX 스프레드는 **입금(신규자본)에만** 부과(사양 §7 티어A). 매매비는 매매마다 부과.
+    - mode="buy_only"(기본): 입금일에 (총평가액×목표비중) 미달분을 신규 현금으로만 매수한다
+      (매도 없음 → 저회전). exec_lag 기본 0. **비중을 낮추는 신호가 와도 팔지 못한다** —
+      타이밍 전략(예: 급락 시 TQQQ 축소)의 리스크를 과소평가하게 되므로 그런 전략에는
+      mode="rebalance"를 써야 한다.
+    - mode="rebalance": **매 체결일**(sig_idx≥0)마다 목표비중으로 리밸런싱한다(매도 허용).
+      심볼별 |목표 − 현재비중| ≤ rebalance_band 이면 그 심볼 매매는 생략(무매매 밴드).
+      run_weights와 동일한 비용/체결지연 규약: 신호 close t → 체결 close t+exec_lag,
+      exec_lag 기본 1. 매수·매도 모두 수수료+반호가+슬리피지를 낸다(USD 상주 → FX 없음;
+      FX는 여전히 입금에만). 입금은 여전히 월 첫 거래일에 들어와 목표비중대로 투자된다.
+    - 반환: 일별 자본곡선 + gate.xirr용 현금흐름(입금 −, 최종 평가액 +). 실행당 총 체결
+      레그 수(trade_count)·총 수수료(total_commission)·총 회전 노셔널(total_turnover)도 보고.
+      FX 드래그는 최종 평가액에 반영되므로 XIRR에 정직하게 나타난다(현금흐름은 명목 입금액).
     """
+    if mode not in ("buy_only", "rebalance"):
+        raise ValueError(f"알 수 없는 mode: {mode!r} (가능: 'buy_only', 'rebalance')")
+    if exec_lag is None:                       # 리밸런싱은 run_weights와 동일하게 1일 지연 기본
+        exec_lag = 1 if mode == "rebalance" else 0
     cost = cost or CostSpec()
     syms = list(panel_closes)
     n = len(dates)
@@ -493,12 +524,21 @@ def run_dca_overlay(panel_closes: Mapping[str, Sequence[float]], dates: Sequence
     total_deposited = 0.0
     total_cost = 0.0
     total_fx = 0.0
+    total_commission = 0.0
+    total_turnover = 0.0
     n_buys = 0
+    trade_count = 0
 
-    def buy_toward(equity_ref: float, tw: Mapping[str, float]) -> tuple[float, int]:
-        """가용 현금으로 미달분이 큰 심볼부터 목표비중까지 매수(매도 없음). (비용, 레그수)."""
+    def buy_toward(equity_ref: float, tw: Mapping[str, float]
+                   ) -> tuple[float, float, float, int]:
+        """가용 현금으로 미달분이 큰 심볼부터 목표비중까지 매수(매도 없음).
+
+        (매매비, 수수료성분, 매매노셔널, 레그수) 반환. 매수 노셔널 + 비용 ≤ 현금.
+        """
         nonlocal cash
         c_paid = 0.0
+        comm = 0.0
+        turned = 0.0
         nb = 0
         order = sorted(syms, key=lambda s: tw.get(s, 0.0) * equity_ref - val[s],
                        reverse=True)
@@ -516,8 +556,41 @@ def run_dca_overlay(panel_closes: Mapping[str, Sequence[float]], dates: Sequence
             val[s] += spend
             cash -= (spend + c)
             c_paid += c
+            comm += spend * cost.commission_bps * BPS
+            turned += spend
             nb += 1
-        return c_paid, nb
+        return c_paid, comm, turned, nb
+
+    def rebalance_to(equity_ref: float, tw: Mapping[str, float]
+                     ) -> tuple[float, float, float, int, int]:
+        """드리프트된 val을 목표비중으로 조정(매도 허용, 밴드 적용). run_weights.rebalance와 동일.
+
+        (매매비, 수수료성분, 매매노셔널, 총레그수, 매수레그수) 반환. 비용은 현금에서 차감.
+        """
+        nonlocal cash
+        if equity_ref <= 0:
+            return 0.0, 0.0, 0.0, 0, 0
+        c = 0.0
+        comm = 0.0
+        turned = 0.0
+        nl = 0
+        nb = 0
+        for s in syms:
+            target = tw.get(s, 0.0)
+            cur = val[s]
+            cur_w = cur / equity_ref
+            if abs(target - cur_w) > rebalance_band:
+                new_val = target * equity_ref
+                notional = abs(new_val - cur)
+                turned += notional
+                c += notional * cost.trade_bps(s) * BPS
+                comm += notional * cost.commission_bps * BPS
+                if new_val > cur:
+                    nb += 1
+                val[s] = new_val
+                nl += 1
+        cash = equity_ref - sum(val.values()) - c
+        return c, comm, turned, nl, nb
 
     for t in range(n):
         if t > 0:                              # 드리프트(현금 이자 + 자산 수익)
@@ -541,12 +614,26 @@ def run_dca_overlay(panel_closes: Mapping[str, Sequence[float]], dates: Sequence
             cash -= fx
             total_fx += fx
             total_cost += fx
-            sig = t - exec_lag
-            if sig >= 0:
+
+        sig = t - exec_lag
+        if mode == "rebalance":
+            if sig >= 0:                       # 매 체결일마다 목표비중으로 리밸런싱(매도 허용)
                 equity_ref = sum(val.values()) + cash
-                c, nb = buy_toward(equity_ref, target_weights[sig])
+                c, comm, turned, nl, nb = rebalance_to(equity_ref, target_weights[sig])
                 total_cost += c
+                total_commission += comm
+                total_turnover += turned
+                trade_count += nl
                 n_buys += nb
+        else:                                   # buy_only: 입금일에만 미달분 매수
+            if dep > 0 and sig >= 0:
+                equity_ref = sum(val.values()) + cash
+                c, comm, turned, nb = buy_toward(equity_ref, target_weights[sig])
+                total_cost += c
+                total_commission += comm
+                total_turnover += turned
+                n_buys += nb
+                trade_count += nb
 
         equity_series.append(sum(val.values()) + cash)
 
@@ -556,7 +643,8 @@ def run_dca_overlay(panel_closes: Mapping[str, Sequence[float]], dates: Sequence
         dates=list(dates), equity=equity_series, deposits=deposits,
         cashflows=cashflows, total_deposited=total_deposited,
         total_cost=total_cost, total_fx_cost=total_fx, n_buys=n_buys,
-        final_value=final_value,
+        final_value=final_value, mode=mode, trade_count=trade_count,
+        total_commission=total_commission, total_turnover=total_turnover,
     )
 
 
@@ -713,6 +801,52 @@ def percentile_rank(x: Sequence[float]) -> list[float | None]:
         bisect.insort(ordered, x[t])
         rank = bisect.bisect_right(ordered, x[t])   # ≤ x[t] 개수
         out[t] = rank / (t + 1)
+    return out
+
+
+# ── 낙폭(drawdown) 헬퍼 ──────────────────────────────────────────────────────
+def unit_drawdown(equity: Sequence[float]) -> list[float]:
+    """단위자본(외부 현금흐름 없음) 자본곡선의 낙폭 시계열 — 각 원소 ≤ 0.
+
+    dd[t] = equity[t]/max(equity[0..t]) − 1. **최대낙폭(MDD)** = min(반환값).
+    run_weights.equity 같은 무-입금 곡선에 쓴다. 입금이 있는 DCA 달러곡선은
+    dollar_drawdown을 써야 입금을 '회복'으로 오인하지 않는다.
+    """
+    out: list[float] = []
+    peak: float | None = None
+    for v in equity:
+        if peak is None or v > peak:
+            peak = v
+        out.append(v / peak - 1.0 if peak and peak > 0 else 0.0)
+    return out
+
+
+def dollar_drawdown(equity: Sequence[float],
+                    deposits: Sequence[float] | None = None) -> list[float]:
+    """달러(머니웨이티드) 낙폭 시계열 — 각 원소 ≤ 0. **MDD** = min(반환값).
+
+    실제 계좌가 겪는 달러 낙폭. 외부 입금은 고점 기준선(HWM)을 그만큼 끌어올려
+    '입금 = 회복'으로 오인하지 않게 한다(입금 자체는 낙폭을 만들지도 지우지도 않는다).
+    입금이 없으면(또는 deposits=None) unit_drawdown과 동일 공식이 된다.
+
+    deposits: equity와 같은 길이의 **인덱스별 입금액**(입금 없는 날 0.0) 또는 None.
+      DcaOverlayResult.deposit_series를 그대로 넣으면 된다.
+    """
+    n = len(equity)
+    if deposits is not None and len(deposits) != n:
+        raise ValueError(f"deposits 길이 {len(deposits)} != len(equity) {n}")
+    out: list[float] = []
+    peak: float | None = None
+    for t in range(n):
+        v = equity[t]
+        if peak is None:
+            peak = v                            # 시드일: 최초 평가액(초기 입금 포함)이 기준선
+        else:
+            if deposits is not None:
+                peak += deposits[t]             # 입금은 기준선을 그만큼 올린다(회복 아님)
+            if v > peak:
+                peak = v
+        out.append(v / peak - 1.0 if peak and peak > 0 else 0.0)
     return out
 
 

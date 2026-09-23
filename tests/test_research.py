@@ -246,6 +246,110 @@ def test_dca_overlay_monthly_cashflows_and_fx_drag():
     assert r.equity_curve[-1] == (dates[-1], r.final_value)
 
 
+# ── run_dca_overlay: rebalance 모드(매도 허용) ───────────────────────────────
+def test_dca_rebalance_goes_to_cash_while_buy_only_cannot():
+    # 100%→0% 리스크자산 전환. rebalance는 실제로 팔아 현금화, buy_only는 못 판다(과소 리스크).
+    # 손계산: 상수가(100)로 4일 보유 후 day4 가격 2배 → '현금인지' 여부를 자본곡선으로 구분.
+    dates = [date(2020, 3, 2), date(2020, 3, 3), date(2020, 3, 4),
+             date(2020, 3, 5), date(2020, 3, 6)]                # 전부 3월 → 월적립 없음
+    closes = {"RISK": [100.0, 100.0, 100.0, 100.0, 200.0]}      # day4에 +100%
+    tw = [{"RISK": 1.0}, {"RISK": 1.0}, {"RISK": 0.0}, {"RISK": 0.0}, {"RISK": 0.0}]
+    # trade_bps = 25(수수료)+3(기본 반호가)+5(슬리피지) = 33bps = 0.0033. FX=0.
+    cost = CostSpec(commission_bps=25.0, slippage_bps=5.0, fx_bps=0.0,
+                    default_half_spread_bps=3.0)
+
+    # rebalance: exec_lag 기본 1, band 0.05로 day2 잔먼지 매매 차단.
+    reb = research.run_dca_overlay(closes, dates, tw, monthly_usd=0.0, initial_usd=1000.0,
+                                   cost=cost, mode="rebalance", rebalance_band=0.05)
+    assert reb.mode == "rebalance"
+    # 손계산 자본곡선:
+    #  d0 입금 1000(현금) → d1 tw[0]=1.0 매수(노셔널 1000·33bps=3.3, 현금 −3.3) eq=996.7
+    #  d2 tw[1]=1.0 괴리 0.33% < 밴드 → 무매매  d3 tw[2]=0.0 전량 매도(3.3) 현금화 eq=993.4
+    #  d4 가격 2배지만 현금 보유 → 자본 불변(=현금 확인)
+    assert reb.equity[0] == pytest.approx(1000.0)
+    assert reb.equity[1] == pytest.approx(996.7)
+    assert reb.equity[2] == pytest.approx(996.7)
+    assert reb.equity[3] == pytest.approx(993.4)
+    assert reb.equity[4] == pytest.approx(993.4)               # 현금 → 2배 점프에도 불변
+    assert reb.final_value == pytest.approx(993.4)
+    assert reb.trade_count == 2                                 # 매수 1 + 매도 1
+    assert reb.n_buys == 1
+    assert reb.total_turnover == pytest.approx(2000.0)          # 1000 매수 + 1000 매도
+    assert reb.total_commission == pytest.approx(5.0)          # (1000+1000)·25bps
+    assert reb.total_cost == pytest.approx(6.6)                # (1000+1000)·33bps
+    assert reb.total_fx_cost == 0.0
+
+    # buy_only: 절대 못 판다 → tw가 0%로 가도 100% 보유 유지 → day4 점프를 전량 수취.
+    buy = research.run_dca_overlay(closes, dates, tw, monthly_usd=0.0, initial_usd=1000.0,
+                                   cost=cost, mode="buy_only")
+    assert buy.mode == "buy_only"
+    assert buy.trade_count == 1 and buy.n_buys == 1             # 초기 편입 1회뿐
+    assert buy.equity[3] == pytest.approx(1000.0 / 1.0033)      # 100% 보유(현금 0)
+    assert buy.equity[4] == pytest.approx(2000.0 / 1.0033)      # 가격 2배 → 자본 2배
+    assert buy.equity[4] == pytest.approx(2.0 * buy.equity[3])  # ≠ 현금(불변 아님)
+    # 핵심 대비: 같은 신호에도 rebalance는 현금화(불변), buy_only는 보유(2배).
+    assert reb.equity[4] == pytest.approx(reb.equity[3])
+    assert buy.equity[4] > 1.9 * buy.equity[3]
+
+
+def test_dca_rebalance_equals_run_weights_when_no_deposits_after_start():
+    # 등가성: 시작 후 입금 0 + rebalance 모드면 run_dca_overlay ≈ run_weights × initial(동일 비용).
+    n = 40
+    dates = [date(2020, 1, 1) + timedelta(days=i) for i in range(n)]
+    closes = {
+        "SPY": [100.0 * (1.0 + 0.001 * i + 0.02 * math.sin(i / 2.0)) for i in range(n)],
+        "TQQQ": [50.0 * (1.0 + 0.003 * i + 0.05 * math.sin(i / 1.5)) for i in range(n)],
+    }
+    tw = []
+    for i in range(n):                                          # 매수·매도 모두 나오게 전환
+        if i < 13:
+            tw.append({"TQQQ": 1.0})
+        elif i < 26:
+            tw.append({"SPY": 0.5, "TQQQ": 0.5})
+        else:
+            tw.append({"SPY": 1.0})
+    cost = CostSpec(commission_bps=25.0, slippage_bps=5.0, fx_bps=0.0,
+                    default_half_spread_bps=3.0)
+    cash = [0.0] + [0.0001] * (n - 1)
+    initial = 1234.0
+
+    rw = research.run_weights(closes, dates, tw, exec_lag=1, rebalance_band=0.0,
+                              cost=cost, cash_rate=cash, start_equity=1.0)
+    dca = research.run_dca_overlay(closes, dates, tw, monthly_usd=0.0, initial_usd=initial,
+                                   cost=cost, cash_rate=cash, mode="rebalance",
+                                   exec_lag=1, rebalance_band=0.0)
+    assert dca.total_deposited == pytest.approx(initial)       # 시작 입금뿐
+    assert len(dca.deposits) == 1
+    for t in range(n):
+        assert dca.equity[t] == pytest.approx(rw.equity[t] * initial, rel=1e-9, abs=1e-9)
+
+
+# ── drawdown 헬퍼 ────────────────────────────────────────────────────────────
+def test_unit_and_dollar_drawdown_helpers():
+    eq = [100.0, 120.0, 90.0, 150.0, 120.0]
+    dd = research.unit_drawdown(eq)
+    assert dd[0] == 0.0 and dd[1] == 0.0                        # 신고점
+    assert dd[2] == pytest.approx(90.0 / 120.0 - 1.0)          # −0.25
+    assert dd[3] == 0.0                                         # 신고점 150
+    assert dd[4] == pytest.approx(120.0 / 150.0 - 1.0)        # −0.20
+    assert min(dd) == pytest.approx(-0.25)                     # MDD
+
+    # 입금이 없으면 dollar_drawdown == unit_drawdown.
+    assert research.dollar_drawdown(eq) == pytest.approx(research.unit_drawdown(eq))
+
+    # 입금이 있으면 그만큼 고점 기준선이 올라 '입금=회복' 오인을 막는다.
+    eq2 = [100.0, 80.0, 130.0, 110.0]
+    dep = [0.0, 0.0, 40.0, 0.0]                                 # day2에 40 유입
+    dd2 = research.dollar_drawdown(eq2, dep)
+    assert dd2[1] == pytest.approx(-0.20)                       # 80/100−1
+    assert dd2[2] == pytest.approx(130.0 / 140.0 - 1.0)       # peak=100+40=140 → 아직 낙폭
+    raw = research.unit_drawdown(eq2)                           # 입금 무시하면 day2가 신고점(0)
+    assert raw[2] == 0.0 and dd2[2] < 0.0
+    # 길이 불일치는 에러.
+    with pytest.raises(ValueError):
+        research.dollar_drawdown(eq2, [0.0, 0.0])
+
+
 # ── lookahead_guard ──────────────────────────────────────────────────────────
 def _sma_cross_signal(closes, dates):
     """인과 신호: 종가 > 5일 SMA면 롱. 입력 ≤ t 만 참조."""
