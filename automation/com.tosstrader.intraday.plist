@@ -4,6 +4,8 @@
   인트라데이 분봉 수집 LaunchAgent — 참조용 템플릿(설치 안 됨).
   주문/체결 없음. 키 없는 공개 소스(Nasdaq /chart)에서 직전 세션 분봉을 워치리스트에
   누적만 한다. 자체 인트라데이 데이터셋을 시간에 걸쳐 쌓기 위함.
+  --then-shadow: 수집 직후 레인3 섀도(scripts/intraday_shadow_run.py)를 이어 돌려
+  가상 트레이드를 data/intraday_shadow/trades.jsonl 에 누적(여전히 실주문 없음).
 
   설치(수동):
     cp automation/com.tosstrader.intraday.plist ~/Library/LaunchAgents/
@@ -35,6 +37,8 @@
     <string>--intervals</string><string>1m,5m</string>
     <!-- 당일 상승률/거래량 상위 12종목까지 워치리스트에 추가($5 미만 초저유동성 제외) -->
     <string>--movers</string><string>12</string>
+    <!-- 수집 직후 레인3 인트라데이 섀도 트레이딩(가상 트레이드 누적, 실주문 없음) -->
+    <string>--then-shadow</string>
   </array>
   <key>EnvironmentVariables</key>
   <dict><key>PYTHONPATH</key><string>/Users/mingh/github/toss-trader/src</string></dict>
