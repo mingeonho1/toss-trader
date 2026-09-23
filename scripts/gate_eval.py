@@ -171,6 +171,8 @@ def run_splits(idea_id: str, config: dict, lane: int,
                bench_terminal: float | None = None,
                family_excess: dict[str, list[float]] | None = None,
                universe: list[str] | None = None,
+               program_dsr: bool = False,
+               stream_loader=None,
                ledger_path: str = DEFAULT_LEDGER,
                rc_B: int = 2000, log: bool = True) -> dict:
     """설계기간 vs 홀드아웃 분할을 돌리고 원장에 적재한다(헤드라인 게이트, 사양 §2.1).
@@ -214,12 +216,24 @@ def run_splits(idea_id: str, config: dict, lane: int,
                                   "martin", "calmar", "cvar5", "skew", "kurt")
                if k in um},
         }
+        # 상대 리스크 트랙(부록 v2.1-1) 입력: 벤치 단위자본 MDD·Ulcer
+        beq = gate.returns_to_equity(br)
+        axis_input["mdd_bench"] = gate.max_drawdown(beq)
+        axis_input["ulcer_bench"] = gate.ulcer_index(beq)
+        period_out = {"unit": um, "money": mw, "reality_check": rc,
+                      "axis_input": axis_input}
+        # 프로그램 전체 N_eff DSR + 아이디어 내부 DSR 병기(부록 v2.1-3)
+        if program_dsr:
+            pdd = gate.dsr_program(cr, ledger_path, idea_id, stream_loader=stream_loader)
+            axis_input["dsr"] = pdd["dsr_program"]    # 권위값: 프로그램 N_eff DSR
+            axis_input["dsr_idea"] = pdd["dsr_idea"]
+            period_out["program_dsr"] = pdd
         window = (pdates[0], pdates[-1]) if pdates else None
         if log:
             log_evaluation(idea_id, config, lane, period, um, mw, window=window,
                            universe=universe, ledger_path=ledger_path)
-        out[period] = {"unit": um, "money": mw, "reality_check": rc,
-                       "axis_input": axis_input, "window": window}
+        period_out["window"] = window
+        out[period] = period_out
     return out
 
 
@@ -246,20 +260,42 @@ def markdown_row(idea_id: str, lane: int, period: str, um: dict, mw: dict,
             f"{_fmt(um.get('dsr'))} | {_fmt(rc.get('rc_pvalue'), nd=3)} | {decision} |")
 
 
+def markdown_program_dsr_header() -> str:
+    return ("| 아이디어 | 구간 | N(program) | N_eff(program) | N(idea) | "
+            "DSR(program) | DSR(idea) |\n"
+            "|---|---|---:|---:|---:|---:|---:|")
+
+
+def markdown_program_dsr_row(idea_id: str, period: str, pd_: dict) -> str:
+    return (f"| {idea_id} | {period} | {pd_.get('N_program')} | "
+            f"{pd_.get('N_eff_program')} | {pd_.get('N_idea')} | "
+            f"{_fmt(pd_.get('dsr_program'))} | {_fmt(pd_.get('dsr_idea'))} |")
+
+
 def evaluate_and_render(idea_id: str, config: dict, lane: int,
                         cand_returns: list[float], bench_returns: list[float],
-                        dates: list[date], design_end: date, **kw) -> dict:
+                        dates: list[date], design_end: date, *,
+                        program_dsr: bool = False, **kw) -> dict:
     """run_splits + decide + 마크다운 표(헤더+행) 렌더를 한 번에.
 
-    반환에 'markdown'(설계·홀드아웃 각 1행)과 'decisions'를 포함한다.
+    반환에 'markdown'(설계·홀드아웃 각 1행)과 'decisions'를 포함한다. program_dsr=True면
+    프로그램 전체 N_eff DSR과 아이디어 내부 DSR을 병기한 'markdown_program' 표도 낸다(부록 v2.1-3).
     """
     splits = run_splits(idea_id, config, lane, cand_returns, bench_returns,
-                        dates, design_end, **kw)
+                        dates, design_end, program_dsr=program_dsr, **kw)
     lines = [markdown_header()]
+    prog_lines: list[str] = []
     decisions = {}
     for period, res in splits.items():
         dec = gate.decide(res["axis_input"])
         decisions[period] = dec
         lines.append(markdown_row(idea_id, lane, period, res["unit"], res["money"],
                                   res["reality_check"], dec))
-    return {"splits": splits, "decisions": decisions, "markdown": "\n".join(lines)}
+        if "program_dsr" in res:
+            if not prog_lines:
+                prog_lines.append(markdown_program_dsr_header())
+            prog_lines.append(markdown_program_dsr_row(idea_id, period, res["program_dsr"]))
+    result = {"splits": splits, "decisions": decisions, "markdown": "\n".join(lines)}
+    if prog_lines:
+        result["markdown_program"] = "\n".join(prog_lines)
+    return result

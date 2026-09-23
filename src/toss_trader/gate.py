@@ -44,13 +44,13 @@ __all__ = [
     # 다중검정
     "stationary_bootstrap_indices", "probabilistic_sharpe_ratio",
     "expected_max_sharpe", "deflated_sharpe_ratio", "whites_reality_check",
-    "hansen_spa", "n_eff_clusters",
+    "hansen_spa", "n_eff_clusters", "program_n_eff", "dsr_program",
     # 부트스트랩 CI
     "stationary_bootstrap_mean_ci", "block_bootstrap_ci",
     # 강건성
     "plateau_test", "subperiod_consistency", "rolling_window_winrate",
     "cost_stress", "breakeven_cost_bps", "start_date_randomization",
-    "vol_match_scale",
+    "vol_match_scale", "relative_risk_ok", "core_satellite",
     # 거래단위(레인2/3)
     "trade_tstat", "trade_pnl_bootstrap_ci", "profit_factor", "expectancy",
     # 워크포워드
@@ -709,6 +709,44 @@ def vol_match_scale(returns: list[float], target_ann_vol: float = 0.10,
     return target_ann_vol / av
 
 
+def relative_risk_ok(mdd_s: float, mdd_b: float, ulcer_s: float, ulcer_b: float,
+                     *, mdd_slack: float = 0.05, ulcer_mult: float = 1.10) -> bool:
+    """상대 리스크 트랙(사양 부록 v2.1-1). 벤치마크 자체가 −50% 절대 캡을 구조적으로
+    위반하는 '항상 투자' 계열(예 NDX 1x 설계구간 MDD −83%)에서 절대 캡 대신 쓰는 상대 기준.
+
+    통과: `mdd_s ≥ mdd_b − mdd_slack` 그리고 `ulcer_s ≤ ulcer_mult × ulcer_b`.
+    MDD는 음수 분수(예 −0.83), mdd_slack=0.05는 5%p. 설계·홀드아웃 모두에서 만족해야 하며
+    (호출부가 두 구간을 각각 검사), 절대 캡은 벤치가 캡을 지키는 구간/레인에서 그대로 유지한다.
+    """
+    return (mdd_s >= mdd_b - mdd_slack) and (ulcer_s <= ulcer_mult * ulcer_b)
+
+
+def core_satellite(core_returns: list[float], sat_returns: list[float],
+                   w_core: float) -> dict:
+    """코어(예 QQQ)+위성 결합 일수익(사양 부록 v2.1-5). 위성 전략은 단독이 아니라 코어와
+    합친 포트폴리오로 평가한다(위성이 현금에 머무는 기회비용 포함 — 그 구간 sat_returns를
+    0으로 넣으면 그대로 반영된다). 코어 100%(QQQ) 대비 판정하는 것이 목적.
+
+    두 변형을 돌려준다:
+      daily_rebalanced   : 매일 w_core:(1−w_core)로 리밸런싱 → w_core·rc + (1−w_core)·rs.
+      buy_and_hold_drift : t0에 배분한 뒤 리밸런싱 없이 가중치가 표류(각 자산 개별 복리 성장).
+    두 시계열 모두 길이 = min(len(core_returns), len(sat_returns)).
+    """
+    n = min(len(core_returns), len(sat_returns))
+    rc = core_returns[:n]
+    rs = sat_returns[:n]
+    w_sat = 1.0 - w_core
+    rebal = [w_core * rc[i] + w_sat * rs[i] for i in range(n)]
+    drift: list[float] = []
+    cv, sv = w_core, w_sat
+    for i in range(n):
+        old = cv + sv
+        cv *= (1.0 + rc[i])
+        sv *= (1.0 + rs[i])
+        drift.append((cv + sv) / old - 1.0 if old != 0 else 0.0)
+    return {"daily_rebalanced": rebal, "buy_and_hold_drift": drift}
+
+
 # ── 거래단위 (레인2/3) ───────────────────────────────────────────────────────
 def trade_tstat(pnls: list[float]) -> float:
     """거래별 순PnL의 t = mean/(std/sqrt(n)). 인트라데이 필요조건 t≥3(사양 §3.5)."""
@@ -867,9 +905,95 @@ def append_holdout_peek(path: str, idea_id: str, record: dict) -> None:
     ledger_append(path, rec)
 
 
+def _load_stream_ref(ref, ledger_path: str | None = None, loader=None):
+    """stream_ref → 수익 스트림(list[float]) 또는 None. loader 우선, 없으면 JSON 파일을 탐색.
+
+    파일 폴백은 ref를 그대로, ledger 디렉터리 기준, 그 상위(레포 루트) 기준 순으로 찾는다.
+    JSON은 float 리스트이거나 {"returns"|"stream"|"r": [...]} 형태를 허용한다.
+    """
+    if not ref:
+        return None
+    if loader is not None:
+        try:
+            s = loader(ref)
+        except Exception:
+            return None
+        return [float(x) for x in s] if s else None
+    candidates = [ref]
+    if ledger_path:
+        d = os.path.dirname(ledger_path)
+        candidates.append(os.path.join(d, ref))
+        candidates.append(os.path.join(os.path.dirname(d) if d else "", ref))
+    for c in candidates:
+        if c and os.path.exists(c):
+            try:
+                with open(c, encoding="utf-8") as f:
+                    data = json.load(f)
+            except (OSError, json.JSONDecodeError):
+                continue
+            if isinstance(data, dict):
+                data = data.get("returns") or data.get("stream") or data.get("r")
+            if isinstance(data, list) and all(isinstance(x, (int, float)) for x in data):
+                return [float(x) for x in data]
+    return None
+
+
+def program_n_eff(ledger_path: str, *, theta: float = 0.9, stream_loader=None) -> dict:
+    """원장 전체(아이디어 간 포함) 시도의 (N, N_eff)(사양 부록 v2.1-3).
+
+    N = 전체 시도 행 수. N_eff: 모든 시도의 저장된 수익 스트림(stream_ref)을 불러올 수 있으면
+    상관 그리디 클러스터링(n_eff_clusters)으로, 하나라도 못 불러오면 고유 idea_id 수로 폴백한다
+    (아이디어 내부 그리드는 하나로 흡수). 반환 키: N, N_eff, n_ideas, n_streams, method.
+    """
+    records = list(_iter_ledger(ledger_path))
+    n = len(records)
+    if n == 0:
+        return {"N": 0, "N_eff": 0, "n_ideas": 0, "n_streams": 0, "method": "empty"}
+    streams: dict[str, list[float]] = {}
+    for i, rec in enumerate(records):
+        ref = rec.get("stream_ref")
+        if not ref:
+            continue
+        s = _load_stream_ref(ref, ledger_path, stream_loader)
+        if s and len(s) >= 2:
+            streams[f"{i}:{ref}"] = s
+    ideas = {rec.get("idea_id") for rec in records if rec.get("idea_id") is not None}
+    n_ideas = len(ideas) if ideas else n
+    if len(streams) == n:
+        n_eff = n_eff_clusters(streams, theta=theta)
+        method = "stream_cluster"
+    else:
+        n_eff = n_ideas
+        method = "idea_id_fallback"
+    return {"N": n, "N_eff": max(1, n_eff), "n_ideas": n_ideas,
+            "n_streams": len(streams), "method": method}
+
+
+def dsr_program(returns: list[float], ledger_path: str, idea_id: str, *,
+                theta: float = 0.9, stream_loader=None) -> dict:
+    """프로그램 전체 N_eff DSR과 아이디어 내부 N DSR을 함께 보고한다(사양 부록 v2.1-3).
+
+    dsr_program: 원장 전체 시도 SR 분산 + program N_eff(아이디어 간 포함) → 다중검정 최종 방어.
+    dsr_idea:    해당 idea_id 시도 SR + 내부 N → 참고치.
+    반환 키: dsr_program, dsr_idea, N_program, N_eff_program, N_idea, n_ideas, method.
+    """
+    prog = program_n_eff(ledger_path, theta=theta, stream_loader=stream_loader)
+    all_sr = ledger_trial_sharpes(ledger_path)
+    idea_sr = ledger_trial_sharpes(ledger_path, idea_id)
+    dsr_prog = (deflated_sharpe_ratio(returns, all_sr, n_eff=prog["N_eff"])
+                if all_sr else float("nan"))
+    dsr_idea = (deflated_sharpe_ratio(returns, idea_sr, n_eff=len(idea_sr))
+                if idea_sr else float("nan"))
+    return {"dsr_program": dsr_prog, "dsr_idea": dsr_idea,
+            "N_program": prog["N"], "N_eff_program": prog["N_eff"],
+            "N_idea": len(idea_sr), "n_ideas": prog["n_ideas"],
+            "method": prog["method"]}
+
+
 # ── 결정표 (PASS / CONDITIONAL / FAIL) ───────────────────────────────────────
 _RANK = {"PASS": 0, "CONDITIONAL": 1, "FAIL": 2, "SKIP": -1}
 MDD_HARD_CAP = -0.50                      # 단위자본 OOS MDD 하드캡(사양 §5.1)
+LEVERAGED_MDD_FLOOR = -0.70               # 레버리지 전표본 파산방지 하한(사양 부록 v2.1-1)
 
 
 @dataclass
@@ -877,12 +1001,14 @@ class Decision:
     verdict: str                          # PASS | CONDITIONAL | FAIL
     reasons: list[str] = field(default_factory=list)
     axes: dict[str, str] = field(default_factory=dict)
+    tags: list[str] = field(default_factory=list)   # 예: holdout_semi_contaminated(부록 v2.1-4)
 
     def __str__(self) -> str:             # str(decision) == verdict (사양 §10 시그니처)
         return self.verdict
 
     def to_dict(self) -> dict:
-        return {"verdict": self.verdict, "axes": self.axes, "reasons": self.reasons}
+        return {"verdict": self.verdict, "axes": self.axes,
+                "reasons": self.reasons, "tags": self.tags}
 
 
 def _combine(axes: dict[str, str]) -> str:
@@ -902,7 +1028,8 @@ def _grade(cond_pass: bool, cond_fail: bool) -> str:
     return "PASS" if cond_pass else "CONDITIONAL"
 
 
-def decide(metrics: dict) -> Decision:
+def decide(metrics: dict, *, risk_track: str = "absolute",
+           signal_reuse: bool = False) -> Decision:
     """§6 결정표를 인코딩해 PASS/CONDITIONAL/FAIL과 사유를 낸다.
 
     metrics는 레인별 축 입력을 담는다. 모든 축을 AND로 결합하고, 하나라도 FAIL이면 전체 FAIL,
@@ -929,6 +1056,14 @@ def decide(metrics: dict) -> Decision:
 
     axes: dict[str, str] = {}
     reasons: list[str] = []
+    tags: list[str] = []
+    # risk_track/signal_reuse는 키워드 인자 또는 metrics 키로 받는다(둘 다 지원, 기본 하위호환).
+    risk_track = str(metrics.get("risk_track", risk_track))
+    signal_reuse = bool(metrics.get("signal_reuse", signal_reuse))
+    if signal_reuse:
+        tags.append("holdout_semi_contaminated")
+        reasons.append("신호 재사용(부록 v2.1-4): 홀드아웃 반오염(holdout_semi_contaminated) "
+                       "표기, 유의성 임계 RC/SPA p<0.01로 강화")
 
     # 1) 경제적 이득
     tv0 = metrics.get("terminal_vs_b0")
@@ -954,20 +1089,26 @@ def decide(metrics: dict) -> Decision:
     # 2) 유의성(다중검정)
     dsr = metrics.get("dsr")
     rcp = metrics.get("rc_pvalue")
+    spa = metrics.get("spa_pvalue")
+    sig_thresh = 0.01 if signal_reuse else 0.05      # 신호 재사용시 임계 강화(부록 v2.1-4)
     if dsr is None and rcp is None:
         axes["significance"] = "SKIP"
     else:
         dsr_pass = dsr is not None and dsr >= 0.95
         dsr_border = dsr is not None and 0.90 <= dsr < 0.95
-        rc_pass = rcp is not None and rcp < 0.05
+        rc_pass = rcp is not None and rcp < sig_thresh
+        if signal_reuse and spa is not None:
+            rc_pass = rc_pass and spa < sig_thresh   # 재사용시 RC/SPA 둘 다 p<0.01
         if dsr_pass and rc_pass:
             axes["significance"] = "PASS"
         elif (dsr_pass or rc_pass) or dsr_border:
             axes["significance"] = "CONDITIONAL"
-            reasons.append(f"유의성: 하나만 통과 또는 DSR 경계(DSR={dsr}, RC_p={rcp}) → 경계")
+            reasons.append(f"유의성: 하나만 통과 또는 DSR 경계"
+                           f"(DSR={dsr}, RC_p={rcp}, 임계={sig_thresh}) → 경계")
         else:
             axes["significance"] = "FAIL"
-            reasons.append(f"유의성: DSR·RC 둘 다 미달(DSR={dsr}, RC_p={rcp}) → FAIL")
+            reasons.append(f"유의성: DSR·RC 둘 다 미달"
+                           f"(DSR={dsr}, RC_p={rcp}, 임계={sig_thresh}) → FAIL")
 
     # 레인2는 거래단위 유의성도 요구(t≥3)
     if lane == 2 and metrics.get("trade_tstat") is not None:
@@ -1031,14 +1172,46 @@ def decide(metrics: dict) -> Decision:
             axes["start_date"] = "FAIL"
             reasons.append(f"시작일: 승률 {sdw:.2f}<0.55 → FAIL")
 
-    # 7) 리스크(하드캡 + Calmar/Ulcer 비열위)
+    # 7) 리스크(절대/상대 트랙 + 레버리지 파산방지 하한 + Calmar/Ulcer 비열위)
     mdd = metrics.get("mdd")
     if mdd is None:
         axes["risk"] = "SKIP"
     else:
-        if mdd <= MDD_HARD_CAP:
+        mdd_b = metrics.get("mdd_bench")
+        track = risk_track
+        if track == "auto":                          # 벤치가 캡을 깨면 상대 트랙(부록 v2.1-1)
+            track = "relative" if (mdd_b is not None and mdd_b <= MDD_HARD_CAP) else "absolute"
+
+        hard_fail = False
+        # 레버리지 전표본 파산방지 하한 −70% (트랙 공통, 부록 v2.1-1)
+        if metrics.get("leveraged"):
+            full_mdd = metrics.get("mdd_full_sample", mdd)
+            if full_mdd < LEVERAGED_MDD_FLOOR:
+                hard_fail = True
+                reasons.append(f"리스크: 레버리지 전표본 MDD {full_mdd:.2%} < "
+                               f"−70% 파산방지 하한 → FAIL(부록 v2.1-1)")
+
+        if not hard_fail and track == "relative":
+            ulcer_s = metrics.get("ulcer")
+            ulcer_b = metrics.get("ulcer_bench")
+            if mdd_b is None:                        # 벤치 입력 부족 → 절대 캡 폴백
+                track = "absolute"
+                reasons.append("리스크(상대): mdd_bench 부재 → 절대 캡 폴백")
+            elif ulcer_s is None or ulcer_b is None:  # 보수 우선: ulcer 검증 불가 → FAIL
+                hard_fail = True
+                reasons.append("리스크(상대): ulcer/ulcer_bench 부재 → 검증 불가, 보수적 FAIL")
+            elif not relative_risk_ok(mdd, mdd_b, ulcer_s, ulcer_b):
+                hard_fail = True
+                reasons.append(f"리스크(상대): MDD_s {mdd:.2%} 또는 Ulcer 상대기준 위반 "
+                               f"→ FAIL(부록 v2.1-1)")
+
+        if not hard_fail and track == "absolute":
+            if mdd <= MDD_HARD_CAP:
+                hard_fail = True
+                reasons.append(f"리스크: 단위자본 MDD {mdd:.2%} ≤ 하드캡 −50% → FAIL(§5.1)")
+
+        if hard_fail:
             axes["risk"] = "FAIL"
-            reasons.append(f"리스크: 단위자본 MDD {mdd:.2%} ≤ 하드캡 −50% → FAIL(§5.1)")
         else:
             calmar_ok = metrics.get("calmar_not_worse", True)
             ulcer_ok = metrics.get("ulcer_not_worse", True)
@@ -1051,7 +1224,7 @@ def decide(metrics: dict) -> Decision:
     verdict = _combine(axes)
     if verdict == "PASS":
         reasons.insert(0, "전 축 green → 채택 절차(소액 슬리브+포워드 페이퍼, §6.1) 진입")
-    return Decision(verdict=verdict, reasons=reasons, axes=axes)
+    return Decision(verdict=verdict, reasons=reasons, axes=axes, tags=tags)
 
 
 def _decide_lane3(metrics: dict) -> Decision:

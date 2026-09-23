@@ -336,3 +336,181 @@ def test_decide_lane3_never_pass_but_conditional_when_necessary_met():
     bad = dict(lane=3, n_trades=120, trade_tstat=2.0, trade_ci_lo=-0.1,
                slippage_stress_pass=False)
     assert gate.decide(bad).verdict == "FAIL"
+
+
+# ── v2.1-1: 상대 리스크 트랙 + 레버리지 파산방지 하한 ─────────────────────────
+def test_relative_risk_ok_pass_and_fail():
+    # 벤치 MDD −83%(NDX 1x). 전략 −60%는 −83%−5%p=−88% 이상 → MDD 통과, ulcer 10 ≤ 1.10×12.
+    assert gate.relative_risk_ok(-0.60, -0.83, 10.0, 12.0)
+    # MDD가 벤치−5%p보다 더 깊음(−90% < −88%) → 실패.
+    assert not gate.relative_risk_ok(-0.90, -0.83, 10.0, 12.0)
+    # Ulcer가 1.10×벤치(13.2) 초과(20) → 실패.
+    assert not gate.relative_risk_ok(-0.60, -0.83, 20.0, 12.0)
+
+
+def test_decide_auto_relative_track_flips_absolute_fail():
+    m = _pass_metrics()
+    m["mdd"] = -0.60          # 절대 캡(−50%) 위반
+    m["mdd_bench"] = -0.83    # 벤치도 캡 위반 → auto가 상대 트랙 선택
+    m["ulcer"] = 10.0
+    m["ulcer_bench"] = 12.0
+    # 절대 트랙: 리스크 FAIL(전체 FAIL)
+    assert gate.decide(m, risk_track="absolute").axes["risk"] == "FAIL"
+    # auto → relative: 상대 기준 통과 → 리스크 PASS, 전체 PASS
+    d = gate.decide(m, risk_track="auto")
+    assert d.axes["risk"] == "PASS"
+    assert d.verdict == "PASS"
+
+
+def test_decide_relative_track_via_metrics_key():
+    m = _pass_metrics()
+    m.update(mdd=-0.60, mdd_bench=-0.83, ulcer=10.0, ulcer_bench=12.0,
+             risk_track="relative")
+    assert gate.decide(m).axes["risk"] == "PASS"
+
+
+def test_decide_relative_leveraged_floor_fails():
+    m = _pass_metrics()
+    m.update(mdd=-0.60, mdd_bench=-0.83, ulcer=10.0, ulcer_bench=12.0,
+             leveraged=True, mdd_full_sample=-0.75)   # 전표본 −75% < −70% 하한
+    assert gate.decide(m, risk_track="auto").axes["risk"] == "FAIL"
+    # 전표본이 하한 안(−0.65)이면 상대 트랙 통과.
+    m["mdd_full_sample"] = -0.65
+    assert gate.decide(m, risk_track="auto").axes["risk"] == "PASS"
+
+
+def test_decide_relative_missing_ulcer_is_conservative_fail():
+    m = _pass_metrics()
+    m.update(mdd=-0.60, mdd_bench=-0.83, risk_track="relative")  # ulcer 입력 없음
+    assert gate.decide(m).axes["risk"] == "FAIL"
+
+
+# ── v2.1-3: 프로그램 전체 N / DSR ─────────────────────────────────────────────
+def test_program_n_eff_idea_fallback(tmp_path):
+    path = str(tmp_path / "ledger.jsonl")
+    for sid, idea in [(0.03, "a"), (0.02, "a"), (0.04, "a"),
+                      (0.01, "b"), (0.02, "b"), (0.05, "c")]:
+        gate.ledger_append(path, {"idea_id": idea, "sr_daily": sid, "period": "design"})
+    res = gate.program_n_eff(path)
+    assert res["N"] == 6
+    assert res["n_ideas"] == 3
+    assert res["N_eff"] == 3                     # 스트림 없음 → 고유 idea 수 폴백
+    assert res["method"] == "idea_id_fallback"
+
+
+def test_program_n_eff_stream_cluster(tmp_path):
+    path = str(tmp_path / "ledger.jsonl")
+    base = [0.01, 0.02, -0.01, 0.03, -0.02, 0.015, -0.005]
+    near = [v + 0.0005 for v in base]            # base와 거의 완전 상관
+    anti = [-v for v in base]                    # 음의 상관 → 별개 클러스터
+    streams = {"s1": base, "s2": near, "s3": anti}
+    for ref in ("s1", "s2", "s3"):
+        gate.ledger_append(path, {"idea_id": ref, "sr_daily": 0.02,
+                                  "period": "design", "stream_ref": ref})
+    res = gate.program_n_eff(path, stream_loader=lambda r: streams[r], theta=0.9)
+    assert res["N"] == 3
+    assert res["method"] == "stream_cluster"
+    assert res["N_eff"] == 2                     # base·near 한 클러스터, anti 별개
+
+
+def test_dsr_program_reports_both_and_wires(tmp_path):
+    path = str(tmp_path / "ledger.jsonl")
+    for sid, idea in [(0.03, "x"), (0.02, "x"), (0.04, "y"),
+                      (0.01, "y"), (0.05, "z"), (0.02, "z")]:
+        gate.ledger_append(path, {"idea_id": idea, "sr_daily": sid, "period": "design"})
+    rng = random.Random(3)
+    rets = [rng.gauss(0.001, 0.01) for _ in range(600)]
+    out = gate.dsr_program(rets, path, "x")
+    prog = gate.program_n_eff(path)
+    all_sr = gate.ledger_trial_sharpes(path)
+    idea_sr = gate.ledger_trial_sharpes(path, "x")
+    assert out["N_program"] == 6
+    assert out["N_idea"] == 2
+    assert out["N_eff_program"] == prog["N_eff"] == 3
+    # 구조 자기일치: program은 전체 시도 SR + program N_eff, idea는 내부 SR + 내부 N.
+    assert out["dsr_program"] == pytest.approx(
+        gate.deflated_sharpe_ratio(rets, all_sr, n_eff=prog["N_eff"]))
+    assert out["dsr_idea"] == pytest.approx(
+        gate.deflated_sharpe_ratio(rets, idea_sr, n_eff=len(idea_sr)))
+
+
+# ── v2.1-4: 신호 재사용 페널티 ────────────────────────────────────────────────
+def test_decide_signal_reuse_tightens_threshold_and_tags():
+    m = _pass_metrics()                          # rc_pvalue=0.02, dsr=0.97
+    assert gate.decide(m).axes["significance"] == "PASS"           # 일반 임계 0.05
+    d = gate.decide(m, signal_reuse=True)        # 임계 0.01 → 0.02 미달 → 강등
+    assert d.axes["significance"] == "CONDITIONAL"
+    assert "holdout_semi_contaminated" in d.tags
+    m2 = dict(m, rc_pvalue=0.005)                # 0.01 미만이면 재사용에도 통과
+    assert gate.decide(m2, signal_reuse=True).axes["significance"] == "PASS"
+
+
+def test_decide_signal_reuse_via_metrics_key_and_spa():
+    # metrics 키로도 활성화되며, spa_pvalue가 있으면 RC/SPA 둘 다 <0.01 요구.
+    m = dict(_pass_metrics(), signal_reuse=True, rc_pvalue=0.005, spa_pvalue=0.02)
+    d = gate.decide(m)
+    assert d.axes["significance"] == "CONDITIONAL"   # spa 0.02 ≥ 0.01 → 미통과
+    assert "holdout_semi_contaminated" in d.tags
+
+
+# ── v2.1-5: 코어-위성 결합 ────────────────────────────────────────────────────
+def test_core_satellite_daily_rebalanced_matches_weighted():
+    rc = [0.01, -0.02, 0.03]
+    rs = [0.00, 0.01, -0.01]
+    out = gate.core_satellite(rc, rs, 0.7)
+    expected = [0.7 * rc[i] + 0.3 * rs[i] for i in range(3)]
+    assert out["daily_rebalanced"] == pytest.approx(expected)
+
+
+def test_core_satellite_buy_and_hold_drift_hand():
+    # 50:50, core +10%/+10%, 위성 현금(0%). day0 old=1 → new=1.05 → 0.05.
+    out = gate.core_satellite([0.10, 0.10], [0.0, 0.0], 0.5)
+    assert out["buy_and_hold_drift"][0] == pytest.approx(0.05)
+    # day1: (0.605+0.5)/1.05 - 1 = 1.105/1.05 - 1 (가중치 표류로 리밸런싱과 갈라짐).
+    assert out["buy_and_hold_drift"][1] == pytest.approx(1.105 / 1.05 - 1.0)
+    assert out["daily_rebalanced"] == pytest.approx([0.05, 0.05])
+
+
+# ── gate_eval: 프로그램/아이디어 DSR 병기 렌더(부록 v2.1-3) ───────────────────
+def _load_gate_eval():
+    import importlib.util
+    p = Path(__file__).resolve().parent.parent / "scripts" / "gate_eval.py"
+    spec = importlib.util.spec_from_file_location("gate_eval_mod", p)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_gate_eval_renders_program_and_idea_dsr():
+    ge = _load_gate_eval()
+    pd_ = {"N_program": 10, "N_eff_program": 4, "N_idea": 3,
+           "dsr_program": 0.88, "dsr_idea": 0.96}
+    header = ge.markdown_program_dsr_header()
+    row = ge.markdown_program_dsr_row("tsmom_v1", "holdout", pd_)
+    assert "DSR(program)" in header and "DSR(idea)" in header
+    assert "0.88" in row and "0.96" in row and "| 10 |" in row and "| 4 |" in row
+
+
+def test_gate_eval_run_splits_program_dsr_endtoend(tmp_path):
+    ge = _load_gate_eval()
+    path = str(tmp_path / "ledger.jsonl")
+    for idea in ("prior1", "prior2"):            # 프로그램 N 형성(아이디어 간)
+        gate.ledger_append(path, {"idea_id": idea, "sr_daily": 0.03, "period": "design"})
+    rng = random.Random(9)
+    n = 400
+    dates = [date(2005, 1, 1) + timedelta(days=i) for i in range(n + 1)]
+    cand = [rng.gauss(0.0006, 0.01) for _ in range(n)]
+    bench = [rng.gauss(0.0003, 0.01) for _ in range(n)]
+    res = ge.run_splits("newidea", {"lb": 100}, 1, cand, bench, dates,
+                        design_end=date(2005, 1, 1) + timedelta(days=300),
+                        ledger_path=path, rc_B=60, program_dsr=True)
+    assert set(res) == {"design", "holdout"}
+    for period in res:
+        assert "program_dsr" in res[period]
+        pdd = res[period]["program_dsr"]
+        assert "dsr_program" in pdd and "dsr_idea" in pdd
+        # 권위값(axis_input.dsr)이 프로그램 DSR로 대체되었는지.
+        assert res[period]["axis_input"]["dsr"] == pdd["dsr_program"]
+        # 상대 트랙 입력(벤치 MDD·Ulcer)도 채워져 있어야 한다.
+        assert "mdd_bench" in res[period]["axis_input"]
+        assert "ulcer_bench" in res[period]["axis_input"]
