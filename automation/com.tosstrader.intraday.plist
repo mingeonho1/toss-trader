@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  인트라데이 분봉 수집 LaunchAgent — 참조용 템플릿(설치 안 됨).
+  주문/체결 없음. 키 없는 공개 소스(Nasdaq /chart)에서 직전 세션 분봉을 워치리스트에
+  누적만 한다. 자체 인트라데이 데이터셋을 시간에 걸쳐 쌓기 위함.
+
+  설치(수동):
+    cp automation/com.tosstrader.intraday.plist ~/Library/LaunchAgents/
+    # 아래 경로(<PROJECT>/<PYTHON>)를 이 머신에 맞게 치환한 뒤:
+    launchctl load  ~/Library/LaunchAgents/com.tosstrader.intraday.plist   # 등록
+    launchctl unload ~/Library/LaunchAgents/com.tosstrader.intraday.plist  # 해제
+  경로 치환:
+    <PYTHON>  = 이 repo의 .venv 파이썬 실제 경로 (예: /Users/mingh/github/toss-trader/.venv/bin/python3.13)
+    <PROJECT> = /Users/mingh/github/toss-trader
+
+  스케줄(KST): 미국 확장장은 20:00 ET 종료 → Nasdaq /chart가 그 세션 전체(04:00~20:00 ET)를
+  준다. 마감 후 여유 있게 수집하려고 KST 두 트리거를 둔다(수집기는 병합-누적이라 이중 실행 무해):
+    - 09:10 KST → 미 서머타임(EDT, 20:00 ET = 09:00 KST) 커버
+    - 10:10 KST → 미 표준시(EST, 20:00 ET = 10:00 KST) 커버
+  주말(월요일 새벽 KST)엔 직전 금요일 세션을 한 번 더 받게 되지만 ts 병합으로 중복 제거된다.
+
+  ⚠️ macOS TCC: repo가 ~/Desktop·Documents·Downloads 아래면 launchd 접근 거부.
+     보호되지 않는 경로(예: ~/github/toss-trader)에 두거나 <PYTHON>에 전체 디스크 접근 부여.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.tosstrader.intraday</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/mingh/github/toss-trader/.venv/bin/python3.13</string>
+    <string>/Users/mingh/github/toss-trader/scripts/collect_intraday.py</string>
+    <!-- 키 없는 Nasdaq만 사용(Yahoo 429 재유발 방지). Yahoo 백필은 필요 시 수동 실행. -->
+    <string>--source</string><string>nasdaq</string>
+    <string>--intervals</string><string>1m,5m</string>
+    <!-- 당일 상승률/거래량 상위 12종목까지 워치리스트에 추가($5 미만 초저유동성 제외) -->
+    <string>--movers</string><string>12</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict><key>PYTHONPATH</key><string>/Users/mingh/github/toss-trader/src</string></dict>
+  <key>RunAtLoad</key><false/>
+  <key>StartCalendarInterval</key>
+  <array>
+    <dict><key>Hour</key><integer>9</integer><key>Minute</key><integer>10</integer></dict>
+    <dict><key>Hour</key><integer>10</integer><key>Minute</key><integer>10</integer></dict>
+  </array>
+  <key>StandardOutPath</key><string>/Users/mingh/github/toss-trader/data/intraday.launchd.out.log</string>
+  <key>StandardErrorPath</key><string>/Users/mingh/github/toss-trader/data/intraday.launchd.err.log</string>
+  <key>WorkingDirectory</key><string>/Users/mingh/github/toss-trader</string>
+  <key>ProcessType</key><string>Background</string>
+</dict>
+</plist>

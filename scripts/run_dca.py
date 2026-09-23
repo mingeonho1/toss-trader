@@ -16,8 +16,9 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import re
 import sys
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
@@ -26,6 +27,7 @@ from toss_trader.backtest import run_dca               # noqa: E402
 from toss_trader.client import TossClient              # noqa: E402
 from toss_trader.config import get_settings            # noqa: E402
 from toss_trader.costs import CostModel                # noqa: E402
+from toss_trader.fees import TossFeeSchedule           # noqa: E402
 from toss_trader.marketdata import TossMarketData      # noqa: E402
 from toss_trader.models import Candle                  # noqa: E402
 
@@ -64,6 +66,139 @@ def _state() -> dict:
 def _save_state(d: dict) -> None:
     DATA.mkdir(parents=True, exist_ok=True)
     STATE.write_text(json.dumps(d, ensure_ascii=False, indent=2))
+
+
+# ── 정규장 주문 접수 시간 가드 ─────────────────────────────────────────
+# 미국 금액주문(orderAmount)·소수점 매도는 정규장 시작 ~ **정규장 종료 1시간 전**까지만 접수된다
+# (그 외엔 422 amount-order-outside-regular-hours / fractional-quantity-outside-regular-hours).
+# 예) 서머타임(EDT): 정규장 22:30~05:00 KST → 접수 마감 04:00 KST.
+#     표준시(EST, 11/1~): 정규장 23:30~06:00 KST → 접수 마감 05:00 KST.
+# → launchd 트리거를 여러 개 두고(23:00·23:45·00:45 KST 등) 이 가드로 창 밖은 스킵, 세션당 1회만 실주문.
+KST = timezone(timedelta(hours=9))
+ORDER_CLOSE_BUFFER = timedelta(hours=1)  # 금액/소수점 주문 마감 = 정규장 종료 −1h
+
+
+def _parse_dt(s: str | None) -> datetime | None:
+    if not s:
+        return None
+    try:
+        return datetime.fromisoformat(s)  # '+09:00' 오프셋 파싱 (Py≥3.11)
+    except (ValueError, TypeError):
+        return None
+
+
+def order_window(reg: dict | None) -> tuple[datetime | None, datetime | None]:
+    """정규장 세션 reg={startTime,endTime}에서 금액/소수점 주문 접수 구간 [start, end−1h] 반환.
+
+    파싱 실패 시 (None, None). (market-calendar US today.regularMarket 스키마)
+    """
+    if not isinstance(reg, dict):
+        return (None, None)
+    start = _parse_dt(reg.get("startTime"))
+    end = _parse_dt(reg.get("endTime"))
+    if start is None or end is None:
+        return (None, None)
+    return (start, end - ORDER_CLOSE_BUFFER)
+
+
+def order_window_status(reg: dict | None,
+                        now: datetime | None = None) -> tuple[bool, str]:
+    """(접수 가능 여부, 사유). now 미지정 시 현재 KST. DST/표준시 모두 캘린더 값으로 자동 판정."""
+    now = now or datetime.now(KST)
+    start, close = order_window(reg)
+    if start is None or close is None:
+        return (False, "정규장 세션 시간(startTime/endTime) 파싱 실패")
+    if now < start:
+        return (False, f"정규장 시작 전 (now={now.isoformat()} < start={start.isoformat()})")
+    if now > close:
+        return (False, "금액주문 마감(정규장 종료 1시간 전) 경과 "
+                       f"(now={now.isoformat()} > close={close.isoformat()})")
+    return (True, f"접수 가능 구간 내 (start={start.isoformat()} ~ close={close.isoformat()})")
+
+
+def client_order_id(session_date: str, sym: str, k: int | None = None) -> str:
+    """결정론적 멱등키. 단건 dca-{session_date}-{sym}, 분할건 dca-{session_date}-{sym}-{k}. ≤36자.
+
+    동일 세션·동일 종목(·동일 청크) 재요청 시 서버가 원주문을 그대로 반환(10분 유효)해 중복을 막는다.
+    분할 인덱스 접미사(-k)는 항상 보존하도록 base를 먼저 자른다(접미사 절단으로 인한 cid 충돌 방지).
+    """
+    cid = re.sub(r"[^A-Za-z0-9_-]", "-", f"dca-{session_date}-{sym}")
+    if k is None:
+        return cid[:36]
+    suffix = f"-{k}"
+    return cid[:36 - len(suffix)] + suffix
+
+
+# 분할 매수 정책(수수료 절감): 건당 체결금액 ≤ $10 면 수수료 무료(fees.py). 큰 매수를 ≤$10 청크로
+# 쪼개면 총 수수료가 준다. ⚠️ 정책 리스크: 토스가 '남용'으로 보거나 정책을 바꿀 수 있어 **플래그**로 둔다.
+FEES = TossFeeSchedule()
+MAX_SPLIT_ORDERS_PER_RUN = 20          # 이번 실행에서 낼 (분할 포함) 총 주문 건수 상한(레이트/남용 가드)
+
+
+def plan_buy_chunks(amount: float, *, split: bool = True,
+                    max_orders: int = MAX_SPLIT_ORDERS_PER_RUN,
+                    min_chunk: float = 1.0) -> list[float]:
+    """매수 금액을 (분할이 수수료를 줄일 때만) ≤$10 청크 리스트로. 아니면 [amount] 단건.
+
+    ≤$10 단건은 이미 무료라 그대로 두고, 분할이 실제로 총수수료를 낮출 때만 여러 건으로 나눈다.
+    """
+    amt = round(float(amount), 2)
+    if not split or amt <= FEES.free_threshold_usd:
+        return [amt]
+    plan = FEES.plan_split("BUY", amt, price=None, max_orders=max_orders, min_chunk=min_chunk)
+    if len(plan.notionals) > 1 and plan.total_fee < FEES.order_fee("BUY", amt) - 1e-12:
+        return [round(c, 2) for c in plan.notionals]
+    return [amt]
+
+
+def _execute_buys(client, plan, session_date, skip, done, log, *,
+                  split: bool = True,
+                  max_orders_per_run: int = MAX_SPLIT_ORDERS_PER_RUN) -> bool:
+    """플랜의 각 (종목, 금액)을 매수 접수한다. split이면 ≤$10 청크로 나눠(수수료 절감) 낸다.
+
+    - 각 청크 cid = dca-{session}-{sym}-{k}(단건은 -k 없음). 서버측 cid dedup으로 재실행 멱등.
+    - 이번 실행 총 주문 건수는 max_orders_per_run으로 제한(레이트리밋 그룹 ORDER·남용 가드).
+    - 어떤 청크라도 실패하면 그 즉시 분할·실행을 중단(부분 체결 연쇄 방지)하고 False.
+    - 종목은 그 종목의 **모든 청크**가 성공했을 때만 done 처리(부분 성공은 done 아님 → 재실행 시 cid 멱등 재개).
+    반환: 전부 성공/스킵이면 True, 하나라도 실패면 False.
+    """
+    ok = True
+    orders_placed = 0
+    for sym, amt in plan:
+        if sym in skip:
+            log(f"  ⏭ {sym} 이미 이번 세션 주문 존재 → 건너뜀(중복 방지)")
+            continue
+        budget = max_orders_per_run - orders_placed
+        if budget <= 0:
+            log(f"  ⏸ 이번 실행 주문 한도({max_orders_per_run}건) 도달 → {sym} 이하 보류(다음 트리거에서 재개)")
+            break
+        chunks = plan_buy_chunks(amt, split=split, max_orders=min(budget, MAX_SPLIT_ORDERS_PER_RUN))
+        multi = len(chunks) > 1
+        placed_this_sym = 0
+        sym_ok = True
+        for k, chunk in enumerate(chunks):
+            cid = client_order_id(session_date, sym, k if multi else None)
+            tag = f" [{k + 1}/{len(chunks)}]" if multi else ""
+            try:
+                resp = client.create_order(sym, "BUY", order_type="MARKET",
+                                           order_amount=f"{chunk:.2f}", client_order_id=cid)
+                oid = resp.get("orderId") if isinstance(resp, dict) else None
+                orders_placed += 1
+                placed_this_sym += 1
+                log(f"  ✅ {sym} ${chunk:.2f} 매수 접수{tag}: orderId={oid} (cid={cid})")
+            except Exception as e:  # noqa: BLE001
+                sym_ok = False
+                ok = False
+                log(f"  ❌ {sym} ${chunk:.2f} 매수 실패{tag}{' [분할 중단]' if multi else ''}: {e}")
+                break                              # 어떤 오류든 즉시 분할 중단
+        if placed_this_sym > 0 and sym_ok:
+            done.add(sym)
+            _record_session_progress(session_date, done)   # 증분 저장(중간 실패 대비)
+        if not sym_ok:
+            break                                  # 실패 시 이번 실행 전체 중단(안전)
+    return ok
+
+
 ALLOC_CANDIDATES = {
     "QQQ 100%": {"QQQ": 1.0},
     "QQQ60/SCHD25/GLD15 (기본)": {"QQQ": 0.60, "SCHD": 0.25, "GLD": 0.15},
@@ -97,7 +232,48 @@ def backtest_mode() -> int:
     return 0
 
 
-def live_plan(execute: bool, auto: bool = False) -> int:
+def _session_skip_symbols(client, session_date: str, log) -> set[str]:
+    """이번 세션에 이미 접수된 것으로 볼 종목 집합(서버 OPEN 매수주문 기준, best-effort).
+
+    ⚠️ Order 스키마는 clientOrderId를 응답하지 않으므로 cid로는 매칭할 수 없다. 진짜 멱등은
+    결정론적 cid의 서버측 dedup(동일 cid 재요청=원주문 반환, 10분)이 담당하며, 여기선
+    '아직 미체결(OPEN)인 매수주문이 있는 종목'만 스킵해 중복 접수를 줄인다.
+    """
+    skip: set[str] = set()
+    try:
+        resp = client.list_orders("OPEN")
+        for o in (resp.get("orders") if isinstance(resp, dict) else []) or []:
+            sym = o.get("symbol")
+            if sym and str(o.get("side", "")).upper() == "BUY":
+                skip.add(sym)
+    except Exception as e:  # noqa: BLE001
+        log(f"  (사전 list_orders 확인 실패, 무시: {e})")
+    return skip
+
+
+def _record_session_progress(session_date: str, done: set[str]) -> None:
+    """세션 진행 상황을 증분 저장(중간 실패 후 재실행 시 완료 종목 스킵용)."""
+    st = _state()
+    if st.get("session_date") != session_date:
+        st = {"session_date": session_date}
+    st["done_symbols"] = sorted(done)
+    st["last_run"] = datetime.now(timezone.utc).isoformat()
+    _save_state(st)
+
+
+def _mark_session_complete(session_date: str, done: set[str] | None = None) -> None:
+    """세션 완료 마킹 → 같은 밤 다른 트리거가 발화해도 즉시 no-op."""
+    st = _state()
+    if st.get("session_date") != session_date:
+        st = {"session_date": session_date}
+    if done is not None:
+        st["done_symbols"] = sorted(done)
+    st["complete"] = True
+    st["last_run"] = datetime.now(timezone.utc).isoformat()
+    _save_state(st)
+
+
+def live_plan(execute: bool, auto: bool = False, split: bool = True) -> int:
     log = _log if auto else (lambda m: print(m))
     s = get_settings()
     s.require_credentials()
@@ -110,7 +286,8 @@ def live_plan(execute: bool, auto: bool = False) -> int:
         log("❌ accountSeq를 확인할 수 없습니다 (.env ACCOUNT_SEQ).")
         return 1
 
-    # 자동 실행 + 실주문이면: 정규장 + 하루 1회 가드를 매수가능 조회보다 먼저 확인.
+    # 실주문(execute)이면: 정규장 → '접수 시간 창(정규장 종료 1시간 전 마감)' → 세션완료 가드를
+    # 매수가능 조회보다 먼저 확인. (DST/표준시 상관없이 캘린더 값으로 자동 판정)
     session_date = None
     if execute:
         cal = client.get_market_calendar("US")
@@ -120,8 +297,13 @@ def live_plan(execute: bool, auto: bool = False) -> int:
         if not reg:
             log(f"⏸ 미국 정규장 아님(금액주문 불가) → 매수 건너뜀. (US date={session_date})")
             return 0
-        if auto and _state().get("last_session_date") == session_date:
-            log(f"✅ 이미 이번 세션({session_date})에 적립 매수 완료 → 중복 매수 방지, 종료.")
+        ok_win, why = order_window_status(reg)
+        if not ok_win:
+            log(f"⏸ 미국 금액주문 접수 시간 아님 → 매수 건너뜀. {why}")
+            return 0
+        st = _state()
+        if st.get("session_date") == session_date and st.get("complete"):
+            log(f"✅ 이미 이번 세션({session_date}) 적립 매수 완료 → 중복 방지, 종료.")
             return 0
 
     krw = float(client.get_buying_power("KRW").get("cashBuyingPower", 0) or 0)
@@ -148,29 +330,45 @@ def live_plan(execute: bool, auto: bool = False) -> int:
         + (", ".join(f"{s}=${a:.2f}" for s, a in plan) if plan else "없음"))
     if not plan:
         log("  (매수할 미달분 없음 또는 가용현금 < $1)")
+        if execute and session_date:
+            _mark_session_complete(session_date)
         return 0
 
+    if split:
+        preview = {s: plan_buy_chunks(a, split=True) for s, a in plan}
+        n_split = sum(1 for s in preview if len(preview[s]) > 1)
+        if n_split:
+            log("  ↳ 분할매수(≤$10 무료 활용): "
+                + ", ".join(f"{s}×{len(c)}" for s, c in preview.items() if len(c) > 1)
+                + "  (--no-split-small-orders로 끔; 정책 리스크 유의)")
+
     if not execute:
-        log("ℹ️ dry-run(플랜만). 실주문은 --execute (+TRADING_MODE=live, 정규장).")
+        log("ℹ️ dry-run(플랜만). 실주문은 --execute (+TRADING_MODE=live, 정규장·접수시간창).")
         return 0
     if not client.s.is_live:
         log("❌ --execute에는 TRADING_MODE=live 필요. paper라 주문 안 함.")
         return 1
 
-    ok = True
-    for sym, amt in plan:
-        try:
-            resp = client.create_order(sym, "BUY", order_type="MARKET", order_amount=f"{amt:.2f}")
-            log(f"  ✅ {sym} ${amt:.2f} 매수 접수: orderId={resp.get('orderId')}")
-        except Exception as e:  # noqa: BLE001
-            ok = False
-            log(f"  ❌ {sym} ${amt:.2f} 매수 실패: {e}")
-    if auto and ok and session_date:
-        st = _state()
-        st["last_session_date"] = session_date
-        st["last_run"] = datetime.now(timezone.utc).isoformat()
-        _save_state(st)
+    # 멱등: 이미 이번 세션에 접수된 종목(로컬 상태 + 서버 OPEN 매수주문)은 건너뛴다.
+    skip = _session_skip_symbols(client, session_date, log)
+    st = _state()
+    done = set(st.get("done_symbols", [])) if st.get("session_date") == session_date else set()
+    skip |= done
+
+    ok = _execute_buys(client, plan, session_date, skip, done, log, split=split)
+
+    # 모든 대상이 성공/기존존재로 처리됐으면 세션 완료 마킹(이후 트리거는 즉시 no-op).
+    if ok:
+        remaining_targets = [s for s, _ in plan if s not in done and s not in skip]
+        if not remaining_targets:
+            _mark_session_complete(session_date, done)
     return 0 if ok else 1
+
+
+def tax_report_mode() -> int:
+    """해외주식 양도세 리포트(dry-run) 위임. 구현은 scripts/tax_report.py."""
+    import tax_report  # 같은 scripts/ 디렉터리(실행 시 sys.path[0]) — 주문 없음, 조회만
+    return tax_report.run([])
 
 
 def main() -> int:
@@ -179,10 +377,17 @@ def main() -> int:
     ap.add_argument("--execute", action="store_true", help="실주문 실행(정규장·live 필요)")
     ap.add_argument("--auto", action="store_true",
                     help="자동 실행 모드: data/dca.log 기록 + US세션당 1회 중복방지 가드")
+    ap.add_argument("--tax-report", action="store_true",
+                    help="현재연도 실현/미실현 원화 + 하베스팅 플랜(dry-run, 주문 없음)")
+    ap.add_argument("--split-small-orders", action=argparse.BooleanOptionalAction, default=True,
+                    help="DCA 매수를 건당 ≤$10 무료 청크로 분할해 수수료 절감(기본 ON). "
+                         "정책 리스크가 있으면 --no-split-small-orders로 끈다.")
     args = ap.parse_args()
+    if args.tax_report:
+        return tax_report_mode()
     if args.backtest:
         return backtest_mode()
-    return live_plan(args.execute, auto=args.auto)
+    return live_plan(args.execute, auto=args.auto, split=args.split_small_orders)
 
 
 if __name__ == "__main__":

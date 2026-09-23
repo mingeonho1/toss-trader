@@ -11,6 +11,13 @@
   - 기본 dry-run(주문 없이 data/dca.log에 '오늘 살 플랜'만 기록). 실주문은 --execute.
   - 저장소가 ~/Desktop 아래면 macOS TCC로 접근 거부되므로, 위 python에 FDA 부여 필요
     (시스템 설정 → 개인정보 보호 → 전체 디스크 접근).
+
+  스케줄(중요): 미국 금액주문(orderAmount)은 정규장 시작 ~ **종료 1시간 전**까지만 접수된다.
+  - 서머타임(EDT): 정규장 22:30~05:00 KST → 접수 마감 04:00 KST
+  - 표준시(EST, 11/1~): 정규장 23:30~06:00 KST → 접수 마감 05:00 KST
+  단일 23:00 트리거는 표준시 전환 후 정규장 시작(23:30) 전이라 조용히 실패(422)한다.
+  → 두 체제의 접수창(23:30~04:00 KST 교집합)에 드는 트리거를 여러 개 두고, run_dca.py가
+    접수시간창 검사 + 세션당 1회 완료 가드로 창 밖은 스킵/중복 방지한다.
 -->
 <plist version="1.0">
 <dict>
@@ -28,10 +35,12 @@
   <key>EnvironmentVariables</key>
   <dict><key>PYTHONPATH</key><string>/Users/mingh/Desktop/github/toss-trader/src</string></dict>
   <key>RunAtLoad</key><true/>
+  <!-- KST 트리거 여러 개(EDT/EST 접수창 교집합 23:30~04:00 안). run_dca.py가 창 밖은 스킵. -->
   <key>StartCalendarInterval</key>
   <array>
-    <dict><key>Hour</key><integer>9</integer><key>Minute</key><integer>0</integer></dict>
-    <dict><key>Hour</key><integer>23</integer><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Hour</key><integer>23</integer><key>Minute</key><integer>35</integer></dict>
+    <dict><key>Hour</key><integer>0</integer><key>Minute</key><integer>45</integer></dict>
+    <dict><key>Hour</key><integer>2</integer><key>Minute</key><integer>0</integer></dict>
   </array>
   <key>StandardOutPath</key><string>/Users/mingh/Desktop/github/toss-trader/data/launchd.out.log</string>
   <key>StandardErrorPath</key><string>/Users/mingh/Desktop/github/toss-trader/data/launchd.err.log</string>
