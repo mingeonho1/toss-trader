@@ -6,12 +6,14 @@ LiveBroker는 TossClient로 실주문을 내고 체결을 폴링해 같은 인�
 from __future__ import annotations
 
 import logging
+import re
 import time
 from abc import ABC, abstractmethod
 from datetime import date
 from decimal import ROUND_DOWN, Decimal, InvalidOperation
 
 from .costs import CostModel
+from .fees import TossFeeSchedule
 from .models import Fill, Position
 
 logger = logging.getLogger("toss_trader.broker")
@@ -134,7 +136,10 @@ class LiveBroker(Broker):
 
     def __init__(self, client, *, cost_model: CostModel | None = None,
                  poll_interval: float = 1.0, poll_timeout: float = 30.0,
-                 require_live: bool = True) -> None:  # client: TossClient
+                 require_live: bool = True,
+                 split_small_orders: bool = False,
+                 fee_schedule: TossFeeSchedule | None = None,
+                 max_split_orders: int = 20) -> None:  # client: TossClient
         self.client = client
         if require_live and not client.s.is_live:
             raise RuntimeError(
@@ -144,6 +149,11 @@ class LiveBroker(Broker):
         self.cost = cost_model or CostModel()
         self.poll_interval = poll_interval
         self.poll_timeout = poll_timeout
+        # 분할 매수(BUY 금액주문을 ≤$10 무료 청크로 쪼개 수수료 절감). 기본 OFF → 엔진 동작 불변.
+        # ⚠️ 정책 리스크: 토스가 분할을 남용으로 볼 수 있어 명시 플래그로만 켠다(fees.py 참고).
+        self.split_small_orders = split_small_orders
+        self.fee_schedule = fee_schedule or TossFeeSchedule()
+        self.max_split_orders = max_split_orders
         self.positions: dict[str, Position] = {}
         self.cash: float = 0.0
         self.fills: list[Fill] = []
@@ -180,6 +190,8 @@ class LiveBroker(Broker):
                             amount: float | None = None,
                             ref_price: float, dt: date) -> Fill | None:
         side = side.upper()
+        if side == "BUY" and amount is not None and self.split_small_orders:
+            return self._submit_split_buy(symbol, float(amount), dt)
         try:
             if side == "BUY":
                 if amount is not None:
@@ -216,6 +228,53 @@ class LiveBroker(Broker):
         self.sync()  # 체결 후 잔고/포지션 재동기화
         if fill:
             self.fills.append(fill)
+        return fill
+
+    def _submit_split_buy(self, symbol: str, amount: float, dt: date) -> Fill | None:
+        """BUY 금액주문을 ≤$10 무료 청크로 분할 접수(수수료 절감) 후 체결을 합쳐 단일 Fill로 반환.
+
+        분할이 실제로 총수수료를 줄일 때만 나눈다(≤$10 또는 이득 없으면 단건 = 기존 경로와 동일).
+        각 청크 cid = dca-{dt}-{sym}-{k}(결정론적 멱등키, ≤36자). 청크 처리 중 예외는 그대로 올려
+        상위(엔진)가 기록한다 — **이미 접수된 청크는 취소하지 않는다**(멱등키로 재실행 시 재개).
+        레이트리밋 그룹 ORDER는 client가 버킷으로 자동 스로틀한다.
+        """
+        fees = self.fee_schedule
+        plan = fees.plan_split("BUY", amount, price=None, max_orders=self.max_split_orders)
+        if len(plan.notionals) > 1 and plan.total_fee < fees.order_fee("BUY", amount) - 1e-12:
+            chunks = [round(c, 2) for c in plan.notionals]
+        else:
+            chunks = [round(amount, 2)]
+        multi = len(chunks) > 1
+        tot_qty = tot_notional = tot_cost = 0.0
+        last_price = 0.0
+        filled_any = False
+        for k, chunk in enumerate(chunks):
+            cid = _split_cid(dt, symbol, k) if multi else None
+            try:
+                resp = self.client.create_order(
+                    symbol, "BUY", order_type="MARKET",
+                    order_amount=f"{max(0.0, chunk):.2f}", client_order_id=cid)
+            except Exception as e:  # noqa: BLE001 — 접수 오류는 즉시 중단(부분 체결 연쇄 방지)
+                logger.warning("분할 매수 실패 %s $%.2f [%d/%d]: %s",
+                               symbol, chunk, k + 1, len(chunks), e)
+                raise
+            oid = resp.get("orderId") if isinstance(resp, dict) else None
+            if not oid:
+                continue
+            order = self._await_fill(oid)
+            f = self._fill_from_order(symbol, "BUY", order, dt)
+            if f:
+                filled_any = True
+                tot_qty += f.quantity
+                tot_notional += f.price * f.quantity
+                tot_cost += f.cost
+                last_price = f.price
+        self.sync()  # 체결 후 잔고/포지션 재동기화
+        if not filled_any:
+            return None
+        avg_price = (tot_notional / tot_qty) if tot_qty > 0 else last_price
+        fill = Fill(symbol, "BUY", tot_qty, avg_price, tot_cost, dt)
+        self.fills.append(fill)
         return fill
 
     # --- 체결 폴링 / 변환 ---
@@ -261,6 +320,16 @@ class LiveBroker(Broker):
                 # notional(실 체결금액) 기준으로 실현손익 산정 = filledAmount − 평단×수량.
                 realized = notional - prev.avg_price * qty
         return Fill(symbol, side, qty, price, cost, dt, realized_pnl=realized)
+
+
+def _split_cid(dt, symbol: str, k: int) -> str:
+    """분할 매수 청크의 결정론적 멱등키 dca-{dt}-{sym}-{k}. ≤36자, [A-Za-z0-9_-]만.
+
+    인덱스 접미사(-k)는 항상 보존하도록 base를 먼저 자른다(접미사 절단으로 인한 cid 충돌 방지).
+    """
+    base = re.sub(r"[^A-Za-z0-9_-]", "-", f"dca-{dt}-{symbol}")
+    suffix = f"-{k}"
+    return base[:36 - len(suffix)] + suffix
 
 
 _SELL_QTY_STEP = Decimal("0.000001")  # US 소수점 매도 최소 단위(소수점 6자리)

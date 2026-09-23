@@ -27,6 +27,7 @@ from toss_trader.backtest import run_dca               # noqa: E402
 from toss_trader.client import TossClient              # noqa: E402
 from toss_trader.config import get_settings            # noqa: E402
 from toss_trader.costs import CostModel                # noqa: E402
+from toss_trader.fees import TossFeeSchedule           # noqa: E402
 from toss_trader.marketdata import TossMarketData      # noqa: E402
 from toss_trader.models import Candle                  # noqa: E402
 
@@ -115,14 +116,87 @@ def order_window_status(reg: dict | None,
     return (True, f"접수 가능 구간 내 (start={start.isoformat()} ~ close={close.isoformat()})")
 
 
-def client_order_id(session_date: str, sym: str) -> str:
-    """결정론적 멱등키 dca-{session_date}-{sym}. ≤36자, [A-Za-z0-9_-]만.
+def client_order_id(session_date: str, sym: str, k: int | None = None) -> str:
+    """결정론적 멱등키. 단건 dca-{session_date}-{sym}, 분할건 dca-{session_date}-{sym}-{k}. ≤36자.
 
-    동일 세션·동일 종목 재요청 시 서버가 원주문을 그대로 반환(10분 유효)해 중복주문을 막는다.
+    동일 세션·동일 종목(·동일 청크) 재요청 시 서버가 원주문을 그대로 반환(10분 유효)해 중복을 막는다.
+    분할 인덱스 접미사(-k)는 항상 보존하도록 base를 먼저 자른다(접미사 절단으로 인한 cid 충돌 방지).
     """
-    raw = f"dca-{session_date}-{sym}"
-    cid = re.sub(r"[^A-Za-z0-9_-]", "-", raw)
-    return cid[:36]
+    cid = re.sub(r"[^A-Za-z0-9_-]", "-", f"dca-{session_date}-{sym}")
+    if k is None:
+        return cid[:36]
+    suffix = f"-{k}"
+    return cid[:36 - len(suffix)] + suffix
+
+
+# 분할 매수 정책(수수료 절감): 건당 체결금액 ≤ $10 면 수수료 무료(fees.py). 큰 매수를 ≤$10 청크로
+# 쪼개면 총 수수료가 준다. ⚠️ 정책 리스크: 토스가 '남용'으로 보거나 정책을 바꿀 수 있어 **플래그**로 둔다.
+FEES = TossFeeSchedule()
+MAX_SPLIT_ORDERS_PER_RUN = 20          # 이번 실행에서 낼 (분할 포함) 총 주문 건수 상한(레이트/남용 가드)
+
+
+def plan_buy_chunks(amount: float, *, split: bool = True,
+                    max_orders: int = MAX_SPLIT_ORDERS_PER_RUN,
+                    min_chunk: float = 1.0) -> list[float]:
+    """매수 금액을 (분할이 수수료를 줄일 때만) ≤$10 청크 리스트로. 아니면 [amount] 단건.
+
+    ≤$10 단건은 이미 무료라 그대로 두고, 분할이 실제로 총수수료를 낮출 때만 여러 건으로 나눈다.
+    """
+    amt = round(float(amount), 2)
+    if not split or amt <= FEES.free_threshold_usd:
+        return [amt]
+    plan = FEES.plan_split("BUY", amt, price=None, max_orders=max_orders, min_chunk=min_chunk)
+    if len(plan.notionals) > 1 and plan.total_fee < FEES.order_fee("BUY", amt) - 1e-12:
+        return [round(c, 2) for c in plan.notionals]
+    return [amt]
+
+
+def _execute_buys(client, plan, session_date, skip, done, log, *,
+                  split: bool = True,
+                  max_orders_per_run: int = MAX_SPLIT_ORDERS_PER_RUN) -> bool:
+    """플랜의 각 (종목, 금액)을 매수 접수한다. split이면 ≤$10 청크로 나눠(수수료 절감) 낸다.
+
+    - 각 청크 cid = dca-{session}-{sym}-{k}(단건은 -k 없음). 서버측 cid dedup으로 재실행 멱등.
+    - 이번 실행 총 주문 건수는 max_orders_per_run으로 제한(레이트리밋 그룹 ORDER·남용 가드).
+    - 어떤 청크라도 실패하면 그 즉시 분할·실행을 중단(부분 체결 연쇄 방지)하고 False.
+    - 종목은 그 종목의 **모든 청크**가 성공했을 때만 done 처리(부분 성공은 done 아님 → 재실행 시 cid 멱등 재개).
+    반환: 전부 성공/스킵이면 True, 하나라도 실패면 False.
+    """
+    ok = True
+    orders_placed = 0
+    for sym, amt in plan:
+        if sym in skip:
+            log(f"  ⏭ {sym} 이미 이번 세션 주문 존재 → 건너뜀(중복 방지)")
+            continue
+        budget = max_orders_per_run - orders_placed
+        if budget <= 0:
+            log(f"  ⏸ 이번 실행 주문 한도({max_orders_per_run}건) 도달 → {sym} 이하 보류(다음 트리거에서 재개)")
+            break
+        chunks = plan_buy_chunks(amt, split=split, max_orders=min(budget, MAX_SPLIT_ORDERS_PER_RUN))
+        multi = len(chunks) > 1
+        placed_this_sym = 0
+        sym_ok = True
+        for k, chunk in enumerate(chunks):
+            cid = client_order_id(session_date, sym, k if multi else None)
+            tag = f" [{k + 1}/{len(chunks)}]" if multi else ""
+            try:
+                resp = client.create_order(sym, "BUY", order_type="MARKET",
+                                           order_amount=f"{chunk:.2f}", client_order_id=cid)
+                oid = resp.get("orderId") if isinstance(resp, dict) else None
+                orders_placed += 1
+                placed_this_sym += 1
+                log(f"  ✅ {sym} ${chunk:.2f} 매수 접수{tag}: orderId={oid} (cid={cid})")
+            except Exception as e:  # noqa: BLE001
+                sym_ok = False
+                ok = False
+                log(f"  ❌ {sym} ${chunk:.2f} 매수 실패{tag}{' [분할 중단]' if multi else ''}: {e}")
+                break                              # 어떤 오류든 즉시 분할 중단
+        if placed_this_sym > 0 and sym_ok:
+            done.add(sym)
+            _record_session_progress(session_date, done)   # 증분 저장(중간 실패 대비)
+        if not sym_ok:
+            break                                  # 실패 시 이번 실행 전체 중단(안전)
+    return ok
 
 
 ALLOC_CANDIDATES = {
@@ -199,7 +273,7 @@ def _mark_session_complete(session_date: str, done: set[str] | None = None) -> N
     _save_state(st)
 
 
-def live_plan(execute: bool, auto: bool = False) -> int:
+def live_plan(execute: bool, auto: bool = False, split: bool = True) -> int:
     log = _log if auto else (lambda m: print(m))
     s = get_settings()
     s.require_credentials()
@@ -260,6 +334,14 @@ def live_plan(execute: bool, auto: bool = False) -> int:
             _mark_session_complete(session_date)
         return 0
 
+    if split:
+        preview = {s: plan_buy_chunks(a, split=True) for s, a in plan}
+        n_split = sum(1 for s in preview if len(preview[s]) > 1)
+        if n_split:
+            log("  ↳ 분할매수(≤$10 무료 활용): "
+                + ", ".join(f"{s}×{len(c)}" for s, c in preview.items() if len(c) > 1)
+                + "  (--no-split-small-orders로 끔; 정책 리스크 유의)")
+
     if not execute:
         log("ℹ️ dry-run(플랜만). 실주문은 --execute (+TRADING_MODE=live, 정규장·접수시간창).")
         return 0
@@ -273,22 +355,7 @@ def live_plan(execute: bool, auto: bool = False) -> int:
     done = set(st.get("done_symbols", [])) if st.get("session_date") == session_date else set()
     skip |= done
 
-    ok = True
-    for sym, amt in plan:
-        if sym in skip:
-            log(f"  ⏭ {sym} 이미 이번 세션 주문 존재 → 건너뜀(중복 방지)")
-            continue
-        cid = client_order_id(session_date, sym)
-        try:
-            resp = client.create_order(sym, "BUY", order_type="MARKET",
-                                       order_amount=f"{amt:.2f}", client_order_id=cid)
-            oid = resp.get("orderId") if isinstance(resp, dict) else None
-            log(f"  ✅ {sym} ${amt:.2f} 매수 접수: orderId={oid} (cid={cid})")
-            done.add(sym)
-            _record_session_progress(session_date, done)  # 증분 저장(중간 실패 대비)
-        except Exception as e:  # noqa: BLE001
-            ok = False
-            log(f"  ❌ {sym} ${amt:.2f} 매수 실패: {e}")
+    ok = _execute_buys(client, plan, session_date, skip, done, log, split=split)
 
     # 모든 대상이 성공/기존존재로 처리됐으면 세션 완료 마킹(이후 트리거는 즉시 no-op).
     if ok:
@@ -298,16 +365,29 @@ def live_plan(execute: bool, auto: bool = False) -> int:
     return 0 if ok else 1
 
 
+def tax_report_mode() -> int:
+    """해외주식 양도세 리포트(dry-run) 위임. 구현은 scripts/tax_report.py."""
+    import tax_report  # 같은 scripts/ 디렉터리(실행 시 sys.path[0]) — 주문 없음, 조회만
+    return tax_report.run([])
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="적립식(DCA) + 분산 바이앤홀드 실행기")
     ap.add_argument("--backtest", action="store_true", help="분산안 과거 검증")
     ap.add_argument("--execute", action="store_true", help="실주문 실행(정규장·live 필요)")
     ap.add_argument("--auto", action="store_true",
                     help="자동 실행 모드: data/dca.log 기록 + US세션당 1회 중복방지 가드")
+    ap.add_argument("--tax-report", action="store_true",
+                    help="현재연도 실현/미실현 원화 + 하베스팅 플랜(dry-run, 주문 없음)")
+    ap.add_argument("--split-small-orders", action=argparse.BooleanOptionalAction, default=True,
+                    help="DCA 매수를 건당 ≤$10 무료 청크로 분할해 수수료 절감(기본 ON). "
+                         "정책 리스크가 있으면 --no-split-small-orders로 끈다.")
     args = ap.parse_args()
+    if args.tax_report:
+        return tax_report_mode()
     if args.backtest:
         return backtest_mode()
-    return live_plan(args.execute, auto=args.auto)
+    return live_plan(args.execute, auto=args.auto, split=args.split_small_orders)
 
 
 if __name__ == "__main__":

@@ -107,8 +107,9 @@ def test_const_1x_matches_buyhold():
     """상수 1x 전략 ≈ L1 매수홀드(초기 진입 비용만 차감). 스모크."""
     panel, dates = _toy_panel(n=300)
     cash = [0.0] * len(dates)
+    # 진입비용>0으로 B&H를 소폭 하회함을 보는 테스트 → 명시 25bp(문서화된 ≈0.3% 편도 진입비용).
     res, _ = c2a.run_strategy(c2a.sig_const, panel, dates, cash,
-                              band=0.0, cost=R.CostSpec(), params={"lev": 1.0})
+                              band=0.0, cost=R.CostSpec(commission_bps=25.0), params={"lev": 1.0})
     # 진입 후 단일 슬리브 홀드: 워밍업(진입 비용에 따른 미세 잔조정) 이후엔 무매매.
     assert res.trade_count <= 10
     assert sum(res.trades[20:]) == 0

@@ -331,12 +331,14 @@ def test_live_broker_sell_serializes_and_uses_filled_amount():
 
 # ------------------------------------------------- commission row selection
 def test_commission_row_selection_and_fallback():
+    # 라이브 우선: 오늘을 포함하는 행이 있으면 그 값을 그대로 반영(합성행으로 '선택 로직'만 검증).
+    # 오늘 포함 행이 없으면 표준요율(0.1%=10bps, 2025-12-01~)로 폴백.
     today = date(2026, 9, 23)
     comms = [
         {"marketCountry": "US", "commissionRate": "0.001",
-         "startDate": None, "endDate": "2026-06-30"},   # 프로모(만료)
+         "startDate": None, "endDate": "2026-06-30"},   # 과거행(만료)
         {"marketCountry": "US", "commissionRate": "0.0025",
-         "startDate": None, "endDate": None},            # 무기한
+         "startDate": None, "endDate": None},            # 오늘 포함 → 이 행이 선택됨(라이브 우선)
     ]
     assert CostModel.from_commissions(comms, market="US", today=today).commission_bps == 25.0
     assert CostModel.from_commissions(comms, market="US",
@@ -344,7 +346,7 @@ def test_commission_row_selection_and_fallback():
     only_expired = [{"marketCountry": "US", "commissionRate": "0.001",
                      "startDate": None, "endDate": "2026-06-30"}]
     assert CostModel.from_commissions(only_expired, market="US",
-                                      today=today).commission_bps == 25.0
+                                      today=today).commission_bps == 10.0   # 폴백=표준 0.1%
 
 
 # --------------------------------------------- market order window across DST

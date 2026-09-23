@@ -68,8 +68,9 @@ DEFAULT_TIER_HALF_SPREAD_BPS: dict[str, float] = {
     TIER_SMALL_HOT: 15.0,
 }
 
-# 수수료(편도, bps). US 표준 0.25%(무기한). 0.1% 프로모는 endDate 2026-06-30 만료(costs.py 참조).
-STANDARD_COMMISSION_BPS = 25.0
+# 수수료(편도, bps). **US 표준 0.1% = 10bps (2025-12-01~)** — 구 자료의 0.25%는 예시였음(costs.py 참조).
+# PROMO_COMMISSION_BPS는 하위호환용(현재 표준과 동일 10bps). 건당 ≤$10 무료 등 주문 단위 정밀은 fees.py.
+STANDARD_COMMISSION_BPS = 10.0
 PROMO_COMMISSION_BPS = 10.0
 
 
@@ -99,7 +100,8 @@ class CostSpec:
       - FX는 매매비에 **포함하지 않는다**: USD 상주자본 회전은 환전을 다시 하지 않는다.
       - fx_bps는 신규자본(입금)에만 부과된다 → `fx_cost(deposit)` / `run_dca_overlay`에서만 사용.
     half_spread_bps: 심볼→반호가 bps 매핑. 없는 심볼은 default_half_spread_bps(기본 대형주 3bp).
-    commission_bps 기본 25(US 표준 0.25%). 프로모(0.1%=10bps)는 `CostSpec.promo(...)` 프리셋.
+    commission_bps 기본 10(US 표준 0.1%, 2025-12-01~). `CostSpec.promo(...)` 프리셋도 동일 10bps(하위호환).
+    주문 단위 정밀 수수료(건당 ≤$10 무료·매도 규제수수료·분할 최소화)는 `fees.TossFeeSchedule` + fee_fn 훅.
     """
     commission_bps: float = STANDARD_COMMISSION_BPS
     slippage_bps: float = 5.0
@@ -110,7 +112,7 @@ class CostSpec:
     # ── 구성 프리셋 ──
     @classmethod
     def promo(cls, **kw) -> "CostSpec":
-        """토스 US 수수료 프로모(0.1%=10bps) 프리셋. 나머지 인자는 그대로 전달."""
+        """토스 US 수수료 0.1%=10bps 프리셋(현 표준과 동일 — 하위호환용 이름). 나머지 인자는 그대로 전달."""
         kw.setdefault("commission_bps", PROMO_COMMISSION_BPS)
         return cls(**kw)
 
@@ -220,6 +222,7 @@ def run_weights(panel_closes: Mapping[str, Sequence[float]], dates: Sequence[dat
                 cash_rate: Sequence[float] | None = None,
                 exec_price: str = "close",
                 panel_opens: Mapping[str, Sequence[float]] | None = None,
+                fee_fn: Callable[[str, float], float] | None = None,
                 start_equity: float = 1.0) -> WeightsResult:
     """목표비중 스케줄을 비용·체결지연까지 반영해 돌린다(레인1 저회전 배분).
 
@@ -229,6 +232,8 @@ def run_weights(panel_closes: Mapping[str, Sequence[float]], dates: Sequence[dat
     - 비용: 매매마다 심볼별 trade_bps(수수료+반호가+슬리피지). FX는 부과하지 않는다(USD 상주).
     - 비중합 ≤ 1(롱온리) 가정. 잔여(1−Σw)는 현금이며 cash_rate가 있으면 그만큼 이자 수익.
       cash_rate는 dates에 정렬된 **일간** 현금수익률 리스트(예 BIL 일수익/DTB3 환산, None이면 0).
+    - fee_fn: 주면 매매비를 bps 대신 `fee_fn(side, notional)`(USD)로 계산(예 TossFeeSchedule.as_fee_fn).
+      노셔널 단위가 fee_fn과 일치해야 정확 → 정밀 수수료가 필요하면 start_equity를 **달러**로 준다.
 
     반환 WeightsResult: 일별 gross/net 수익, 자본곡선, 회전율, 비용, 체결 레그 수, 총비용.
     """
@@ -279,7 +284,8 @@ def run_weights(panel_closes: Mapping[str, Sequence[float]], dates: Sequence[dat
                 new_val = target * equity_ref
                 notional = abs(new_val - cur)
                 traded += notional
-                c += notional * cost.trade_bps(s) * BPS
+                c += (fee_fn("BUY" if new_val > cur else "SELL", notional)
+                      if fee_fn is not None else notional * cost.trade_bps(s) * BPS)
                 val[s] = new_val
                 nl += 1
         cash = equity_ref - sum(val.values()) - c
@@ -375,11 +381,13 @@ class TradesResult:
 
 
 def run_trades(trades: Sequence[Trade], *, cost: CostSpec | None = None,
+               fee_fn: Callable[[str, float], float] | None = None,
                capital: float = 1.0) -> TradesResult:
     """이벤트/인트라데이 거래 리스트 → 거래별 순PnL + 일별 수익(사양 §3.5, §8.2/§8.3).
 
     각 거래: 총수익 = exit/entry−1(롱; 숏이면 부호반전). 진입 노셔널 = notional·capital.
     비용 = (진입 노셔널 + 청산 노셔널)·trade_bps(심볼). FX 없음(티어B USD 상주, 사양 §7).
+    fee_fn을 주면 진입·청산 각각 `fee_fn(side, |notional|)`(USD)로 계산(capital을 달러로 줄 때 정확).
     일별 수익: 각 거래의 순PnL을 **청산일**에 귀속해 capital 위에 복리로 쌓는다(보유 중 MTM 미반영 —
     이벤트 연구용 근사임을 명시). 거래 자기상관/짧은표본 검정은 pnls(거래단위)로 하는 게 원칙.
     """
@@ -397,8 +405,13 @@ def run_trades(trades: Sequence[Trade], *, cost: CostSpec | None = None,
             gross_ret = -gross_ret
         entry_notional = tr.notional * capital
         exit_notional = entry_notional * (tr.exit_price / tr.entry_price)
-        tb = cost.trade_bps(tr.symbol) * BPS
-        c = abs(entry_notional) * tb + abs(exit_notional) * tb
+        if fee_fn is not None:
+            is_long = tr.side.lower() not in ("short", "sell")
+            entry_side, exit_side = ("BUY", "SELL") if is_long else ("SELL", "BUY")
+            c = fee_fn(entry_side, abs(entry_notional)) + fee_fn(exit_side, abs(exit_notional))
+        else:
+            tb = cost.trade_bps(tr.symbol) * BPS
+            c = abs(entry_notional) * tb + abs(exit_notional) * tb
         gross_pnl = entry_notional * gross_ret
         net = gross_pnl - c
         pnls.append(net)
@@ -480,6 +493,7 @@ def run_dca_overlay(panel_closes: Mapping[str, Sequence[float]], dates: Sequence
                     cash_rate: Sequence[float] | None = None,
                     exec_lag: int | None = None,
                     mode: str = "buy_only",
+                    fee_fn: Callable[[str, float], float] | None = None,
                     rebalance_band: float = 0.0) -> DcaOverlayResult:
     """월 첫 거래일에 입금해 전략 목표비중대로 투자하는 DCA 오버레이(매수전용/리밸런싱).
 
@@ -494,6 +508,9 @@ def run_dca_overlay(panel_closes: Mapping[str, Sequence[float]], dates: Sequence
       run_weights와 동일한 비용/체결지연 규약: 신호 close t → 체결 close t+exec_lag,
       exec_lag 기본 1. 매수·매도 모두 수수료+반호가+슬리피지를 낸다(USD 상주 → FX 없음;
       FX는 여전히 입금에만). 입금은 여전히 월 첫 거래일에 들어와 목표비중대로 투자된다.
+    - fee_fn: 주면 매매비를 bps 대신 `fee_fn(side, notional)`(USD)로 계산한다. DCA는 노셔널이 이미
+      **달러**(initial_usd/monthly_usd)라 `TossFeeSchedule.as_fee_fn(split=...)`로 건당 ≤$10 무료·분할
+      최소수수료·매도 규제수수료까지 정확히 부과할 수 있다(total_commission에는 실수수료 전액을 집계).
     - 반환: 일별 자본곡선 + gate.xirr용 현금흐름(입금 −, 최종 평가액 +). 실행당 총 체결
       레그 수(trade_count)·총 수수료(total_commission)·총 회전 노셔널(total_turnover)도 보고.
       FX 드래그는 최종 평가액에 반영되므로 XIRR에 정직하게 나타난다(현금흐름은 명목 입금액).
@@ -550,13 +567,24 @@ def run_dca_overlay(panel_closes: Mapping[str, Sequence[float]], dates: Sequence
                 continue
             tb = cost.trade_bps(s) * BPS
             spend = need
-            if spend * (1.0 + tb) > cash:      # 현금 초과 방지(매수 노셔널 + 비용 ≤ 현금)
-                spend = cash / (1.0 + tb)
-            c = spend * tb
+            if fee_fn is not None:                 # 비선형 실수수료(≤$10 무료·분할 등) → 보수적 축소
+                fee = fee_fn("BUY", spend)
+                if spend + fee > cash:
+                    spend = max(0.0, cash - fee_fn("BUY", cash))  # 단조증가 가정 → spend+fee≤cash 보장
+                    fee = fee_fn("BUY", spend)
+                c = fee
+                comm_component = fee               # 토스 실수수료는 bps 분해가 없어 전액을 수수료로 집계
+            else:
+                if spend * (1.0 + tb) > cash:      # 현금 초과 방지(매수 노셔널 + 비용 ≤ 현금)
+                    spend = cash / (1.0 + tb)
+                c = spend * tb
+                comm_component = spend * cost.commission_bps * BPS
+            if spend <= 0:
+                continue
             val[s] += spend
             cash -= (spend + c)
             c_paid += c
-            comm += spend * cost.commission_bps * BPS
+            comm += comm_component
             turned += spend
             nb += 1
         return c_paid, comm, turned, nb
@@ -583,8 +611,13 @@ def run_dca_overlay(panel_closes: Mapping[str, Sequence[float]], dates: Sequence
                 new_val = target * equity_ref
                 notional = abs(new_val - cur)
                 turned += notional
-                c += notional * cost.trade_bps(s) * BPS
-                comm += notional * cost.commission_bps * BPS
+                if fee_fn is not None:
+                    fee = fee_fn("BUY" if new_val > cur else "SELL", notional)
+                    c += fee
+                    comm += fee                     # 실수수료는 bps 분해 불가 → 전액 수수료로 집계
+                else:
+                    c += notional * cost.trade_bps(s) * BPS
+                    comm += notional * cost.commission_bps * BPS
                 if new_val > cur:
                     nb += 1
                 val[s] = new_val

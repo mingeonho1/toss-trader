@@ -64,8 +64,10 @@
   macOS **launchd**(cron 아님 — 잠자다 깨면 놓친 작업 실행)로 KST 밤 미국 정규장에 발화.
   설치 `scripts/install_dca_automation.sh`(기본 dry-run, `--live`로 실주문). 세션당 1회 가드 + 정규장 검사.
   잠자도 깨워 실행하려면 `sudo pmset repeat wakeorpoweron MTWRFSU 22:55:00` + 전원 연결 권장.
-- 현금 보유 대기는 무의미: 현금은 복리 안 됨(복리는 '투자된 상태'에서). 토스 수수료는 %기반(건당 최소 없음)
-  이라 매일/매주/매월 매수 총비용 동일 → **모이는 즉시 매수(DCA)가 최적**.
+- 현금 보유 대기는 무의미: 현금은 복리 안 됨(복리는 '투자된 상태'에서). → **모이는 즉시 매수(DCA)가 최적**.
+- ⚠️ **수수료 정정(2025-12-01~)**: 미국 표준 0.1% + **건당 체결금액 ≤ $10 무료**. 큰 매수를 ≤$10 청크로
+  쪼개면 총 수수료가 준다(`fees.TossFeeSchedule.plan_split`). `run_dca --split-small-orders`(기본 ON)가 활용.
+  ⚠️ 정책 리스크: 토스가 분할을 '남용'으로 보거나 정책을 바꿀 수 있어 **플래그**로 통제(끄려면 `--no-split-small-orders`).
 
 ## 2. 아키텍처 (레이어)
 
@@ -117,7 +119,7 @@ config / errors / ratelimit        # 인프라
   - ✅ **입금 ₩50,000 확인**(2026-06-28). 시드 ≈ $32.43.
   - 운용: `scripts/run_dca.py`로 매월 적립 매수(기본 QQQ60/SCHD25/GLD15). dry-run 기본,
     `--execute`(live·정규장)로만 실주문.
-  - ⚠️ 실주문 직전 `/commissions` 재확인(US 0.1% endDate 2026-06-29) + 정규장 여부 확인.
+  - ⚠️ 실주문 직전 `/commissions` 재확인(라이브 실요율이 계좌별 진실; 표준 0.1%) + 정규장 여부 확인.
 
 ## 4. 검증되기 전엔 실거래 금지 (게이트)
 실거래(`TRADING_MODE=live`) 전환은 다음을 **모두** 만족할 때만:
@@ -132,12 +134,12 @@ config / errors / ratelimit        # 인프라
 - ✅ prices: 배열 `[{symbol, timestamp|null, lastPrice, currency}]` — 현재가는 **lastPrice**.
 - ✅ candles: `{candles:[{timestamp, openPrice, highPrice, lowPrice, closePrice, volume, currency}], nextBefore}` — **내림차순**으로 옴(오름차순 변환). 200봉 초과는 `before`/`nextBefore` 페이지네이션.
 - ✅ holdings: `{items:[{symbol, marketCountry, currency, quantity, lastPrice, averagePurchasePrice, marketValue, profitLoss, ...}], totalPurchaseAmount/marketValue/profitLoss(통화별 {krw,usd})}`.
-- ✅ 수수료: **미국 0.1%**(commissionRate "0.1", 퍼센트표기, endDate 2026-06-29 — 프로모 가능성 재확인), 국내 0%(~6/30 프로모).
+- ✅ 수수료: **미국 표준 0.1%**(2025-12-01~, 프로모 아님). 국내 0%(프로모). 라이브 `/commissions`가 계좌별 진실.
 - ⚠️ **환전 스프레드 미확정**: exchange-rate의 rate(1541.6) vs midRate(1541.1) 표시 스프레드 ~3bps이나, 명세상 "실거래 환율은 표시환율과 다를 수 있음". 실 체결의 KRW 차감액으로 측정 전까지 비용모델은 보수적 20bps 유지.
 
 ### v1.2.17로 갱신된 사실 (2026-09-23)
 - ✅ **금액주문 접수창**: `orderAmount`·소수점 수량 주문은 **정규장 시작 ~ 종료 1시간 전**까지만 접수(그 외 `422 amount-order-outside-regular-hours` / `fractional-quantity-outside-regular-hours`, data에 `regularHours`/`orderableHours` 포함). market-calendar `today.regularMarket.{startTime,endTime}`(ISO8601 KST)로 판정. `run_dca.order_window_status()`가 실주문 전 검사. 서머타임(EDT) 정규장 22:30~05:00 KST(접수마감 04:00), 표준시(EST, 11/1~) 23:30~06:00 KST(접수마감 05:00).
-- ⚠️ **수수료 단위 변경(중요)**: `/commissions.commissionRate`가 **퍼센트→소수 비율(ratio)**. 예 US `"0.0025"`=0.25%(무기한), `"0.001"`=0.1%(프로모, endDate 2026-06-30), KR `"0.00015"`=0.015%. bps=ratio×10000. 각 행에 `startDate`/`endDate`. **오늘(2026-09-23)은 0.1% 프로모 만료 후 → 실요율 0.25%**. `CostModel.from_commissions`가 오늘 포함 행을 선택, 없으면 보수적 25bps 폴백.
+- ✅ **수수료 사실 정정(공식 공지 2025-10-17, id=17106)**: **2025-12-01부터 미국 표준 = 0.1%(=10bps)** — 프로모가 아니라 표준. (구 자료의 "0.25%/0.0025 무기한"은 스펙 **예시**였을 뿐 실요율이 아니었음.) `/commissions.commissionRate`는 소수 비율(예 US `"0.001"`=0.1%), bps=ratio×10000, 각 행에 `startDate`/`endDate`. `CostModel.from_commissions`가 오늘 포함 행(=라이브 실요율)을 선택, 없으면 **표준 10bps** 폴백. 주문 단위 추가 규칙(`fees.py`): 건당 ≤$10 무료·소수점 0.1%·$0.01 미만 절사, 매도 규제수수료(SEC $20.60/$1M·min$0.01, FINRA TAF ~$0.000166/주·min$0.01·max$8.30 — 뉴스/FAQ 기반이라 덜 확실 → `apply_regulatory_min` 토글).
 - ⚠️ **주문 목록/상세(Order)는 clientOrderId를 응답하지 않음**(생성 응답만 echo). 멱등 조회는 서버측 cid dedup(동일 cid 재요청=원주문 반환, 10분)에 의존하고, list_orders 기반 사전확인은 symbol/OPEN 기준 best-effort.
 
 ## 6. 공식 OpenAPI v1.1.5 정합화 메모 (client.py)
@@ -163,7 +165,7 @@ config / errors / ratelimit        # 인프라
   파라미터·본문 키는 스펙과 정확히 일치(예 `marketCountry`, `expireDate`, leg `orderSide`/`triggerPrice`/`orderPrice`).
 - **Rate Limits Group 확장**: `STOCK_ALL`·`STOCK_TRADING_TREND`·`RANKING`·`MARKET_INDICATOR(_CHART)`·
   `CONDITIONAL_ORDER(_HISTORY)` 추가(수치 비공개 → 보수적 선제 버킷 + X-RateLimit 적응 throttle 유지).
-- **멱등/신뢰성(주문)**: 결정론적 `clientOrderId`(`dca-{session}-{sym}`, ≤36자, `[A-Za-z0-9_-]`).
+- **멱등/신뢰성(주문)**: 결정론적 `clientOrderId`(단건 `dca-{session}-{sym}`, 분할건 `dca-{session}-{sym}-{k}`, ≤36자, `[A-Za-z0-9_-]`).
   `_request`가 409 `request-in-progress` 백오프 재시도, 422 `idempotency-key-conflict`는 기존 주문 조회로 대체,
   500 `maintenance`는 `data.retryAfterSeconds`≤임계치면 대기 재시도·초과면 즉시 실패, 그 외 4xx 비즈니스는 재시도 안 함.
   새 코드 힌트를 `errors.py`에 추가(+ `RequestInProgressError`/`IdempotencyConflictError`/`MaintenanceError`).

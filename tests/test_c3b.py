@@ -118,8 +118,9 @@ def test_next_next_trading_day_pure():
 # ── 메커니즘 항등식 ───────────────────────────────────────────────────────────
 def test_cost_compression_identity():
     """3x·1/3노셔널의 노출당 왕복비용 ≈ 1x 왕복비용의 1/3(반호가 티어 차이 제외)."""
-    rt_1x = c3b.cost_for(["NDXTR"]).roundtrip_bps("NDXTR")     # 2*(25+1+5)=62
-    rt_3x_full = c3b.cost_for(["TQQQ3X"]).roundtrip_bps("TQQQ3X")  # 2*(25+2+5)=64
+    # 이 항등식은 25bp 표준 가정의 손계산(62/64)에 고정 — 명시 25bp로 검증(표준요율 정정과 무관).
+    rt_1x = c3b.cost_for(["NDXTR"], commission_bps=25.0).roundtrip_bps("NDXTR")     # 2*(25+1+5)=62
+    rt_3x_full = c3b.cost_for(["TQQQ3X"], commission_bps=25.0).roundtrip_bps("TQQQ3X")  # 2*(25+2+5)=64
     per_exposure_3x = rt_3x_full * c3b.NOTIONAL_FRAC          # 노셔널 1/3 → 노출당
     assert abs(rt_1x - 62.0) < 1e-6
     assert per_exposure_3x < rt_1x / 2.0                     # 압축 실재(≈21.3 < 31)

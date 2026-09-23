@@ -28,9 +28,10 @@ from toss_trader.research import CostSpec, Trade  # noqa: E402
 
 # ── 비용 스펙 ────────────────────────────────────────────────────────────────
 def test_cost_spec_defaults_promo_tiers_and_stress():
-    # 오케스트레이터 정정: 표준 수수료 기본 = 25bps(US 0.25%), 프로모(0.1%) 프리셋 제공.
-    assert CostSpec().commission_bps == 25.0
+    # 정정(2025-12-01~): 표준 수수료 기본 = 10bps(US 0.1%). promo 프리셋도 동일 10bps(하위호환).
+    assert CostSpec().commission_bps == 10.0
     assert CostSpec.promo().commission_bps == 10.0
+    assert research.STANDARD_COMMISSION_BPS == 10.0
 
     c = CostSpec.from_tiers(
         {"SPY": research.TIER_ETF, "TQQQ": research.TIER_LEVERAGED_ETF,
