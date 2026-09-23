@@ -1,0 +1,1482 @@
+{
+  "meta": {
+    "ledger": "reports/trials_ledger.jsonl",
+    "rc_b": 400,
+    "fred_n": 10261,
+    "fred_range": [
+      "1986-01-02",
+      "2026-09-22"
+    ]
+  },
+  "rsi2": {
+    "idea": "c2b_rsi2",
+    "base_cfg": {
+      "rsi_entry": 10.0,
+      "sma_trend": 200,
+      "sma_exit": 5,
+      "max_hold": 10
+    },
+    "tim": 0.11587564564857226,
+    "n_days": 10261,
+    "design_end": "2008-12-31",
+    "execs": {
+      "1x": {
+        "tv0_dca": 0.9308464544336538,
+        "cand_dca_final": 52889.61711226743,
+        "qqq_dca_final": 56818.84145376754,
+        "full_mdd": -0.290889223027769,
+        "design": {
+          "window": [
+            "1986-01-03",
+            "2008-12-31"
+          ],
+          "T": 5802,
+          "sr_annual": 0.40840800028045426,
+          "sr_daily": 0.025727285766459034,
+          "cagr": 0.03809465718058469,
+          "mdd": -0.290889223027769,
+          "ulcer": 11.267863616941293,
+          "calmar": 0.13095932803584162,
+          "cvar5": -0.013726500530310827,
+          "terminal_unit": 2.3636514717682773,
+          "dsr": 0.9107288102497635,
+          "n_trials": 21,
+          "rc_p": 0.9775,
+          "spa_p": 1.0
+        },
+        "holdout": {
+          "window": [
+            "2009-01-02",
+            "2026-09-22"
+          ],
+          "T": 4458,
+          "sr_annual": 0.13261745699071567,
+          "sr_daily": 0.008354114540553284,
+          "cagr": 0.007627253615983598,
+          "mdd": -0.2546454714399392,
+          "ulcer": 11.87654549127662,
+          "calmar": 0.029952441615607388,
+          "cvar5": -0.012757095910286056,
+          "terminal_unit": 1.1442272773272446,
+          "dsr": 0.52396706519123,
+          "n_trials": 22,
+          "rc_p": 1.0,
+          "spa_p": 1.0
+        },
+        "plateau": {
+          "frac_positive": 1.0,
+          "neighbor_median_sharpe": 0.38288839960774324,
+          "center_sharpe": 0.4083727921514436,
+          "pass": true
+        },
+        "robustness": {
+          "breakeven_rt_bps": 62.23106806282887,
+          "start_date_winrate": 0.0,
+          "start_date_median_margin": -0.030182194897123427
+        },
+        "trade_stats": {
+          "n_trades": 329,
+          "win_rate": 0.5349544072948328,
+          "avg_win": 0.014348241385506576,
+          "avg_loss": -0.016496962686535808,
+          "expectancy": 3.815175711789742e-06,
+          "profit_factor": 1.0004972960614436,
+          "trade_tstat": 0.0026855585571189315,
+          "ci_lo": -0.002663901257455615,
+          "ci_hi": 0.002615558715137826,
+          "roundtrip_cost_frac": 0.006200000000000001,
+          "gross_mean": 0.006223106806812911
+        },
+        "verdict": "FAIL",
+        "verdict_axes": {
+          "economic": "FAIL",
+          "significance": "FAIL",
+          "plateau": "PASS",
+          "subperiod": "SKIP",
+          "cost_stress": "FAIL",
+          "start_date": "FAIL",
+          "risk": "PASS"
+        },
+        "verdict_reasons": [
+          "\uacbd\uc81c: \ucd5c\uc885\uc790\uc0b0\uc774 B0 \ubbf8\ub2ec(vs_B0=0.931) \u2192 FAIL",
+          "\uc720\uc758\uc131: DSR\u00b7RC \ub458 \ub2e4 \ubbf8\ub2ec(DSR=0.52396706519123, RC_p=1.0) \u2192 FAIL",
+          "\ube44\uc6a9: 1.00\u00d7 \uc5d0\uc11c \uc774\ubbf8 net\u22640 \u2192 FAIL",
+          "\uc2dc\uc791\uc77c: \uc2b9\ub960 0.00<0.55 \u2192 FAIL"
+        ]
+      },
+      "2x": {
+        "tv0_dca": 3.7254349952206294,
+        "cand_dca_final": 211674.90033975817,
+        "qqq_dca_final": 56818.84145376754,
+        "full_mdd": -0.5328041806545653,
+        "design": {
+          "window": [
+            "1986-01-03",
+            "2008-12-31"
+          ],
+          "T": 5802,
+          "sr_annual": 0.4056730431530592,
+          "sr_daily": 0.02555499966156592,
+          "cagr": 0.06447404469050344,
+          "mdd": -0.5328041806545653,
+          "ulcer": 26.006733246327826,
+          "calmar": 0.12100889413310388,
+          "cvar5": -0.02630030425079571,
+          "terminal_unit": 4.210462321568009,
+          "dsr": 0.8916569662617022,
+          "n_trials": 21,
+          "rc_p": 0.86,
+          "spa_p": 1.0
+        },
+        "holdout": {
+          "window": [
+            "2009-01-02",
+            "2026-09-22"
+          ],
+          "T": 4458,
+          "sr_annual": 0.3572436877847225,
+          "sr_daily": 0.022504237031570923,
+          "cagr": 0.04663534279818493,
+          "mdd": -0.35174144335529844,
+          "ulcer": 14.239012517176366,
+          "calmar": 0.13258415713919156,
+          "cvar5": -0.024592375204183087,
+          "terminal_unit": 2.24389328148504,
+          "dsr": 0.8192169415152822,
+          "n_trials": 22,
+          "rc_p": 1.0,
+          "spa_p": 1.0
+        },
+        "plateau": {
+          "frac_positive": 1.0,
+          "neighbor_median_sharpe": 0.38422956464770075,
+          "center_sharpe": 0.40563807110870026,
+          "pass": true
+        },
+        "robustness": {
+          "breakeven_rt_bps": 114.05153670930301,
+          "start_date_winrate": 0.2916666666666667,
+          "start_date_median_margin": -0.015133473215326154
+        },
+        "trade_stats": {
+          "n_trades": 329,
+          "win_rate": 0.60790273556231,
+          "avg_win": 0.0300756898340825,
+          "avg_loss": -0.03395697484439773,
+          "expectancy": 0.004968657178994505,
+          "profit_factor": 1.3731781673903298,
+          "trade_tstat": 1.794989335234738,
+          "ci_lo": -0.0001811973858405633,
+          "ci_hi": 0.010058023346980027,
+          "roundtrip_cost_frac": 0.0064,
+          "gross_mean": 0.011405153670740876
+        },
+        "verdict": "FAIL",
+        "verdict_axes": {
+          "economic": "PASS",
+          "significance": "FAIL",
+          "plateau": "PASS",
+          "subperiod": "SKIP",
+          "cost_stress": "CONDITIONAL",
+          "start_date": "FAIL",
+          "risk": "FAIL"
+        },
+        "verdict_reasons": [
+          "\uc720\uc758\uc131: DSR\u00b7RC \ub458 \ub2e4 \ubbf8\ub2ec(DSR=0.8192169415152822, RC_p=1.0) \u2192 FAIL",
+          "\ube44\uc6a9: 1.78\u00d7\uae4c\uc9c0\ub9cc \uc0dd\uc874(1.5\u20132\u00d7) \u2192 \uacbd\uacc4",
+          "\uc2dc\uc791\uc77c: \uc2b9\ub960 0.29<0.55 \u2192 FAIL",
+          "\ub9ac\uc2a4\ud06c: \ub2e8\uc704\uc790\ubcf8 MDD -53.28% \u2264 \ud558\ub4dc\ucea1 \u221250% \u2192 FAIL(\u00a75.1)"
+        ]
+      },
+      "3x": {
+        "tv0_dca": 10.16374232246614,
+        "cand_dca_final": 577492.0635971507,
+        "qqq_dca_final": 56818.84145376754,
+        "full_mdd": -0.7144779124790488,
+        "design": {
+          "window": [
+            "1986-01-03",
+            "2008-12-31"
+          ],
+          "T": 5802,
+          "sr_annual": 0.41245642269789706,
+          "sr_daily": 0.025982312407380286,
+          "cagr": 0.08080390151356287,
+          "mdd": -0.7144779124790488,
+          "ulcer": 40.038477453017,
+          "calmar": 0.11309503079415677,
+          "cvar5": -0.03885521100790719,
+          "terminal_unit": 5.976627075303563,
+          "dsr": 0.8840338229617865,
+          "n_trials": 21,
+          "rc_p": 0.58,
+          "spa_p": 1.0
+        },
+        "holdout": {
+          "window": [
+            "2009-01-02",
+            "2026-09-22"
+          ],
+          "T": 4458,
+          "sr_annual": 0.44442178131094434,
+          "sr_daily": 0.027995940727835518,
+          "cagr": 0.08277523489048666,
+          "mdd": -0.454971436025444,
+          "ulcer": 18.504927124346818,
+          "calmar": 0.1819350146760807,
+          "cvar5": -0.036428237884267335,
+          "terminal_unit": 4.096532009085444,
+          "dsr": 0.8873553609611884,
+          "n_trials": 22,
+          "rc_p": 0.9775,
+          "spa_p": 1.0
+        },
+        "plateau": {
+          "frac_positive": 1.0,
+          "neighbor_median_sharpe": 0.40368822294639256,
+          "center_sharpe": 0.4124208650928793,
+          "pass": true
+        },
+        "robustness": {
+          "breakeven_rt_bps": 163.49430278060032,
+          "start_date_winrate": 1.0,
+          "start_date_median_margin": 0.10292227224360861
+        },
+        "trade_stats": {
+          "n_trades": 329,
+          "win_rate": 0.6322188449848024,
+          "avg_win": 0.04605457669585312,
+          "avg_loss": -0.052257868360638886,
+          "expectancy": 0.009897112100608342,
+          "profit_factor": 1.5149526844485313,
+          "trade_tstat": 2.445525229121819,
+          "ci_lo": 0.0023531687996132893,
+          "ci_hi": 0.017188104699991085,
+          "roundtrip_cost_frac": 0.0064,
+          "gross_mean": 0.01634943027749633
+        },
+        "verdict": "FAIL",
+        "verdict_axes": {
+          "economic": "PASS",
+          "significance": "FAIL",
+          "plateau": "PASS",
+          "subperiod": "SKIP",
+          "cost_stress": "PASS",
+          "start_date": "PASS",
+          "risk": "FAIL"
+        },
+        "verdict_reasons": [
+          "\uc720\uc758\uc131: DSR\u00b7RC \ub458 \ub2e4 \ubbf8\ub2ec(DSR=0.8873553609611884, RC_p=0.9775) \u2192 FAIL",
+          "\ub9ac\uc2a4\ud06c: \ub2e8\uc704\uc790\ubcf8 MDD -71.45% \u2264 \ud558\ub4dc\ucea1 \u221250% \u2192 FAIL(\u00a75.1)"
+        ]
+      }
+    },
+    "moc_1x": {
+      "holdout_sharpe": 0.13432659617215795,
+      "trade_stats": {
+        "n_trades": 329,
+        "win_rate": 0.601823708206687,
+        "avg_win": 0.012334396032582046,
+        "avg_loss": -0.019278007612053633,
+        "expectancy": -0.0002529136253124043,
+        "profit_factor": 0.967051573295074,
+        "trade_tstat": -0.1815420599570783,
+        "ci_lo": -0.0032093058141216217,
+        "ci_hi": 0.002643067543379019,
+        "roundtrip_cost_frac": 0.006200000000000001,
+        "gross_mean": 0.005965579671669772
+      }
+    },
+    "cost_scan_1x": {
+      "std_25bp": {
+        "expectancy": 3.815175711789742e-06,
+        "tstat": 0.0026855585571189315,
+        "total_net": 0.001255192809178825,
+        "roundtrip_bps": 62.0
+      },
+      "promo_10bp": {
+        "expectancy": 0.0030131498359220097,
+        "tstat": 2.117814092647146,
+        "total_net": 0.9913262960183412,
+        "roundtrip_bps": 32.0
+      },
+      "stress_2x": {
+        "expectancy": -0.0062154764553893314,
+        "tstat": -4.38881334675582,
+        "total_net": -2.04489175382309,
+        "roundtrip_bps": 124.0
+      }
+    },
+    "overlay": {
+      "tv0_dca": 2.7971529307226266,
+      "ov_dca_final": 158930.98889267014,
+      "qqq_dca_final": 56818.84145376754,
+      "full_mdd": -0.9096699765212027,
+      "design": {
+        "window": [
+          "1986-01-03",
+          "2008-12-31"
+        ],
+        "T": 5802,
+        "sr_annual": 0.32515805184842134,
+        "sr_daily": 0.02048303195193259,
+        "cagr": 0.04720303684671534,
+        "mdd": -0.9096699765212027,
+        "ulcer": 58.29561268350925,
+        "calmar": 0.051890287758238576,
+        "cvar5": -0.059726999955085576,
+        "terminal_unit": 2.8898491689373302,
+        "dsr": null,
+        "n_trials": null,
+        "rc_p": 0.6275,
+        "spa_p": 1.0
+      },
+      "holdout": {
+        "window": [
+          "2009-01-02",
+          "2026-09-22"
+        ],
+        "T": 4458,
+        "sr_annual": 0.6187599239215211,
+        "sr_daily": 0.03897821142737121,
+        "cagr": 0.15661081691162182,
+        "mdd": -0.3680169215267841,
+        "ulcer": 12.62406712926079,
+        "calmar": 0.4255533040760566,
+        "cvar5": -0.048526498186501364,
+        "terminal_unit": 13.19487102058547,
+        "dsr": 0.9950946064476403,
+        "n_trials": 1,
+        "rc_p": 0.7025,
+        "spa_p": 1.0
+      },
+      "verdict": "FAIL",
+      "verdict_axes": {
+        "economic": "PASS",
+        "significance": "CONDITIONAL",
+        "plateau": "SKIP",
+        "subperiod": "SKIP",
+        "cost_stress": "SKIP",
+        "start_date": "SKIP",
+        "risk": "FAIL"
+      }
+    }
+  },
+  "ndown": {
+    "idea": "c2b_ndown",
+    "base_cfg": {
+      "n_down": 3,
+      "sma_trend": 200
+    },
+    "tim": 0.060715329889874284,
+    "n_days": 10261,
+    "design_end": "2008-12-31",
+    "execs": {
+      "1x": {
+        "tv0_dca": 0.8768171692239739,
+        "cand_dca_final": 49819.735722078236,
+        "qqq_dca_final": 56818.84145376754,
+        "full_mdd": -0.5777676824087783,
+        "design": {
+          "window": [
+            "1986-01-03",
+            "2008-12-31"
+          ],
+          "T": 5802,
+          "sr_annual": 0.4702123735354129,
+          "sr_daily": 0.029620595327621704,
+          "cagr": 0.031284672871081165,
+          "mdd": -0.1335314663358249,
+          "ulcer": 5.1448041588037485,
+          "calmar": 0.23428689678582418,
+          "cvar5": -0.008088731436236424,
+          "terminal_unit": 2.0315004145656124,
+          "dsr": 0.28054186375160506,
+          "n_trials": 11,
+          "rc_p": 0.9775,
+          "spa_p": 1.0
+        },
+        "holdout": {
+          "window": [
+            "2009-01-02",
+            "2026-09-22"
+          ],
+          "T": 4458,
+          "sr_annual": -0.7375772435427526,
+          "sr_daily": -0.04646299902653915,
+          "cagr": -0.04258207658183699,
+          "mdd": -0.5580502838029318,
+          "ulcer": 36.64996655210461,
+          "calmar": -0.07630508901752356,
+          "cvar5": -0.008678637955117323,
+          "terminal_unit": 0.4622767654383206,
+          "dsr": 4.686459553759903e-09,
+          "n_trials": 12,
+          "rc_p": 1.0,
+          "spa_p": 1.0
+        },
+        "plateau": {
+          "frac_positive": 0.7,
+          "neighbor_median_sharpe": 0.5096716127393781,
+          "center_sharpe": 0.47017182862995555,
+          "pass": false
+        },
+        "robustness": {
+          "breakeven_rt_bps": 28.913200506940484,
+          "start_date_winrate": 0.0,
+          "start_date_median_margin": -0.05139736114453303
+        },
+        "trade_stats": {
+          "n_trades": 356,
+          "win_rate": 0.39325842696629215,
+          "avg_win": 0.013321658424262384,
+          "avg_loss": -0.01410237547459168,
+          "expectancy": -0.003317643042458061,
+          "profit_factor": 0.6122662280198465,
+          "trade_tstat": -3.268835600059082,
+          "ci_lo": -0.005735207910117513,
+          "ci_hi": -0.0009468023390646451,
+          "roundtrip_cost_frac": 0.006200000000000001,
+          "gross_mean": 0.0028913200496959975
+        },
+        "verdict": "FAIL",
+        "verdict_axes": {
+          "economic": "FAIL",
+          "significance": "FAIL",
+          "plateau": "CONDITIONAL",
+          "subperiod": "SKIP",
+          "cost_stress": "FAIL",
+          "start_date": "FAIL",
+          "risk": "FAIL"
+        },
+        "verdict_reasons": [
+          "\uacbd\uc81c: \ucd5c\uc885\uc790\uc0b0\uc774 B0 \ubbf8\ub2ec(vs_B0=0.877) \u2192 FAIL",
+          "\uc720\uc758\uc131: DSR\u00b7RC \ub458 \ub2e4 \ubbf8\ub2ec(DSR=4.686459553759903e-09, RC_p=1.0) \u2192 FAIL",
+          "\ud3c9\ud0c4\uc131: \uacbd\uacc4",
+          "\ube44\uc6a9: 0.47\u00d7 \uc5d0\uc11c \uc774\ubbf8 net\u22640 \u2192 FAIL",
+          "\uc2dc\uc791\uc77c: \uc2b9\ub960 0.00<0.55 \u2192 FAIL",
+          "\ub9ac\uc2a4\ud06c: \ub2e8\uc704\uc790\ubcf8 MDD -57.78% \u2264 \ud558\ub4dc\ucea1 \u221250% \u2192 FAIL(\u00a75.1)"
+        ]
+      },
+      "2x": {
+        "tv0_dca": 3.471185595360193,
+        "cand_dca_final": 197228.7439993725,
+        "qqq_dca_final": 56818.84145376754,
+        "full_mdd": -0.674448658333096,
+        "design": {
+          "window": [
+            "1986-01-03",
+            "2008-12-31"
+          ],
+          "T": 5802,
+          "sr_annual": 0.5061657234886561,
+          "sr_daily": 0.031885443488954016,
+          "cagr": 0.0633497090356856,
+          "mdd": -0.25524392746562075,
+          "ulcer": 8.960724909365137,
+          "calmar": 0.24819281565168003,
+          "cvar5": -0.013956868053415152,
+          "terminal_unit": 4.109319763889839,
+          "dsr": 0.8379121095081837,
+          "n_trials": 11,
+          "rc_p": 0.88,
+          "spa_p": 1.0
+        },
+        "holdout": {
+          "window": [
+            "2009-01-02",
+            "2026-09-22"
+          ],
+          "T": 4458,
+          "sr_annual": -0.3840303149308582,
+          "sr_daily": -0.024191635933734898,
+          "cagr": -0.04787480407511968,
+          "mdd": -0.6744486583330951,
+          "ulcer": 41.066411517686504,
+          "calmar": -0.07098361525908083,
+          "cvar5": -0.014997809575438403,
+          "terminal_unit": 0.41899953688494246,
+          "dsr": 0.0016856796724146195,
+          "n_trials": 12,
+          "rc_p": 1.0,
+          "spa_p": 1.0
+        },
+        "plateau": {
+          "frac_positive": 1.0,
+          "neighbor_median_sharpe": 0.520865511286365,
+          "center_sharpe": 0.5061220723652872,
+          "pass": true
+        },
+        "robustness": {
+          "breakeven_rt_bps": 53.5242404497694,
+          "start_date_winrate": 1.0,
+          "start_date_median_margin": 0.05246213689893986
+        },
+        "trade_stats": {
+          "n_trades": 356,
+          "win_rate": 0.49719101123595505,
+          "avg_win": 0.0259447506058382,
+          "avg_loss": -0.027772376415998435,
+          "expectancy": -0.0010647037113212313,
+          "profit_factor": 0.9237547676845577,
+          "trade_tstat": -0.5269708201384018,
+          "ci_lo": -0.005878770166213084,
+          "ci_hi": 0.003649526054551321,
+          "roundtrip_cost_frac": 0.0064,
+          "gross_mean": 0.0053524240456247684
+        },
+        "verdict": "FAIL",
+        "verdict_axes": {
+          "economic": "PASS",
+          "significance": "FAIL",
+          "plateau": "PASS",
+          "subperiod": "SKIP",
+          "cost_stress": "FAIL",
+          "start_date": "PASS",
+          "risk": "FAIL"
+        },
+        "verdict_reasons": [
+          "\uc720\uc758\uc131: DSR\u00b7RC \ub458 \ub2e4 \ubbf8\ub2ec(DSR=0.0016856796724146195, RC_p=1.0) \u2192 FAIL",
+          "\ube44\uc6a9: 0.84\u00d7 \uc5d0\uc11c \uc774\ubbf8 net\u22640 \u2192 FAIL",
+          "\ub9ac\uc2a4\ud06c: \ub2e8\uc704\uc790\ubcf8 MDD -67.44% \u2264 \ud558\ub4dc\ucea1 \u221250% \u2192 FAIL(\u00a75.1)"
+        ]
+      },
+      "3x": {
+        "tv0_dca": 9.55451760322032,
+        "cand_dca_final": 542876.6208646065,
+        "qqq_dca_final": 56818.84145376754,
+        "full_mdd": -0.7698422526375498,
+        "design": {
+          "window": [
+            "1986-01-03",
+            "2008-12-31"
+          ],
+          "T": 5802,
+          "sr_annual": 0.5280395584227705,
+          "sr_daily": 0.033263365571214586,
+          "cagr": 0.09342116712792659,
+          "mdd": -0.3748924557891441,
+          "ulcer": 13.355024963944958,
+          "calmar": 0.24919457749896876,
+          "cvar5": -0.01976460573327048,
+          "terminal_unit": 7.806039988158278,
+          "dsr": 0.9339927276207809,
+          "n_trials": 11,
+          "rc_p": 0.705,
+          "spa_p": 1.0
+        },
+        "holdout": {
+          "window": [
+            "2009-01-02",
+            "2026-09-22"
+          ],
+          "T": 4458,
+          "sr_annual": -0.24774738167476884,
+          "sr_daily": -0.015606618092353313,
+          "cagr": -0.053815118330158285,
+          "mdd": -0.76984225263755,
+          "ulcer": 46.16697071171208,
+          "calmar": -0.06990408508468166,
+          "cvar5": -0.02123876827792025,
+          "terminal_unit": 0.3749888544583536,
+          "dsr": 0.023470398278919113,
+          "n_trials": 12,
+          "rc_p": 1.0,
+          "spa_p": 1.0
+        },
+        "plateau": {
+          "frac_positive": 1.0,
+          "neighbor_median_sharpe": 0.4392516069030026,
+          "center_sharpe": 0.5279940168415521,
+          "pass": false
+        },
+        "robustness": {
+          "breakeven_rt_bps": 77.69230496487579,
+          "start_date_winrate": 1.0,
+          "start_date_median_margin": 0.524670086318034
+        },
+        "trade_stats": {
+          "n_trades": 356,
+          "win_rate": 0.5196629213483146,
+          "avg_win": 0.040000090272885445,
+          "avg_loss": -0.04047614825321453,
+          "expectancy": 0.0013443689583823657,
+          "profit_factor": 1.0691469750059723,
+          "trade_tstat": 0.4455300359706154,
+          "ci_lo": -0.005770697777697831,
+          "ci_hi": 0.008348727629186902,
+          "roundtrip_cost_frac": 0.0064,
+          "gross_mean": 0.007769230495969468
+        },
+        "verdict": "FAIL",
+        "verdict_axes": {
+          "economic": "PASS",
+          "significance": "FAIL",
+          "plateau": "FAIL",
+          "subperiod": "SKIP",
+          "cost_stress": "FAIL",
+          "start_date": "PASS",
+          "risk": "FAIL"
+        },
+        "verdict_reasons": [
+          "\uc720\uc758\uc131: DSR\u00b7RC \ub458 \ub2e4 \ubbf8\ub2ec(DSR=0.023470398278919113, RC_p=1.0) \u2192 FAIL",
+          "\ud3c9\ud0c4\uc131: \ubfb0\uc871\ubd09\uc6b0\ub9ac(\uacfc\uc801\ud569) \u2192 FAIL",
+          "\ube44\uc6a9: 1.21\u00d7 \uc5d0\uc11c \uc774\ubbf8 net\u22640 \u2192 FAIL",
+          "\ub9ac\uc2a4\ud06c: \ub2e8\uc704\uc790\ubcf8 MDD -76.98% \u2264 \ud558\ub4dc\ucea1 \u221250% \u2192 FAIL(\u00a75.1)"
+        ]
+      }
+    },
+    "moc_1x": {
+      "holdout_sharpe": -0.1368392974773131,
+      "trade_stats": {
+        "n_trades": 356,
+        "win_rate": 0.4606741573033708,
+        "avg_win": 0.009576053879468591,
+        "avg_loss": -0.013051161392063427,
+        "expectancy": -0.0026273880647284527,
+        "profit_factor": 0.6267293596583805,
+        "trade_tstat": -2.864215461814359,
+        "ci_lo": -0.0050032113013607025,
+        "ci_hi": -0.00011571214630225307,
+        "roundtrip_cost_frac": 0.006200000000000001,
+        "gross_mean": 0.0035837214718342342
+      }
+    },
+    "cost_scan_1x": {
+      "std_25bp": {
+        "expectancy": -0.003317643042458061,
+        "tstat": -3.268835600059082,
+        "total_net": -1.1810809231150696,
+        "roundtrip_bps": 62.0
+      },
+      "promo_10bp": {
+        "expectancy": -0.00031330606238351606,
+        "tstat": -0.3082330788579397,
+        "total_net": -0.11153695820853171,
+        "roundtrip_bps": 32.0
+      },
+      "stress_2x": {
+        "expectancy": -0.009526606134612118,
+        "tstat": -9.415735195697629,
+        "total_net": -3.391471783921914,
+        "roundtrip_bps": 124.0
+      }
+    },
+    "overlay": {
+      "tv0_dca": 1.5828597983349075,
+      "ov_dca_final": 89936.25992513358,
+      "qqq_dca_final": 56818.84145376754,
+      "full_mdd": -0.8596248170137519,
+      "design": {
+        "window": [
+          "1986-01-03",
+          "2008-12-31"
+        ],
+        "T": 5802,
+        "sr_annual": 0.32856326031971345,
+        "sr_daily": 0.020697539922822337,
+        "cagr": 0.05517698758854639,
+        "mdd": -0.8596248170137519,
+        "ulcer": 48.16094859508213,
+        "calmar": 0.06418729019507087,
+        "cvar5": -0.05010653652781023,
+        "terminal_unit": 3.440914409431806,
+        "dsr": null,
+        "n_trials": null,
+        "rc_p": 0.87,
+        "spa_p": 1.0
+      },
+      "holdout": {
+        "window": [
+          "2009-01-02",
+          "2026-09-22"
+        ],
+        "T": 4458,
+        "sr_annual": 0.3442962100199696,
+        "sr_daily": 0.021688622596545335,
+        "cagr": 0.05723074052272481,
+        "mdd": -0.5422004505004412,
+        "ulcer": 19.851702659119383,
+        "calmar": 0.10555273509990977,
+        "cvar5": -0.04126101639760869,
+        "terminal_unit": 2.6826663513778817,
+        "dsr": 0.9246576306953548,
+        "n_trials": 1,
+        "rc_p": 1.0,
+        "spa_p": 1.0
+      },
+      "verdict": "FAIL",
+      "verdict_axes": {
+        "economic": "PASS",
+        "significance": "CONDITIONAL",
+        "plateau": "SKIP",
+        "subperiod": "SKIP",
+        "cost_stress": "SKIP",
+        "start_date": "SKIP",
+        "risk": "FAIL"
+      }
+    }
+  },
+  "vix": {
+    "idea": "c2b_vix",
+    "base_cfg": {
+      "mult": 1.3,
+      "vix_win": 20,
+      "sma_trend": 200,
+      "sma_exit": 5,
+      "max_hold": 10
+    },
+    "tim": 0.025728486502290225,
+    "n_days": 10261,
+    "design_end": "2008-12-31",
+    "execs": {
+      "1x": {
+        "tv0_dca": 0.7852432880062342,
+        "cand_dca_final": 44616.61388386135,
+        "qqq_dca_final": 56818.84145376754,
+        "full_mdd": -0.2754551745829188,
+        "design": {
+          "window": [
+            "1986-01-03",
+            "2008-12-31"
+          ],
+          "T": 5802,
+          "sr_annual": 1.1278198904798398,
+          "sr_daily": 0.07104597509242283,
+          "cagr": 0.03983800038124352,
+          "mdd": -0.11914024784572697,
+          "ulcer": 2.2247487278063915,
+          "calmar": 0.3343790289309217,
+          "cvar5": -0.002107560912013814,
+          "terminal_unit": 2.456689031490083,
+          "dsr": 0.0,
+          "n_trials": 26,
+          "rc_p": 0.975,
+          "spa_p": 1.0
+        },
+        "holdout": {
+          "window": [
+            "2009-01-02",
+            "2026-09-22"
+          ],
+          "T": 4458,
+          "sr_annual": 0.04989717002601431,
+          "sr_daily": 0.003143226262255718,
+          "cagr": 0.0006791492643392072,
+          "mdd": -0.2615650838040886,
+          "ulcer": 12.123304744727792,
+          "calmar": 0.0025964828885490228,
+          "cvar5": -0.008255821887559219,
+          "terminal_unit": 1.0121110038104433,
+          "dsr": 0.0,
+          "n_trials": 27,
+          "rc_p": 1.0,
+          "spa_p": 1.0
+        },
+        "plateau": {
+          "frac_positive": 0.92,
+          "neighbor_median_sharpe": 1.2428409686954967,
+          "center_sharpe": 1.1277222369150017,
+          "pass": true
+        },
+        "robustness": {
+          "breakeven_rt_bps": 25.17235390841961,
+          "start_date_winrate": 0.0,
+          "start_date_median_margin": -0.2519966519729351
+        },
+        "trade_stats": {
+          "n_trades": 79,
+          "win_rate": 0.5316455696202531,
+          "avg_win": 0.015405521962447023,
+          "avg_loss": -0.025367210743098813,
+          "expectancy": -0.0036905680388845696,
+          "profit_factor": 0.6893682333374809,
+          "trade_tstat": -1.0167565673586683,
+          "ci_lo": -0.00992782422702326,
+          "ci_hi": 0.001756753237899005,
+          "roundtrip_cost_frac": 0.006200000000000001,
+          "gross_mean": 0.002517235390826995
+        },
+        "verdict": "FAIL",
+        "verdict_axes": {
+          "economic": "FAIL",
+          "significance": "FAIL",
+          "plateau": "PASS",
+          "subperiod": "SKIP",
+          "cost_stress": "FAIL",
+          "start_date": "FAIL",
+          "risk": "PASS"
+        },
+        "verdict_reasons": [
+          "\uacbd\uc81c: \ucd5c\uc885\uc790\uc0b0\uc774 B0 \ubbf8\ub2ec(vs_B0=0.785) \u2192 FAIL",
+          "\uc720\uc758\uc131: DSR\u00b7RC \ub458 \ub2e4 \ubbf8\ub2ec(DSR=0.0, RC_p=1.0) \u2192 FAIL",
+          "\ube44\uc6a9: 0.41\u00d7 \uc5d0\uc11c \uc774\ubbf8 net\u22640 \u2192 FAIL",
+          "\uc2dc\uc791\uc77c: \uc2b9\ub960 0.00<0.55 \u2192 FAIL"
+        ]
+      },
+      "2x": {
+        "tv0_dca": 2.62850229584375,
+        "cand_dca_final": 149348.45520841,
+        "qqq_dca_final": 56818.84145376754,
+        "full_mdd": -0.469624759973887,
+        "design": {
+          "window": [
+            "1986-01-03",
+            "2008-12-31"
+          ],
+          "T": 5802,
+          "sr_annual": 0.5782283744467452,
+          "sr_daily": 0.03642496380445769,
+          "cagr": 0.03866317863298363,
+          "mdd": -0.22979878731162906,
+          "ulcer": 5.825595396095214,
+          "calmar": 0.1682479663417574,
+          "cvar5": -0.003926734279151041,
+          "terminal_unit": 2.3936151944475395,
+          "dsr": 0.0,
+          "n_trials": 26,
+          "rc_p": 0.9775,
+          "spa_p": 1.0
+        },
+        "holdout": {
+          "window": [
+            "2009-01-02",
+            "2026-09-22"
+          ],
+          "T": 4458,
+          "sr_annual": 0.08061885988625866,
+          "sr_daily": 0.005078510815252414,
+          "cagr": -0.0006110453815835193,
+          "mdd": -0.469624759973887,
+          "ulcer": 22.539607322776035,
+          "calmar": -0.001301135360958174,
+          "cvar5": -0.015404349236434576,
+          "terminal_unit": 0.9892204532602037,
+          "dsr": 0.0,
+          "n_trials": 27,
+          "rc_p": 1.0,
+          "spa_p": 1.0
+        },
+        "plateau": {
+          "frac_positive": 0.92,
+          "neighbor_median_sharpe": 0.6554830496056008,
+          "center_sharpe": 0.5781784932762072,
+          "pass": true
+        },
+        "robustness": {
+          "breakeven_rt_bps": 39.44350752281025,
+          "start_date_winrate": 0.0,
+          "start_date_median_margin": -0.2681755480150734
+        },
+        "trade_stats": {
+          "n_trades": 79,
+          "win_rate": 0.5949367088607594,
+          "avg_win": 0.03244695022875099,
+          "avg_loss": -0.05375000259954261,
+          "expectancy": -0.00246827117005148,
+          "profit_factor": 0.8866317366258799,
+          "trade_tstat": -0.3391916469687367,
+          "ci_lo": -0.015079250137715862,
+          "ci_hi": 0.008479408126137011,
+          "roundtrip_cost_frac": 0.0064,
+          "gross_mean": 0.0039443507523560595
+        },
+        "verdict": "FAIL",
+        "verdict_axes": {
+          "economic": "PASS",
+          "significance": "FAIL",
+          "plateau": "PASS",
+          "subperiod": "SKIP",
+          "cost_stress": "FAIL",
+          "start_date": "FAIL",
+          "risk": "PASS"
+        },
+        "verdict_reasons": [
+          "\uc720\uc758\uc131: DSR\u00b7RC \ub458 \ub2e4 \ubbf8\ub2ec(DSR=0.0, RC_p=1.0) \u2192 FAIL",
+          "\ube44\uc6a9: 0.62\u00d7 \uc5d0\uc11c \uc774\ubbf8 net\u22640 \u2192 FAIL",
+          "\uc2dc\uc791\uc77c: \uc2b9\ub960 0.00<0.55 \u2192 FAIL"
+        ]
+      },
+      "3x": {
+        "tv0_dca": 5.950194505889063,
+        "cand_dca_final": 338083.1582491894,
+        "qqq_dca_final": 56818.84145376754,
+        "full_mdd": -0.6450889880651833,
+        "design": {
+          "window": [
+            "1986-01-03",
+            "2008-12-31"
+          ],
+          "T": 5802,
+          "sr_annual": 0.39555426483288425,
+          "sr_daily": 0.024917576542352233,
+          "cagr": 0.036545109103462314,
+          "mdd": -0.32971514627256704,
+          "ulcer": 10.204387569966652,
+          "calmar": 0.11083842982830826,
+          "cvar5": -0.00573237791417996,
+          "terminal_unit": 2.2837937394288805,
+          "dsr": 0.0,
+          "n_trials": 26,
+          "rc_p": 0.9775,
+          "spa_p": 1.0
+        },
+        "holdout": {
+          "window": [
+            "2009-01-02",
+            "2026-09-22"
+          ],
+          "T": 4458,
+          "sr_annual": 0.09529545110536308,
+          "sr_daily": 0.006003049159535856,
+          "cagr": -0.008320891093279048,
+          "mdd": -0.6450889880651834,
+          "ulcer": 33.87015320651571,
+          "calmar": -0.012898826746734449,
+          "cvar5": -0.022500004289837828,
+          "terminal_unit": 0.8622938232725136,
+          "dsr": 0.0,
+          "n_trials": 27,
+          "rc_p": 1.0,
+          "spa_p": 1.0
+        },
+        "plateau": {
+          "frac_positive": 0.92,
+          "neighbor_median_sharpe": 0.4259768237751957,
+          "center_sharpe": 0.3955201661993351,
+          "pass": true
+        },
+        "robustness": {
+          "breakeven_rt_bps": 50.41503175743853,
+          "start_date_winrate": 0.0,
+          "start_date_median_margin": -0.19558046179199562
+        },
+        "trade_stats": {
+          "n_trades": 79,
+          "win_rate": 0.5949367088607594,
+          "avg_win": 0.05126610219182228,
+          "avg_loss": -0.07869070450450612,
+          "expectancy": -0.001374629634538593,
+          "profit_factor": 0.9568739798221935,
+          "trade_tstat": -0.12689167533339435,
+          "ci_lo": -0.02026264672433458,
+          "ci_hi": 0.014958079018900944,
+          "roundtrip_cost_frac": 0.0064,
+          "gross_mean": 0.005041503175623404
+        },
+        "verdict": "FAIL",
+        "verdict_axes": {
+          "economic": "PASS",
+          "significance": "FAIL",
+          "plateau": "PASS",
+          "subperiod": "SKIP",
+          "cost_stress": "FAIL",
+          "start_date": "FAIL",
+          "risk": "FAIL"
+        },
+        "verdict_reasons": [
+          "\uc720\uc758\uc131: DSR\u00b7RC \ub458 \ub2e4 \ubbf8\ub2ec(DSR=0.0, RC_p=1.0) \u2192 FAIL",
+          "\ube44\uc6a9: 0.79\u00d7 \uc5d0\uc11c \uc774\ubbf8 net\u22640 \u2192 FAIL",
+          "\uc2dc\uc791\uc77c: \uc2b9\ub960 0.00<0.55 \u2192 FAIL",
+          "\ub9ac\uc2a4\ud06c: \ub2e8\uc704\uc790\ubcf8 MDD -64.51% \u2264 \ud558\ub4dc\ucea1 \u221250% \u2192 FAIL(\u00a75.1)"
+        ]
+      }
+    },
+    "moc_1x": {
+      "holdout_sharpe": 0.19586799628270407,
+      "trade_stats": {
+        "n_trades": 79,
+        "win_rate": 0.7215189873417721,
+        "avg_win": 0.016143349876221864,
+        "avg_loss": -0.0316508337523698,
+        "expectancy": 0.002833577220158361,
+        "profit_factor": 1.3214802579694358,
+        "trade_tstat": 0.784085876330741,
+        "ci_lo": -0.003019007653394118,
+        "ci_hi": 0.010431817162868508,
+        "roundtrip_cost_frac": 0.006200000000000001,
+        "gross_mean": 0.0090616683921741
+      }
+    },
+    "cost_scan_1x": {
+      "std_25bp": {
+        "expectancy": -0.0036905680388845696,
+        "tstat": -1.0167565673586683,
+        "total_net": -0.291554875071881,
+        "roundtrip_bps": 62.0
+      },
+      "promo_10bp": {
+        "expectancy": -0.0006867921857983287,
+        "tstat": -0.18892791805213055,
+        "total_net": -0.05425658267806797,
+        "roundtrip_bps": 32.0
+      },
+      "stress_2x": {
+        "expectancy": -0.009898371468596134,
+        "tstat": -2.7355214313485434,
+        "total_net": -0.7819713460190946,
+        "roundtrip_bps": 124.0
+      }
+    },
+    "overlay": {
+      "tv0_dca": 1.197710998703833,
+      "ov_dca_final": 68052.55134278667,
+      "qqq_dca_final": 56818.84145376754,
+      "full_mdd": -0.8250258478307957,
+      "design": {
+        "window": [
+          "1986-01-03",
+          "2008-12-31"
+        ],
+        "T": 5802,
+        "sr_annual": 0.44096103452873103,
+        "sr_daily": 0.027777934172209244,
+        "cagr": 0.0927287285441385,
+        "mdd": -0.8250258478307957,
+        "ulcer": 41.610221089273494,
+        "calmar": 0.1123949374288649,
+        "cvar5": -0.045171128608073846,
+        "terminal_unit": 7.693090571640959,
+        "dsr": null,
+        "n_trials": null,
+        "rc_p": 0.82,
+        "spa_p": 1.0
+      },
+      "holdout": {
+        "window": [
+          "2009-01-02",
+          "2026-09-22"
+        ],
+        "T": 4458,
+        "sr_annual": 0.6016857690929752,
+        "sr_daily": 0.03790264077206299,
+        "cagr": 0.14724828730742034,
+        "mdd": -0.6515790128520256,
+        "ulcer": 16.526131112596563,
+        "calmar": 0.22598684795401877,
+        "cvar5": -0.04443133040614551,
+        "terminal_unit": 11.423940073685976,
+        "dsr": 0.992363101178764,
+        "n_trials": 1,
+        "rc_p": 0.79,
+        "spa_p": 1.0
+      },
+      "verdict": "FAIL",
+      "verdict_axes": {
+        "economic": "PASS",
+        "significance": "CONDITIONAL",
+        "plateau": "SKIP",
+        "subperiod": "SKIP",
+        "cost_stress": "SKIP",
+        "start_date": "SKIP",
+        "risk": "FAIL"
+      }
+    }
+  },
+  "ibs": {
+    "idea": "c2b_ibs",
+    "base_cfg": {
+      "ibs_entry": 0.2,
+      "ibs_exit": 0.5,
+      "max_hold": 5
+    },
+    "design_end": "2021-12-31",
+    "syms": {
+      "c2b_ibs_QQQ_QQQ": {
+        "tim": 0.22721846398726622,
+        "tv0_dca": 1.0123642503463812,
+        "full_mdd": -0.7941889986288851,
+        "design": {
+          "window": [
+            "2016-09-23",
+            "2021-12-31"
+          ],
+          "T": 1328,
+          "sr_annual": -1.0902276885569016,
+          "sr_daily": -0.06867788896091287,
+          "cagr": -0.13177142417950605,
+          "mdd": -0.5385631829236293,
+          "ulcer": 33.42538889769047,
+          "calmar": -0.24467217284363058,
+          "cvar5": -0.020447456836738143,
+          "terminal_unit": 0.4746328530754429,
+          "dsr": null,
+          "n_trials": null,
+          "rc_p": 1.0,
+          "spa_p": 1.0
+        },
+        "holdout": {
+          "window": [
+            "2022-01-03",
+            "2026-09-22"
+          ],
+          "T": 1184,
+          "sr_annual": -1.2457739747407364,
+          "sr_daily": -0.0784763839752488,
+          "cagr": -0.15756989693027812,
+          "mdd": -0.5681283606057779,
+          "ulcer": 34.41880227537853,
+          "calmar": -0.27734911308118143,
+          "cvar5": -0.02471244814178441,
+          "terminal_unit": 0.445122039091446,
+          "dsr": 0.0031021750970819384,
+          "n_trials": 1,
+          "rc_p": 1.0,
+          "spa_p": 1.0
+        },
+        "trade_stats": {
+          "n_trades": 336,
+          "win_rate": 0.39880952380952384,
+          "avg_win": 0.012008743934041137,
+          "avg_loss": -0.015323526018905308,
+          "expectancy": -0.004423156454337381,
+          "profit_factor": 0.519867063316129,
+          "trade_tstat": -4.048631787988997,
+          "ci_lo": -0.006426298793693864,
+          "ci_hi": -0.0024516034208179336,
+          "roundtrip_cost_frac": 0.006200000000000001,
+          "gross_mean": 0.0017823688892191988
+        },
+        "cost_scan": {
+          "std_25bp": {
+            "expectancy": -0.004423156454337381,
+            "tstat": -4.048631787988997,
+            "total_net": -1.4861805686573601,
+            "roundtrip_bps": 62.0
+          },
+          "promo_10bp": {
+            "expectancy": -0.0014204829010035522,
+            "tstat": -1.298252038717108,
+            "total_net": -0.47728225473719355,
+            "roundtrip_bps": 32.0
+          },
+          "stress_2x": {
+            "expectancy": -0.010628681797893962,
+            "tstat": -9.759060002375842,
+            "total_net": -3.5712370840923713,
+            "roundtrip_bps": 124.0
+          }
+        },
+        "verdict": "FAIL"
+      },
+      "c2b_ibs_QQQ_QLD": {
+        "tim": 0.22721846398726622,
+        "tv0_dca": 1.5220645766933385,
+        "full_mdd": -0.7537363989838379,
+        "design": {
+          "window": [
+            "2016-09-23",
+            "2021-12-31"
+          ],
+          "T": 1328,
+          "sr_annual": -0.33647054611240534,
+          "sr_daily": -0.02119565210741703,
+          "cagr": -0.10526892839983071,
+          "mdd": -0.5413997423064772,
+          "ulcer": 30.335546156422534,
+          "calmar": -0.19443845309449695,
+          "cvar5": -0.038933110179264006,
+          "terminal_unit": 0.5561957567013548,
+          "dsr": null,
+          "n_trials": null,
+          "rc_p": 1.0,
+          "spa_p": 1.0
+        },
+        "holdout": {
+          "window": [
+            "2022-01-03",
+            "2026-09-22"
+          ],
+          "T": 1184,
+          "sr_annual": -0.4936736959610099,
+          "sr_daily": -0.031098519722070096,
+          "cagr": -0.14835694206640937,
+          "mdd": -0.5731125243850264,
+          "ulcer": 31.886156281714715,
+          "calmar": -0.258861804190377,
+          "cvar5": -0.047626225996274175,
+          "terminal_unit": 0.46857348247690095,
+          "dsr": 0.14103311847823596,
+          "n_trials": 1,
+          "rc_p": 0.9975,
+          "spa_p": 1.0
+        },
+        "trade_stats": {
+          "n_trades": 336,
+          "win_rate": 0.48214285714285715,
+          "avg_win": 0.0249929153224196,
+          "avg_loss": -0.029404745901262668,
+          "expectancy": -0.0031773020969872888,
+          "profit_factor": 0.7913438894515232,
+          "trade_tstat": -1.455073650260837,
+          "ci_lo": -0.007209658908799193,
+          "ci_hi": 0.0007892434089168293,
+          "roundtrip_cost_frac": 0.0064,
+          "gross_mean": 0.0032330436426692526
+        },
+        "cost_scan": null,
+        "verdict": "FAIL"
+      },
+      "c2b_ibs_QQQ_TQQQ": {
+        "tim": 0.22721846398726622,
+        "tv0_dca": 2.2282157712764423,
+        "full_mdd": -0.7377984416528862,
+        "design": {
+          "window": [
+            "2016-09-23",
+            "2021-12-31"
+          ],
+          "T": 1328,
+          "sr_annual": -0.04715205093313197,
+          "sr_daily": -0.0029703000137075775,
+          "cagr": -0.07934820249237196,
+          "mdd": -0.6376285886290844,
+          "ulcer": 32.638987340239126,
+          "calmar": -0.12444266757701744,
+          "cvar5": -0.05635291211475346,
+          "terminal_unit": 0.6466066278429468,
+          "dsr": null,
+          "n_trials": null,
+          "rc_p": 0.98,
+          "spa_p": 1.0
+        },
+        "holdout": {
+          "window": [
+            "2022-01-03",
+            "2026-09-22"
+          ],
+          "T": 1184,
+          "sr_annual": -0.20367830984623297,
+          "sr_daily": -0.012830527507406923,
+          "cagr": -0.14086178091214208,
+          "mdd": -0.6255134377897894,
+          "ulcer": 35.2135970660151,
+          "calmar": -0.22519385260509817,
+          "cvar5": -0.06989837377171886,
+          "terminal_unit": 0.4883614958111202,
+          "dsr": 0.329098110274778,
+          "n_trials": 1,
+          "rc_p": 0.945,
+          "spa_p": 1.0
+        },
+        "trade_stats": {
+          "n_trades": 336,
+          "win_rate": 0.5089285714285714,
+          "avg_win": 0.03836871019622608,
+          "avg_loss": -0.042994585940630305,
+          "expectancy": -0.0015864798709801823,
+          "profit_factor": 0.9248591456713178,
+          "trade_tstat": -0.48942453178005785,
+          "ci_lo": -0.00751415447776104,
+          "ci_hi": 0.0043275485480174245,
+          "roundtrip_cost_frac": 0.0064,
+          "gross_mean": 0.004828972842114585
+        },
+        "cost_scan": null,
+        "verdict": "FAIL"
+      },
+      "c2b_ibs_SPY_SPY": {
+        "tim": 0.23199363310783924,
+        "tv0_dca": 1.0027298065100447,
+        "full_mdd": -0.780425037454008,
+        "design": {
+          "window": [
+            "2016-09-23",
+            "2021-12-31"
+          ],
+          "T": 1328,
+          "sr_annual": -1.41646745201249,
+          "sr_daily": -0.08922906233910394,
+          "cagr": -0.14747651896009828,
+          "mdd": -0.577456080965068,
+          "ulcer": 36.89117555316009,
+          "calmar": -0.25539001808350437,
+          "cvar5": -0.01737224177638926,
+          "terminal_unit": 0.4310693912732868,
+          "dsr": null,
+          "n_trials": null,
+          "rc_p": 1.0,
+          "spa_p": 1.0
+        },
+        "holdout": {
+          "window": [
+            "2022-01-03",
+            "2026-09-22"
+          ],
+          "T": 1184,
+          "sr_annual": -1.461580847692471,
+          "sr_daily": -0.0920709391430774,
+          "cagr": -0.13106359220679098,
+          "mdd": -0.4940914148205757,
+          "ulcer": 30.19394840780455,
+          "calmar": -0.2652618286322287,
+          "cvar5": -0.0167708482849292,
+          "terminal_unit": 0.5152166642765151,
+          "dsr": 0.0006966899432261364,
+          "n_trials": 1,
+          "rc_p": 1.0,
+          "spa_p": 1.0
+        },
+        "trade_stats": {
+          "n_trades": 336,
+          "win_rate": 0.37797619047619047,
+          "avg_win": 0.008600715847370932,
+          "avg_loss": -0.012140886946808963,
+          "expectancy": -0.004301054938294538,
+          "profit_factor": 0.4304687402217863,
+          "trade_tstat": -4.7663060837435,
+          "ci_lo": -0.005793191598142161,
+          "ci_hi": -0.0029601279441395442,
+          "roundtrip_cost_frac": 0.006200000000000001,
+          "gross_mean": 0.0019048500970061822
+        },
+        "cost_scan": {
+          "std_25bp": {
+            "expectancy": -0.004301054938294538,
+            "tstat": -4.7663060837435,
+            "total_net": -1.4451544592669647,
+            "roundtrip_bps": 62.0
+          },
+          "promo_10bp": {
+            "expectancy": -0.001298197663149028,
+            "tstat": -1.4364641287359818,
+            "total_net": -0.43619441481807336,
+            "roundtrip_bps": 32.0
+          },
+          "stress_2x": {
+            "expectancy": -0.010506959973595256,
+            "tstat": -11.679832644705774,
+            "total_net": -3.5303385511280063,
+            "roundtrip_bps": 124.0
+          }
+        },
+        "verdict": "FAIL"
+      }
+    }
+  },
+  "gapdown": {
+    "idea": "c2b_gapdown",
+    "cfg": {
+      "gap": -0.01
+    },
+    "syms": {
+      "c2b_gapdown_QQQ": {
+        "design": {
+          "n_trades": 75,
+          "win_rate": 0.36,
+          "avg_win": 0.012527574087971885,
+          "avg_loss": -0.013847666413273637,
+          "expectancy": -0.0043525798328252485,
+          "profit_factor": 0.5088771071008423,
+          "trade_tstat": -2.3035376456161427,
+          "ci_lo": -0.00787468535760798,
+          "ci_hi": -0.00030289524941107775,
+          "roundtrip_cost_frac": 0.006200000000000001,
+          "gross_mean": 0.0018531649786084378,
+          "slip2x_expectancy": -0.010558324644258935,
+          "slip2x_tstat": -5.605265440262729
+        },
+        "holdout": {
+          "n_trades": 105,
+          "win_rate": 0.3238095238095238,
+          "avg_win": 0.011240908581176275,
+          "avg_loss": -0.014655738403100554,
+          "expectancy": -0.0062701574748585355,
+          "profit_factor": 0.3672943770161702,
+          "trade_tstat": -3.8597733749186114,
+          "ci_lo": -0.008791865067099629,
+          "ci_hi": -0.004001304822665252,
+          "roundtrip_cost_frac": 0.006200000000000001,
+          "gross_mean": -7.037563934048984e-05,
+          "slip2x_expectancy": -0.01246993931037658,
+          "slip2x_tstat": -7.700169782913376
+        },
+        "verdict": "FAIL",
+        "verdict_reasons": [
+          "\ub808\uc7783: n_trades=105 < 200 \u2192 \ud1b5\uacc4\uc8fc\uc7a5 \ubd88\uac00, \uac12\uc2fc \uae30\uac01",
+          "\ub808\uc7783: per-trade t=-3.8597733749186114 < 3.0 \u2192 \ubbf8\ub2ec",
+          "\ub808\uc7783: \uac70\ub798PnL \ubd80\ud2b8 CI \ud558\ud55c=-0.008791865067099629 \u2264 0 \u2192 \ubbf8\ub2ec",
+          "\ub808\uc7783: \uc2ac\ub9ac\ud53c\uc9c0 2\u00d7 \uc2a4\ud2b8\ub808\uc2a4 \ubbf8\uc0dd\uc874 \u2192 \ubbf8\ub2ec"
+        ]
+      },
+      "c2b_gapdown_QLD": {
+        "design": {
+          "n_trades": 75,
+          "win_rate": 0.49333333333333335,
+          "avg_win": 0.024568650410800242,
+          "avg_loss": -0.028802693049345077,
+          "expectancy": -0.0024728302756733852,
+          "profit_factor": 0.8305510508324161,
+          "trade_tstat": -0.6383886717927426,
+          "ci_lo": -0.00951881817597724,
+          "ci_hi": 0.0057913959814144475,
+          "roundtrip_cost_frac": 0.0064,
+          "gross_mean": 0.00393977701076105,
+          "slip2x_expectancy": -0.008885437562107822,
+          "slip2x_tstat": -2.3012623302154465
+        },
+        "holdout": {
+          "n_trades": 105,
+          "win_rate": 0.3904761904761905,
+          "avg_win": 0.025148669866539713,
+          "avg_loss": -0.026415117469997473,
+          "expectancy": -0.006280686224302,
+          "profit_factor": 0.6099108456190236,
+          "trade_tstat": -1.8884842315662003,
+          "ci_lo": -0.011417465543774135,
+          "ci_hi": -0.0016816198496371474,
+          "roundtrip_cost_frac": 0.0064,
+          "gross_mean": 0.00011969680547552208,
+          "slip2x_expectancy": -0.012681069254079523,
+          "slip2x_tstat": -3.825239102817507
+        },
+        "verdict": "FAIL",
+        "verdict_reasons": [
+          "\ub808\uc7783: n_trades=105 < 200 \u2192 \ud1b5\uacc4\uc8fc\uc7a5 \ubd88\uac00, \uac12\uc2fc \uae30\uac01",
+          "\ub808\uc7783: per-trade t=-1.8884842315662003 < 3.0 \u2192 \ubbf8\ub2ec",
+          "\ub808\uc7783: \uac70\ub798PnL \ubd80\ud2b8 CI \ud558\ud55c=-0.011417465543774135 \u2264 0 \u2192 \ubbf8\ub2ec",
+          "\ub808\uc7783: \uc2ac\ub9ac\ud53c\uc9c0 2\u00d7 \uc2a4\ud2b8\ub808\uc2a4 \ubbf8\uc0dd\uc874 \u2192 \ubbf8\ub2ec"
+        ]
+      },
+      "c2b_gapdown_TQQQ": {
+        "design": {
+          "n_trades": 75,
+          "win_rate": 0.52,
+          "avg_win": 0.038725343582608214,
+          "avg_loss": -0.04306734713467911,
+          "expectancy": -0.0005351479616896983,
+          "profit_factor": 0.9741128334799198,
+          "trade_tstat": -0.09015796759156701,
+          "ci_lo": -0.011677254589747497,
+          "ci_hi": 0.012168500353579862,
+          "roundtrip_cost_frac": 0.0064,
+          "gross_mean": 0.005883679813714188,
+          "slip2x_expectancy": -0.0069539757370935835,
+          "slip2x_tstat": -1.1753300902872998
+        },
+        "holdout": {
+          "n_trades": 105,
+          "win_rate": 0.42857142857142855,
+          "avg_win": 0.03818972595356205,
+          "avg_loss": -0.039256552546803186,
+          "expectancy": -0.0060652903323609435,
+          "profit_factor": 0.7296181810927763,
+          "trade_tstat": -1.1970622279701901,
+          "ci_lo": -0.013835014212055885,
+          "ci_hi": 0.0009328625341434011,
+          "roundtrip_cost_frac": 0.0064,
+          "gross_mean": 0.00033578417700547413,
+          "slip2x_expectancy": -0.012466364841727362,
+          "slip2x_tstat": -2.4683197159558485
+        },
+        "verdict": "FAIL",
+        "verdict_reasons": [
+          "\ub808\uc7783: n_trades=105 < 200 \u2192 \ud1b5\uacc4\uc8fc\uc7a5 \ubd88\uac00, \uac12\uc2fc \uae30\uac01",
+          "\ub808\uc7783: per-trade t=-1.1970622279701901 < 3.0 \u2192 \ubbf8\ub2ec",
+          "\ub808\uc7783: \uac70\ub798PnL \ubd80\ud2b8 CI \ud558\ud55c=-0.013835014212055885 \u2264 0 \u2192 \ubbf8\ub2ec",
+          "\ub808\uc7783: \uc2ac\ub9ac\ud53c\uc9c0 2\u00d7 \uc2a4\ud2b8\ub808\uc2a4 \ubbf8\uc0dd\uc874 \u2192 \ubbf8\ub2ec"
+        ]
+      }
+    }
+  }
+}
