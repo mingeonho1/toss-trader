@@ -26,6 +26,12 @@ __all__ = [
     "REGULAR_OPEN_MIN", "REGULAR_CLOSE_MIN", "TIME_EXIT_MIN",
     "MOMENTUM_SIGNAL_MIN", "MOMENTUM_ENTRY_MIN", "MOMENTUM_EXIT_MIN",
     "GAP_THRESHOLD", "GAP_HOLD_MIN",
+    # 2026-09-28 신규 사전등록 규칙(docs/intraday_shadow_rules.md §6)
+    "NOISE_CHECK_MINUTES", "NOISE_LOOKBACK_SESSIONS", "LEV_BETA",
+    "LETF_K", "LETF_SIGNAL_MIN", "LETF_EXIT_MIN",
+    "NOISE_UNDERLYING_RULES", "NOISE_LEV_VARIANTS",
+    "session_move_profile", "sigma_profile", "noise_area_signal",
+    "letf_late_momentum_signal", "leverage_exit_ref", "leverage_variant",
 ]
 
 # ── 동결 파라미터 ────────────────────────────────────────────────────────────
@@ -49,6 +55,27 @@ GAP_HOLD_MIN = REGULAR_OPEN_MIN + 15  # 09:45 ET (첫 15분)
 # 규칙 유니버스: core 심볼 vs movers 별 규칙 목록.
 RULE_UNIVERSE_CORE = ("orb5_core", "orb15_core", "momentum_core")
 RULE_UNIVERSE_MOVERS = ("orb5_movers", "orb15_movers", "gap_and_go_movers")
+
+# ── 2026-09-28 신규 사전등록 파라미터(동결; docs/intraday_shadow_rules.md §6) ────
+# F3 Noise-Area: 결정은 30분 마크 10:00–15:30 ET(분 600..930), σ 는 직전 14세션 룩백.
+NOISE_CHECK_MINUTES: tuple[int, ...] = tuple(range(10 * 60, 15 * 60 + 30 + 1, 30))
+NOISE_LOOKBACK_SESSIONS = 14
+LEV_BETA = 3.0                       # 레버리지 변형 근사(일간 리셋 → 장중≈3x)
+
+# F6 LETF 장후반 모멘텀: 14:00 트리거, k=6%, 15:45 청산.
+LETF_K = 0.06
+LETF_SIGNAL_MIN = 14 * 60            # 14:00 ET
+LETF_EXIT_MIN = 15 * 60 + 45        # 15:45 ET
+
+# Noise-Area 실행 매핑: 언더라잉 → (규칙 id, 티어); 레버리지 변형 → (레버 심볼, 규칙 id, 티어).
+NOISE_UNDERLYING_RULES: dict[str, tuple[str, str]] = {
+    "QQQ": ("noise_area_qqq", "etf"),
+    "SPY": ("noise_area_spy", "etf"),
+}
+NOISE_LEV_VARIANTS: dict[str, tuple[str, str, str]] = {
+    "QQQ": ("TQQQ", "noise_area_qqq_tqqq", "leveraged"),
+    "SPY": ("SPXL", "noise_area_spy_spxl", "leveraged"),
+}
 
 
 def tier_for(symbol: str) -> str:
@@ -341,3 +368,153 @@ def signals_for_symbol(symbol: str, bars: list[Bar], *,
         if g is not None:
             out.append(g)
     return out
+
+
+# ── 2026-09-28 신규 규칙(순수; docs/intraday_shadow_rules.md §6) ───────────────
+def session_move_profile(bars: list[Bar],
+                         check_minutes: tuple[int, ...] = NOISE_CHECK_MINUTES
+                         ) -> dict[int, float]:
+    """한 세션의 결정시각별 `|close(m)/open_d − 1|`(F3 move). open_d=첫 정규장 봉.
+
+    close(m) = 분 ≤ m 인 마지막 정규장 봉. 해당 봉/시가가 없으면 그 분은 생략. price-only 호환.
+    """
+    reg = _regular(bars)
+    if not reg:
+        return {}
+    open_d = reg[0].price
+    if open_d <= 0:
+        return {}
+    out: dict[int, float] = {}
+    for m in check_minutes:
+        b = _last_at_or_before(reg, m)
+        if b is None or b.minute < REGULAR_OPEN_MIN:
+            continue
+        out[m] = abs(b.price / open_d - 1.0)
+    return out
+
+
+def sigma_profile(prior_profiles: list[dict[int, float]],
+                  *, check_minutes: tuple[int, ...] = NOISE_CHECK_MINUTES,
+                  lookback: int = NOISE_LOOKBACK_SESSIONS) -> dict[int, float] | None:
+    """직전 세션들의 move 프로파일 → 결정시각별 σ(m)=최근 `lookback` 세션 평균.
+
+    prior_profiles 는 **과거→현재** 순의 세션별 profile 리스트(현재 세션 제외).
+    len < lookback 이면 **워밍업** → None. 그 외엔 최근 lookback 세션의 값(있는 분만) 평균.
+    """
+    if len(prior_profiles) < lookback:
+        return None
+    window = prior_profiles[-lookback:]
+    out: dict[int, float] = {}
+    for m in check_minutes:
+        vals = [p[m] for p in window if m in p]
+        if vals:
+            out[m] = sum(vals) / len(vals)
+    return out
+
+
+def noise_area_signal(bars: list[Bar], *, sigma_by_minute: dict[int, float] | None,
+                      prior_close: float | None, rule: str,
+                      check_minutes: tuple[int, ...] = NOISE_CHECK_MINUTES
+                      ) -> TradeSignal | None:
+    """F3 Noise-Area 롱온리(price-only, VWAP 미사용 경계선판).
+
+    UB(m)=max(open_d, prev_close)×(1+σ(m)). 30분 마크에서 price>UB 첫 시각 진입, 이후 마크에서
+    price<UB 이면 청산(reason=stop), 미발동 시 16:00 청산(reason=time). sigma_by_minute=None →
+    워밍업(트레이드 없음).
+    """
+    if not sigma_by_minute:
+        return None
+    reg = _regular(bars)
+    if not reg:
+        return None
+    open_d = reg[0].price
+    if open_d <= 0:
+        return None
+    flags: list[str] = []
+    if prior_close is None or prior_close <= 0:
+        base = open_d
+        flags.append("no_prior_close_ub_open_only")
+    else:
+        base = max(open_d, prior_close)
+    flags.append("no_vwap_boundary_only")
+
+    def _ub(minute: int) -> float | None:
+        s = sigma_by_minute.get(minute)
+        return None if s is None else base * (1.0 + s)
+
+    entry_bar: Bar | None = None
+    entry_pos = -1
+    for i, m in enumerate(check_minutes):
+        b = _last_at_or_before(reg, m)
+        if b is None or b.minute < REGULAR_OPEN_MIN:
+            continue
+        ub = _ub(m)
+        if ub is None:
+            continue
+        if b.price > ub:
+            entry_bar, entry_pos = b, i
+            break
+    if entry_bar is None:
+        return None
+
+    exit_bar: Bar | None = None
+    exit_reason = "time"
+    for m in check_minutes[entry_pos + 1:]:
+        b = _last_at_or_before(reg, m)
+        if b is None or b.ts <= entry_bar.ts:
+            continue
+        ub = _ub(m)
+        if ub is None:
+            continue
+        if b.price < ub:
+            exit_bar, exit_reason = b, "stop"
+            break
+    if exit_bar is None:
+        last = reg[-1]
+        if last.ts <= entry_bar.ts:
+            return None
+        exit_bar = last
+    return TradeSignal(rule=rule, entry_ts=entry_bar.ts, exit_ts=exit_bar.ts,
+                       entry_ref=entry_bar.price, exit_ref=exit_bar.price,
+                       exit_reason=exit_reason, flags=tuple(flags))
+
+
+def letf_late_momentum_signal(bars: list[Bar], *, prior_close: float | None,
+                              k: float = LETF_K, rule: str = "letf_late_momentum"
+                              ) -> TradeSignal | None:
+    """F6 LETF 장후반 모멘텀 롱온리. 14:00 수익 r>+k → 14:00 매수·15:45 매도. prev_close 필요."""
+    if prior_close is None or prior_close <= 0:
+        return None
+    reg = _regular(bars)
+    if not reg:
+        return None
+    sig_bar = _last_at_or_before(reg, LETF_SIGNAL_MIN)
+    if sig_bar is None or sig_bar.minute < REGULAR_OPEN_MIN:
+        return None
+    if sig_bar.price / prior_close - 1.0 <= k:
+        return None  # 롱온리: r≤+k 는 스킵(숏 미구현)
+    exit_bar = _last_at_or_before(reg, LETF_EXIT_MIN)
+    if exit_bar is None or exit_bar.ts <= sig_bar.ts:
+        after = [b for b in reg if b.ts > sig_bar.ts]
+        if not after:
+            return None
+        exit_bar = after[-1]
+    return TradeSignal(rule=rule, entry_ts=sig_bar.ts, exit_ts=exit_bar.ts,
+                       entry_ref=sig_bar.price, exit_ref=exit_bar.price,
+                       exit_reason="time", flags=("letf_symbol_tqqq",))
+
+
+def leverage_exit_ref(entry_ref: float, exit_ref: float, beta: float = LEV_BETA) -> float:
+    """레버리지 변형 청산가: 장중수익을 β배로 근사(일간 리셋 → 장중≈βx)."""
+    if entry_ref <= 0:
+        return exit_ref
+    return entry_ref * (1.0 + beta * (exit_ref / entry_ref - 1.0))
+
+
+def leverage_variant(sig: TradeSignal, *, rule: str, beta: float = LEV_BETA) -> TradeSignal:
+    """1x TradeSignal → βx 레버리지 페이퍼 변형(진입/청산 시각 동일, exit_ref 만 β 스케일)."""
+    lev_exit = leverage_exit_ref(sig.entry_ref, sig.exit_ref, beta)
+    flags = tuple(sig.flags) + (f"letf_approx_{int(beta)}x",)
+    return TradeSignal(rule=rule, entry_ts=sig.entry_ts, exit_ts=sig.exit_ts,
+                       entry_ref=sig.entry_ref, exit_ref=lev_exit,
+                       exit_reason=sig.exit_reason, flags=flags)

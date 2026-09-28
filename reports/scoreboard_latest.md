@@ -1,16 +1,17 @@
 # 매일 자동 스코어보드
 
-- 생성: `2026-09-28T12:10:06+09:00`  ·  모드: **offline(캐시)**  ·  ET 세션: `2026-09-27T23:10-04:00`
+- 생성: `2026-09-28T13:21:17+09:00`  ·  모드: **offline(캐시)**  ·  ET 세션: `2026-09-28T00:21-04:00`
 - 읽기 전용 · 주문 없음 · 멱등(같은 날 여러 번 실행해도 이력 중복 없음).
-- 단계: ok 3 / 실패 0 / 스킵 3.
-- 변경 이력: `2026-09-28T12:10:06+09:00 | steps ok=3/실패=0/스킵=3 | books=6 | shadow_trades=0 | mode=offline(캐시)`
+- 단계: ok 4 / 실패 0 / 스킵 3.
+- 변경 이력: `2026-09-28T13:21:17+09:00 | steps ok=4/실패=0/스킵=3 | books=6 | shadow_trades=0 | mode=offline(캐시)`
 
 ## 단계 상태
 
 | 단계 | 상태 | 소요 | 비고 |
 |---|---|---:|---|
-| intraday_collect | ⏭ skipped | 0.0s | offline 모드(네트워크 수집 생략) |
+| intraday_collect | ⏭ skipped | 0.0s | ET 00:21 < 16:05 (정규장 마감 전) |
 | intraday_shadow | ✅ ok | 0.1s |  |
+| refresh_closes | ✅ ok | 16.9s |  |
 | forward_paper | ✅ ok | 0.1s |  |
 | forward_lifecycle | ✅ ok | 0.0s |  |
 | dca_plan | ⏭ skipped | 0.0s | 자격증명 없음(플랜 생략) |
@@ -20,12 +21,12 @@
 
 | 장부 | 소스 | 지분 | 납입 | Money Return | 최대낙폭(원지분) | 스냅샷 |
 |---|---|---:|---:|---:|---:|---:|
-| B0 Lump-sum ETF (QQQ60/SCHD25/GLD15) | cached | $99.65 | $100.00 | -0.35% | +0.00% | 1 |
-| B1 Dual momentum → IEF | cached | $99.65 | $100.00 | -0.35% | +0.00% | 1 |
-| 200d regime filter → IEF | cached | $99.65 | $100.00 | -0.35% | +0.00% | 1 |
-| SMA 20/60 trend top3 | cached | $99.65 | $100.00 | -0.35% | +0.00% | 1 |
-| Lifecycle sleeve (QQQ/QLD) | cached | $99.65 | $100.00 | -0.35% | +0.00% | 1 |
-| DCA-QQQ (lifecycle benchmark) | cached | $99.65 | $100.00 | -0.35% | +0.00% | 1 |
+| B0 Lump-sum ETF (QQQ60/SCHD25/GLD15) | cached | $98.77 | $100.00 | -1.23% | +0.00% | 1 |
+| B1 Dual momentum → IEF | cached | $99.26 | $100.00 | -0.74% | +0.00% | 1 |
+| 200d regime filter → IEF | cached | $99.26 | $100.00 | -0.74% | +0.00% | 1 |
+| SMA 20/60 trend top3 | cached | $98.88 | $100.00 | -1.12% | +0.00% | 1 |
+| Lifecycle sleeve (QQQ/QLD) | cached | $98.76 | $100.00 | -1.24% | +0.00% | 1 |
+| DCA-QQQ (lifecycle benchmark) | cached | $99.26 | $100.00 | -0.74% | +0.00% | 1 |
 
 ## 인트라데이 섀도 (규칙별, 포지션 $30)
 

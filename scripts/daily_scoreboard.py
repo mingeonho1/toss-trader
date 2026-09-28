@@ -28,8 +28,9 @@ import statistics
 import subprocess
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime, time, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from pathlib import Path
+from time import sleep as _sleep
 from typing import Any, Callable, Sequence
 
 try:
@@ -59,6 +60,12 @@ FP_UNIVERSE = ["QQQ", "SCHD", "GLD", "SPY", "EFA", "IWM", "IEF", "BIL"]
 FP_DEPTH = 320
 HIST_CACHE = DATA / "_hist_cache"
 CANDLE_CACHE = DATA / "_candle_cache"
+
+# 포워드 장부가 실제로 마크투마켓에 쓰는 심볼(forward_paper 유니버스 + lifecycle 의 QLD).
+# refresh_closes 는 오직 이 심볼들만 정중히 갱신한다(불필요한 요청 회피).
+BOOK_SYMBOLS = sorted(set(FP_UNIVERSE) | {"QLD"})
+REFRESH_DAYS = 14          # Nasdaq fromdate 창(최근 ~2주). 병합이 중복 제거하므로 겹쳐도 안전.
+REFRESH_SPACING = 1.6      # 심볼 간 최소 요청 간격(초). ≥1.5 준수(정중한 폴링).
 
 # 인트라데이 섀도 규칙 표시 순서/라벨(intraday_shadow_run 과 동일).
 RULE_ORDER = ["orb5_core", "orb15_core", "momentum_core",
@@ -238,6 +245,124 @@ def seed_candle_cache(symbols: Sequence[str] = FP_UNIVERSE, depth: int = FP_DEPT
         os.replace(tmp, dst)
         seeded.append(sym)
     return seeded
+
+
+# ── 크리덴셜 없는 일봉 종가 갱신(refresh_closes) ───────────────────────────────
+# 캐시된 Nasdaq 일봉의 마지막 봉이 오래되면(예: 2026-09-22 고정) 포워드 장부가 같은 종가로만
+# 계속 마크되어 **영영 전진하지 않는다.** 아래는 장부가 필요로 하는 심볼만, 키 없이, 정중하게
+# (짧은 fromdate 창·≥1.5s 간격·429/오류 즉시 중단) 최근 종가를 받아 캐시에 병합한다.
+def _default_recent_fetcher(symbol: str, days: int) -> list[dict[str, Any]]:
+    """기본 페처: Nasdaq /historical 최근 창(키 불필요·네트워크). 테스트는 주입으로 대체."""
+    from toss_trader.histdata import fetch_nasdaq_recent  # 지연 임포트(오프라인 단위테스트 격리)
+    return fetch_nasdaq_recent(symbol, days=days, assetclass="etf")
+
+
+def merge_hist_cache(symbol: str, new_rows: Sequence[dict[str, Any]], *,
+                     hist_dir: Path = HIST_CACHE) -> tuple[int, str | None]:
+    """새 일봉 rows 를 _hist_cache/{SYM}.json 에 **날짜키로 병합**(멱등). (추가된 수, 마지막 날짜).
+
+    이미 있는 날짜는 기존 봉을 보존한다(과거 배당조정 adjclose 'a' 를 덮어쓰지 않기 위해) —
+    즉 새 거래일만 추가한다. 원자적 쓰기. 마크투마켓은 원시 종가 'c' 만 쓰므로 이 병합으로 충분.
+    """
+    path = hist_dir / f"{symbol}.json"
+    payload: dict[str, Any] = {"symbol": symbol, "source": "nasdaq", "rows": []}
+    if path.exists():
+        try:
+            loaded = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict):
+                payload = loaded
+        except (OSError, ValueError):
+            payload = {"symbol": symbol, "source": "nasdaq", "rows": []}
+    by_d: dict[str, dict[str, Any]] = {str(r["d"]): r
+                                       for r in (payload.get("rows") or []) if "d" in r}
+    added = 0
+    for r in new_rows:
+        d = r.get("d")
+        if d is None:
+            continue
+        if str(d) not in by_d:          # 새 거래일만 추가(기존 날짜의 'a' 보존)
+            by_d[str(d)] = r
+            added += 1
+    rows = [by_d[k] for k in sorted(by_d)]
+    payload["rows"] = rows
+    payload["symbol"] = payload.get("symbol") or symbol
+    payload["source"] = payload.get("source") or "nasdaq"
+    payload["fetched"] = _now_utc().isoformat(timespec="seconds")
+    hist_dir.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(payload), encoding="utf-8")
+    os.replace(tmp, path)
+    return added, (rows[-1]["d"] if rows else None)
+
+
+def refresh_candle_cache(symbol: str, *, depth: int = FP_DEPTH,
+                         hist_dir: Path = HIST_CACHE,
+                         candle_dir: Path = CANDLE_CACHE) -> bool:
+    """_hist_cache/{SYM}.json → _candle_cache/{SYM}_{depth}.json **재생성(덮어쓰기)**.
+
+    seed_candle_cache 는 없을 때만 만들지만, 갱신 후에는 새 종가를 반영하도록 덮어써야 한다
+    (forward_paper 는 _candle_cache 를 읽으므로). 원자적 쓰기.
+    """
+    src = hist_dir / f"{symbol}.json"
+    if not src.exists():
+        return False
+    try:
+        rows = json.loads(src.read_text(encoding="utf-8")).get("rows", []) or []
+    except (OSError, ValueError):
+        return False
+    out = [{"d": r["d"], "o": r["o"], "h": r["h"], "l": r["l"],
+            "c": r["c"], "v": r.get("v", 0.0)} for r in rows if "d" in r]
+    if not out:
+        return False
+    candle_dir.mkdir(parents=True, exist_ok=True)
+    dst = candle_dir / f"{symbol}_{depth}.json"
+    tmp = dst.with_suffix(".tmp")
+    tmp.write_text(json.dumps(out), encoding="utf-8")
+    os.replace(tmp, dst)
+    return True
+
+
+def refresh_daily_closes(symbols: Sequence[str] = tuple(BOOK_SYMBOLS), *,
+                         days: int = REFRESH_DAYS, spacing: float = REFRESH_SPACING,
+                         fetcher: Callable[[str, int], list[dict[str, Any]]] = _default_recent_fetcher,
+                         sleep: Callable[[float], None] = _sleep,
+                         hist_dir: Path = HIST_CACHE, candle_dir: Path = CANDLE_CACHE,
+                         depth: int = FP_DEPTH,
+                         candle_symbols: Sequence[str] = tuple(FP_UNIVERSE)) -> dict[str, Any]:
+    """장부에 필요한 심볼만 최근 일봉을 키 없이 정중하게 갱신(멱등·격리). 예외를 밖으로 안 던짐.
+
+    - 심볼 사이 ≥``spacing``초 간격(기본 1.6s ≥1.5 준수).
+    - 429/네트워크/파싱 오류가 나면 **즉시 중단**(더 두드리지 않음 = 정중). 부분 진행은 그대로 유지.
+    - _hist_cache 병합(새 거래일만) + _candle_cache 재생성(forward_paper 유니버스 한정).
+    반환 요약: {refreshed, added, last_dates, stopped, requested}.
+    """
+    summary: dict[str, Any] = {"refreshed": [], "added": {}, "last_dates": {},
+                               "stopped": None, "requested": list(symbols)}
+    candle_set = set(candle_symbols)
+    for i, sym in enumerate(symbols):
+        if i > 0:
+            try:
+                sleep(max(0.0, spacing))
+            except Exception:  # noqa: BLE001  sleep 인터럽트도 격리
+                pass
+        try:
+            rows = fetcher(sym, days)
+        except Exception as exc:  # noqa: BLE001  429/네트워크/파싱 → 즉시 중단(정중)
+            summary["stopped"] = f"{sym}: {type(exc).__name__}: {exc}"
+            break
+        if not rows:
+            continue
+        try:
+            added, last_d = merge_hist_cache(sym, rows, hist_dir=hist_dir)
+            if sym in candle_set:
+                refresh_candle_cache(sym, depth=depth, hist_dir=hist_dir, candle_dir=candle_dir)
+        except Exception as exc:  # noqa: BLE001  쓰기 실패도 격리 → 중단
+            summary["stopped"] = f"{sym}: write {type(exc).__name__}: {exc}"
+            break
+        summary["refreshed"].append(sym)
+        summary["added"][sym] = added
+        summary["last_dates"][sym] = last_d
+    return summary
 
 
 # ── 포워드 장부 추출(상태 JSON → 장부별 지분/낙폭) ─────────────────────────────
@@ -522,15 +647,95 @@ def upsert_history(record: dict[str, Any], path: Path = HISTORY_FILE) -> list[di
     return rows
 
 
+# ── 미국 증시(NYSE/Nasdaq) 정규장 종일 휴장일 ─────────────────────────────────
+# 06:30 KST 실행 시 ET 는 전일 16:30(EST)/17:30(EDT). 그 ET 날짜가 '방금 끝난' 세션인데,
+# 주말/휴장이면 새 세션이 없으므로 인트라데이 수집을 스킵해야 한다(Nasdaq /chart 는 무조건
+# '가장 최근 세션'을 돌려주므로, 휴장일에 돌리면 직전 세션을 날짜만 오귀속해 재수집한다).
+def _nth_weekday(year: int, month: int, weekday: int, n: int) -> date:
+    """그 달의 n번째 특정 요일(weekday: 월=0 … 일=6)."""
+    first = date(year, month, 1)
+    offset = (weekday - first.weekday()) % 7
+    return date(year, month, 1 + offset + (n - 1) * 7)
+
+
+def _last_weekday(year: int, month: int, weekday: int) -> date:
+    """그 달의 마지막 특정 요일."""
+    nxt = date(year + 1, 1, 1) if month == 12 else date(year, month + 1, 1)
+    last = nxt - timedelta(days=1)
+    return last - timedelta(days=(last.weekday() - weekday) % 7)
+
+
+def _observed(d: date) -> date:
+    """고정 공휴일의 관측일(NYSE 규칙): 토→전날 금, 일→다음날 월."""
+    if d.weekday() == 5:
+        return d - timedelta(days=1)
+    if d.weekday() == 6:
+        return d + timedelta(days=1)
+    return d
+
+
+def _easter_sunday(year: int) -> date:
+    """부활절 일요일(Anonymous Gregorian algorithm). Good Friday = 이 날 − 2일."""
+    a = year % 19
+    b, c = divmod(year, 100)
+    d, e = divmod(b, 4)
+    f = (b + 8) // 25
+    g = (b - f + 1) // 3
+    h = (19 * a + b - d - g + 15) % 30
+    i, k = divmod(c, 4)
+    ll = (32 + 2 * e + 2 * i - h - k) % 7
+    m = (a + 11 * h + 22 * ll) // 451
+    month = (h + ll - 7 * m + 114) // 31
+    day = ((h + ll - 7 * m + 114) % 31) + 1
+    return date(year, month, day)
+
+
+def us_market_holidays(year: int) -> set[date]:
+    """해당 연도 미국 증시 정규장 종일 휴장일(관측일·Good Friday 반영)."""
+    return {
+        _observed(date(year, 1, 1)),       # New Year's Day
+        _nth_weekday(year, 1, 0, 3),        # MLK Day (1월 셋째 월)
+        _nth_weekday(year, 2, 0, 3),        # Washington's Birthday (2월 셋째 월)
+        _easter_sunday(year) - timedelta(days=2),   # Good Friday
+        _last_weekday(year, 5, 0),          # Memorial Day (5월 마지막 월)
+        _observed(date(year, 6, 19)),       # Juneteenth (2021+)
+        _observed(date(year, 7, 4)),        # Independence Day
+        _nth_weekday(year, 9, 0, 1),        # Labor Day (9월 첫째 월)
+        _nth_weekday(year, 11, 3, 4),       # Thanksgiving (11월 넷째 목)
+        _observed(date(year, 12, 25)),      # Christmas
+    }
+
+
+def is_us_market_holiday(d: date) -> bool:
+    return d in us_market_holidays(d.year)
+
+
+def et_session_date(now_utc: datetime) -> date | None:
+    """실행 시점(UTC)에 '방금 끝난' ET 정규장 세션 날짜. 없으면 None.
+
+    06:30 KST 실행 → ET 는 전일 16:30(EST)/17:30(EDT) → 그 ET 날짜가 방금 끝난 세션이다.
+    정규장 마감(16:05 ET) 전·주말·미국 증시 휴장이면 None(수집할 새 세션 없음).
+    """
+    et = _et(now_utc)
+    if et.time() < ET_CLOSE:
+        return None
+    d = et.date()
+    if d.weekday() >= 5 or is_us_market_holiday(d):
+        return None
+    return d
+
+
 # ── 기본 단계 구성 ────────────────────────────────────────────────────────────
 def collector_skip_reason(offline: bool, et_now: datetime) -> str | None:
-    """인트라데이 수집기를 스킵할 사유(없으면 None → 실행)."""
+    """인트라데이 수집기를 스킵할 사유(없으면 None → 실행). et_now 는 이미 ET 로 변환된 시각."""
     if offline:
         return "offline 모드(네트워크 수집 생략)"
     if et_now.weekday() >= 5:
         return f"주말(ET {et_now:%a}) — 새 세션 없음"
     if et_now.time() < ET_CLOSE:
         return f"ET {et_now:%H:%M} < 16:05 (정규장 마감 전)"
+    if is_us_market_holiday(et_now.date()):
+        return f"미국 증시 휴장(ET {et_now.date()}) — 새 세션 없음"
     return None
 
 
@@ -544,6 +749,13 @@ def build_default_steps(*, offline: bool, creds: bool, et_now: datetime,
              timeout=300.0, skip_reason=collector_skip_reason(offline, et_now)),
         Step("intraday_shadow",
              [py, str(SCRIPTS / "intraday_shadow_run.py")], timeout=180.0),
+        # 크리덴셜 없는 경로에서만: 장부 심볼의 최근 일봉을 키 없이 정중히 갱신(캐시 병합).
+        # 반드시 forward_* 단계보다 먼저 — 그래야 장부가 새 종가로 전진한다. 격리(실패해도 계속).
+        Step("refresh_closes",
+             [py, str(SCRIPTS / "daily_scoreboard.py"), "--refresh-closes"],
+             timeout=120.0,
+             skip_reason=(None if (offline or not creds)
+                          else "live 모드(Toss 실시세) — 캐시 갱신 불필요")),
         Step("forward_paper",
              [py, str(SCRIPTS / "forward_paper_compare.py"),
               *off, "--cash-usd", f"{seed_usd:.2f}"], timeout=180.0),
@@ -556,6 +768,11 @@ def build_default_steps(*, offline: bool, creds: bool, et_now: datetime,
         Step("tax_report",
              [py, str(SCRIPTS / "run_dca.py"), "--tax-report"], timeout=120.0,
              skip_reason=None if creds else "자격증명 없음(양도세 생략)"),
+        # 공격형 포워드 페이퍼 랩(Lane A) — 키 불필요·멱등·주문 없음. 자체적으로 캐시 종가로
+        # 매 새 거래일을 전진시키고 reports/paperlab_latest.md 를 쓴다(offline 이면 네트워크 없이).
+        Step("paperlab",
+             [py, str(SCRIPTS / "paperlab_run.py"), *(["--offline"] if offline else [])],
+             timeout=240.0),
     ]
     return steps
 
@@ -644,7 +861,17 @@ def main(argv: list[str] | None = None) -> int:
                     help="포워드 장부 최초 초기화 시드(USD). 기존 상태가 있으면 무시.")
     ap.add_argument("--status", action="store_true",
                     help="실행하지 않고 최신 대시보드만 출력.")
+    ap.add_argument("--refresh-closes", action="store_true",
+                    help="장부 심볼의 최근 일봉만 키 없이 정중히 갱신(캐시 병합)하고 종료(격리 단계용).")
     args = ap.parse_args(argv)
+
+    if args.refresh_closes:
+        summary = refresh_daily_closes()
+        print(json.dumps(summary, ensure_ascii=False))
+        if summary.get("stopped") and not summary.get("refreshed"):
+            print(f"refresh_closes stopped: {summary['stopped']}", file=sys.stderr)
+            return 1                                   # 아무것도 못 갱신하고 중단 → 실패로 표시
+        return 0
 
     if args.status:
         if LATEST_REPORT.exists():

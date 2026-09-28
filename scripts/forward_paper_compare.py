@@ -653,7 +653,7 @@ def run_once(args: argparse.Namespace) -> int:
             "total_contributed": contributed,
         }
 
-    state.setdefault("snapshots", []).append({
+    snap = {
         "ts": ts,
         "session_date": session["session_date"],
         "regular_market": session.get("regular_market"),
@@ -661,8 +661,16 @@ def run_once(args: argparse.Namespace) -> int:
         "stale_symbols": sorted(stale_symbols),
         "flows": snapshot_flows,
         "strategies": snapshot_rows,
-    })
-    state["snapshots"] = state["snapshots"][-2000:]
+    }
+    snaps = state.setdefault("snapshots", [])
+    if args.offline_cache:
+        # 크리덴셜 없는 경로: 세션일 1개 = 스냅샷 1개(멱등). 같은 세션일 재실행은 교체.
+        snaps = [s for s in snaps if str(s.get("session_date")) != str(snap["session_date"])]
+        snaps.append(snap)
+        snaps.sort(key=lambda s: str(s.get("session_date")))
+    else:
+        snaps.append(snap)
+    state["snapshots"] = snaps[-2000:]
 
     _save_state(state_path, state)
     _write_report(Path(args.report), state, prices, stale_symbols, rows, ts)

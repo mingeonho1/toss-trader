@@ -848,3 +848,24 @@ def _fetch_nasdaq_daily(symbol: str, assetclass: str | None = None) -> list[dict
     if last is not None:
         raise last
     raise HistDataError(f"nasdaq {symbol}: 빈 응답")
+
+
+def fetch_nasdaq_recent(symbol: str, *, days: int = 14,
+                        assetclass: str = "etf") -> list[dict]:
+    """최근 ``days``일 창만 Nasdaq /historical 로 가져온다(정중한 캐시 갱신용).
+
+    짧은 ``fromdate`` 창이라 응답이 가볍다. 배당조정은 생략한다 — 최신 구간은 (미래) 배당이
+    없어 조정계수가 1 이므로 ``a=close`` 로 채운다(장부 마크투마켓은 원시 종가 ``c`` 만 사용).
+    429 는 재시도 없이 즉시 ``HTTPError(code=429)`` 로 올린다(호출측이 폴링을 멈추게).
+    빈 응답이면 ``[]``. 그 밖의 HTTP/파싱 오류는 예외로 전파.
+    """
+    end = date.today()
+    start = end - timedelta(days=max(1, int(days)))
+    q = urllib.parse.quote(symbol.upper(), safe="")
+    url = (f"https://api.nasdaq.com/api/quote/{q}/historical"
+           f"?assetclass={assetclass}&fromdate={start}&todate={end}&limit=9999")
+    data = json.loads(_http_get(url, timeout=30, retries=1, headers=dict(_NASDAQ_HEADERS)))
+    rows = _parse_nasdaq_historical(data)
+    for r in rows:                      # 최신 창 → 배당계수 1 → adjclose=close
+        r["a"] = r["c"]
+    return rows

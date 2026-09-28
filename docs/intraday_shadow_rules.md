@@ -89,3 +89,60 @@
 - 룩어헤드 없음: exit_ts 이후 봉을 교란해도 트레이드 불변; entry_ts 이후 봉 교란해도 **진입 불변**.
 - 멱등: 같은 (date, rule, symbol) 재실행 시 중복 append 없음.
 - 수수료: `TossFeeSchedule` 규정(≤$10 매수 무료 등) 손계산과 일치.
+
+---
+
+## 6. 신규 사전등록 규칙 — 2026-09-28 (구현 전 동결)
+
+> 아래 규칙은 **코드 작성 전에** 이 날짜로 동결한다(포워드-온리, 사후 튜닝 금지). 파라미터는
+> `docs/aggressive_strategy_catalog.md` §F3·F5·F6·G1 을 그대로 옮기고, 데이터 한계로 인한 모든
+> 가정에 **flag** 를 명시한다. 비용/티어/포지션크기(§1–2)는 인트라데이 규칙에 그대로 적용한다.
+
+### 6.1 Noise-Area 장중 모멘텀 (F3, 롱온리) — SPY/QQQ
+- 규칙 id: `noise_area_qqq`, `noise_area_spy` (1x 실행) + 레버리지 페이퍼 변형
+  `noise_area_qqq_tqqq`(TQQQ), `noise_area_spy_spxl`(SPXL).
+- σ(m) = **직전 14세션**의 `|close(m)/open_d − 1|` 평균(같은 분 m). 세션 <14 이면 **워밍업**
+  (신호·트레이드 없음, 상태 "워밍업"). 세션은 캐시의 ET 날짜별로 구분.
+- 상단경계 `UB(m) = max(open_d, prev_close) × (1 + σ(m))`. prev_close 없으면 `open_d` 만
+  사용(flag `no_prior_close_ub_open_only`). **롱온리라 하단경계(LB)·숏은 미구현**.
+- **결정 시각 = 30분 마크** 10:00–15:30 ET (분 600,630,…,930).
+- 진입(롱): 결정 시각에서 `price > UB(m)` 인 **첫 시각** → 그 봉에서 체결(예약시각 체결; 결정에
+  쓰는 봉 ≤ 결정시각이라 룩어헤드 없음). 하루·심볼·규칙당 1회.
+- 청산(트레일링): 진입 후 결정 시각마다 재평가, `price < UB(m)` 이면 그 봉 청산(reason=`stop`).
+  거래량 없음 → **VWAP 미사용, 경계선만**(flag `no_vwap_boundary_only`; 카탈로그 `max(UB,VWAP)`
+  중 VWAP 항 제거). 미발동 시 **16:00**(마지막 정규장 봉) 청산(reason=`time`).
+- 레버리지 변형(β=3 근사): 동일 진입/청산 시각, `lev_exit_ref = entry_ref×(1 + 3×(exit_ref/entry_ref − 1))`
+  (flag `letf_approx_3x`; 카탈로그 F3 주석: 레버리지 ETF 일간 리셋 → 장중수익 ≈3x). 티어:
+  QQQ/SPY=`etf`, TQQQ/SPXL=`leveraged`.
+
+### 6.2 LETF 장후반 모멘텀 (F6, 롱온리) — TQQQ
+- 규칙 id: `letf_late_momentum` (심볼 **TQQQ**, 코어 3x LETF 대표로 동결; flag `letf_symbol_tqqq`).
+- 14:00 ET: `r = price_14:00 / prev_close − 1`. price_14:00 = 분 ≤ 840 인 마지막 정규장 봉.
+- `r > +k` → 롱(14:00 봉 매수), **15:45 ET**(분 945) 봉 청산(reason=`time`). `r ≤ +k` → 트레이드
+  없음(롱온리, 숏 스킵).
+- `k = 0.06` 동결: 카탈로그 헤드라인 임계 ±6%(Sharpe 1.95). {2,4,6,8}% 그리드 중 **다중검정 회피**
+  위해 6% 고정(flag `letf_k_0.06_from_grid`). 청산 15:45 동결(대안 16:00, flag `letf_exit_1545_not_1600`).
+- prev_close 없으면 트레이드 없음(flag `no_prior_close`). price-only 호환(close 만).
+
+### 6.3 일간 페이퍼 랩 신규 전략 (F5/G1)
+`src/toss_trader/paperlab_strategies/` 등록. 종가 t 결정 → t+1 체결(무 look-ahead), Toss 수수료
+정확(≤$10 매수 무료), $1,000·$36 2권.
+- `overnight_tqqq` (G1): 매일 **종가(TQQQ) 매수 → 익일 시가 매도**. 무필터 기본판(헤드라인
+  545%; 200SMA 필터판은 **미등록 변형**으로 명시, flag `overnight_unfiltered_base`). 매수는 ≤$10
+  분할 무료 적용(`plan_split`). 시가 체결 → Nasdaq historical 일봉 row 에 open 포함(캐시 및
+  `fetch_nasdaq_recent`) → **별도 페치 불필요**(flag `open_from_nasdaq_historical`).
+- `overnight_qqq` (G1 1x 섀도): 동일 타이밍, QQQ.
+- `ep_gap_swing` (F5, 대형주 캐시 유니버스 = NDX100 ∩ 캐시, 다음 시가 진입):
+  - 스캔(종가 t): `gap = open(t)/close(t−1) − 1 ≥ +10%` ; 거래량 `vol(t) ≥ 2×avg20`(일봉이 장중
+    창 거래량을 근사, flag `daily_vol_proxy`) ; 비관심 `close(t−1) ≤ 0.80×52주고` **또는**
+    `|close(t−1)/close(t−61) − 1| < 0.15` ; `close(t) > $5` ; avg20 달러거래대금 > $20M.
+  - 진입: **t+1 시가**, 동일비중, 최대 5종목(사이징 0.5–1% 리스크는 비중모델 근사로 대체,
+    flag `equal_weight_not_risk_sized`).
+  - 청산(카탈로그 근사): **최소 3거래일 보유** 후 종가 < SMA20 이면 전량 ; 하드캡 40거래일.
+    3–5일 후 1/3~1/2 부분매도는 비중모델상 생략(flag `full_exit_no_scaleout`).
+
+### 6.4 불변식(테스트로 강제, 신규)
+- 워밍업 게이팅: noise_area 는 직전 14세션 누적 전엔 트레이드 0.
+- 룩어헤드 없음: 결정시각/청산시각 **이후** 봉을 교란해도 진입·청산 불변.
+- 오버나이트 체결 정확성: 종가 매수 → 익일 시가 매도, 야간 수익 = open(t+1)/close(t)−1 반영.
+- 수수료: 오버나이트 매수 ≤$10 분할 무료가 $36 장부에 적용.

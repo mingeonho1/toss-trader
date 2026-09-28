@@ -30,9 +30,11 @@ ROOT = Path(__file__).resolve().parent.parent
 TRADES_FILE = ROOT / "data" / "intraday_shadow" / "trades.jsonl"
 REPORT_FILE = ROOT / "reports" / "intraday_shadow_latest.md"
 
-# 리포트 행 순서(고정). core 는 QQQ/TQQQ, movers 는 그 외.
+# 리포트 행 순서(고정). core 는 QQQ/TQQQ, movers 는 그 외, 이어서 2026-09-28 신규 규칙(§6).
 RULE_ORDER = ["orb5_core", "orb15_core", "momentum_core",
-              "orb5_movers", "orb15_movers", "gap_and_go_movers"]
+              "orb5_movers", "orb15_movers", "gap_and_go_movers",
+              "noise_area_qqq", "noise_area_qqq_tqqq",
+              "noise_area_spy", "noise_area_spy_spxl", "letf_late_momentum"]
 RULE_LABEL = {
     "orb5_core": "ORB-5 (QQQ/TQQQ)",
     "orb15_core": "ORB-15 (QQQ/TQQQ)",
@@ -40,6 +42,11 @@ RULE_LABEL = {
     "orb5_movers": "ORB-5 (movers)",
     "orb15_movers": "ORB-15 (movers)",
     "gap_and_go_movers": "Gap-and-go (movers)",
+    "noise_area_qqq": "Noise-Area (QQQ, F3)",
+    "noise_area_qqq_tqqq": "Noise-Area (QQQ→TQQQ 3x, F3)",
+    "noise_area_spy": "Noise-Area (SPY, F3)",
+    "noise_area_spy_spxl": "Noise-Area (SPY→SPXL 3x, F3)",
+    "letf_late_momentum": "LETF late momentum (TQQQ, F6)",
 }
 SIZES = ish.DEFAULT_SIZES
 N_MIN = 200          # spec §3.5: n<200 이면 통계주장 불가
@@ -85,9 +92,15 @@ def _prior_close(sessions: dict[str, list[dict]], day: str) -> float | None:
 
 # ── 트레이드 생성 ────────────────────────────────────────────────────────────
 def collect_trades(cache_dir: Path, interval: str) -> tuple[list[dict], dict]:
-    """캐시 전체를 훑어 가상 트레이드 레코드 리스트 + 진단 카운터 반환."""
+    """캐시 전체를 훑어 가상 트레이드 레코드 리스트 + 진단 카운터 반환.
+
+    기존 동결 규칙(ORB/모멘텀/갭앤고)에 더해 2026-09-28 신규 규칙(§6)을 함께 생성한다:
+      - Noise-Area(F3): QQQ/SPY 에서 직전 14세션 σ 로 UB 판정(<14 세션은 워밍업) + TQQQ/SPXL 3x 변형.
+      - LETF late momentum(F6): TQQQ 14:00 트리거.
+    """
     records: list[dict] = []
     diag = {"symbols": 0, "sessions": 0, "regular_sessions": 0, "no_prior_close": 0}
+    noise_ready: set[str] = set()      # σ 준비(≥14 세션) 된 noise 규칙 → 워밍업 아님
     suffix = f"_{interval}.json"
     for path in sorted(cache_dir.glob(f"*{suffix}")):
         symbol = path.name[: -len(suffix)]
@@ -97,6 +110,8 @@ def collect_trades(cache_dir: Path, interval: str) -> tuple[list[dict], dict]:
         diag["symbols"] += 1
         sessions = _group_by_session(rows)
         tier = ish.tier_for(symbol)
+        usym = symbol.upper()
+        noise_profiles: list[dict] = []     # 과거→현재 순 move 프로파일(현재 세션 제외)
         for day in sorted(sessions):
             diag["sessions"] += 1
             bars = _rows_to_bars(sessions[day])
@@ -105,9 +120,37 @@ def collect_trades(cache_dir: Path, interval: str) -> tuple[list[dict], dict]:
             pc = _prior_close(sessions, day)
             if pc is None:
                 diag["no_prior_close"] += 1
+            # 기존 동결 규칙
             for sig in ish.signals_for_symbol(symbol, bars, prior_close=pc):
                 records.append(ish.build_trade_record(
                     sig, symbol=symbol, session_date=day, tier=tier, sizes=SIZES))
+            # F3 Noise-Area (QQQ/SPY) + 3x 변형 — 직전 14세션 σ 워밍업 게이팅.
+            if usym in ish.NOISE_UNDERLYING_RULES:
+                rule_1x, tier_1x = ish.NOISE_UNDERLYING_RULES[usym]
+                lev_sym, lev_rule, lev_tier = ish.NOISE_LEV_VARIANTS[usym]
+                sigma = ish.sigma_profile(noise_profiles)
+                if sigma is not None:
+                    noise_ready.update({rule_1x, lev_rule})     # σ 확보 → 워밍업 탈출
+                    sig = ish.noise_area_signal(bars, sigma_by_minute=sigma,
+                                                prior_close=pc, rule=rule_1x)
+                    if sig is not None:
+                        records.append(ish.build_trade_record(
+                            sig, symbol=usym, session_date=day, tier=tier_1x, sizes=SIZES))
+                        lev = ish.leverage_variant(sig, rule=lev_rule)
+                        records.append(ish.build_trade_record(
+                            lev, symbol=lev_sym, session_date=day, tier=lev_tier, sizes=SIZES))
+                prof = ish.session_move_profile(bars)
+                if prof:
+                    noise_profiles.append(prof)
+            # F6 LETF late momentum (TQQQ, 14:00 트리거).
+            if usym == "TQQQ":
+                sig = ish.letf_late_momentum_signal(bars, prior_close=pc)
+                if sig is not None:
+                    records.append(ish.build_trade_record(
+                        sig, symbol=usym, session_date=day, tier="leveraged", sizes=SIZES))
+    all_noise = {r for r, _ in ish.NOISE_UNDERLYING_RULES.values()}
+    all_noise |= {r for _, r, _ in ish.NOISE_LEV_VARIANTS.values()}
+    diag["warmup_rules"] = sorted(all_noise - noise_ready)   # σ 미확보 = 워밍업
     return records, diag
 
 
@@ -170,6 +213,7 @@ def _fmt(x: float | None, spec: str = ".2f") -> str:
 def write_report(path: Path, records: list[dict], diag: dict, *, rng: random.Random,
                  bootstrap_min_n: int, generated: str) -> None:
     dates = sorted({r["date"] for r in records})
+    warmup = set(diag.get("warmup_rules") or [])   # σ<14세션 noise 규칙 → "워밍업"
     lines = [
         "# 인트라데이 포워드 섀도 (레인 3) — 누적 증거",
         "",
@@ -196,9 +240,10 @@ def write_report(path: Path, records: list[dict], diag: dict, *, rng: random.Ran
             s = _rule_size_stats(records, rule, size_key, rng, bootstrap_min_n)
             ci = ("n/a" if s["ci_low"] is None
                   else f"[{s['ci_low']:+.4f}, {s['ci_high']:+.4f}]")
+            status = "워밍업" if (rule in warmup and s["n"] == 0) else s["status"]
             lines.append(
                 f"| {RULE_LABEL[rule]} | {s['n']} | {_fmt(s['mean_bps'])} | "
-                f"{s['win_rate'] * 100:.1f}% | {_fmt(s['tstat'])} | {ci} | {s['status']} |")
+                f"{s['win_rate'] * 100:.1f}% | {_fmt(s['tstat'])} | {ci} | {status} |")
         lines.append("")
     lines.extend([
         "## 주의",
