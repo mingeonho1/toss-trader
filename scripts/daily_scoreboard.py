@@ -768,6 +768,11 @@ def build_default_steps(*, offline: bool, creds: bool, et_now: datetime,
         Step("tax_report",
              [py, str(SCRIPTS / "run_dca.py"), "--tax-report"], timeout=120.0,
              skip_reason=None if creds else "자격증명 없음(양도세 생략)"),
+        # 공격형 포워드 페이퍼 랩(Lane A) — 키 불필요·멱등·주문 없음. 자체적으로 캐시 종가로
+        # 매 새 거래일을 전진시키고 reports/paperlab_latest.md 를 쓴다(offline 이면 네트워크 없이).
+        Step("paperlab",
+             [py, str(SCRIPTS / "paperlab_run.py"), *(["--offline"] if offline else [])],
+             timeout=240.0),
     ]
     return steps
 
