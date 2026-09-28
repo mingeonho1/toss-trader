@@ -37,6 +37,30 @@ __all__ = [
 
 _EPS = 1e-12
 
+# 레버리지/인버스/변동성 ETP(한국 리테일 첫 거래 시 예탁금 규제 대상). 유니버스에 하나라도 있으면
+# '레버리지 ETP(예탁금 필요)' 그룹으로 분류한다.
+_LEVERAGED_ETP = frozenset({
+    "TQQQ", "SQQQ", "QLD", "SOXL", "SOXS", "SOXX", "TECL", "TECS", "SPXL", "SPXU",
+    "UPRO", "SDOW", "UDOW", "UVXY", "VIXY", "VXX", "SVXY", "SVIX", "TMF", "TMV",
+    "FAS", "FAZ", "HIBL", "HIBS", "FNGU", "FNGD", "TNA", "TZA", "LABU", "LABD",
+    "NAIL", "DPST", "BOIL", "KOLD", "UCO", "SCO", "YINN", "YANG", "CONL", "MSTU",
+})
+
+# 그룹 라벨(task: 실계좌 가능/레버리지 ETP/탐색용).
+GROUP_LABELS = {
+    "retail": "실계좌 가능(비레버리지)",
+    "leverage": "레버리지 ETP(예탁금 필요)",
+    "explore": "탐색용",
+}
+_GROUP_ORDER = ["retail", "leverage", "explore"]
+
+
+def classify_group(uni: Sequence[str], declared: str | None = None) -> str:
+    """전략 그룹 판정. declared 우선(예 'explore'), 없으면 유니버스에 레버리지 ETP 포함 여부로."""
+    if declared in GROUP_LABELS:
+        return declared
+    return "leverage" if any(s in _LEVERAGED_ETP for s in uni) else "retail"
+
 
 # ─────────────────────────────────────────────────────────── 전략 베이스(프로토콜)
 class Strategy:
@@ -54,6 +78,9 @@ class Strategy:
     fill_on: str = "close"
     intraday: Callable[..., Any] | None = None
     overnight: bool = False    # True면 엔진이 종가매수→익일시가매도 전용 경로로 실행(G1)
+    exec_lag: int = 1          # 1(기본)=신호(종가 t)→익일 체결(t+1, 보수적). 0=당일 종가 체결(MOC, 낙관적).
+    real_monthly_contribution: float = 0.0   # >0이면 실($36)장부에 매월 첫 거래일 적립(포워드 전용; 단위장부 미적용)
+    group: str | None = None   # 리더보드 분류. None이면 유니버스로 자동판정(레버리지 ETP↔비레버리지). "explore"=탐색용.
 
     def universe(self) -> list[str]:  # pragma: no cover - 추상
         raise NotImplementedError
@@ -285,6 +312,7 @@ class PaperLab:
             "last_date": None,
             "pending": None,
             "last_applied": None,      # 마지막으로 실제 체결한 목표비중(변화 감지용)
+            "real_contributed": 0.0,   # 실장부 누적 적립액(적립형 전략만; 자금가중 수익 해석용)
             "strategy_state": {},
             "unit": PaperBook(self.unit_usd, self.fees, min_trade_usd=self.min_trade_usd).to_dict(),
             "real": PaperBook(self.real_usd, self.fees, min_trade_usd=self.min_trade_usd).to_dict(),
@@ -293,16 +321,24 @@ class PaperLab:
 
     # ── 전진 실행(멱등) ------------------------------------------------------
     def run(self, state: dict[str, Any], master_dates: Sequence[date],
-            by_date: Mapping[str, Mapping[date, Candle]]) -> dict[str, Any]:
+            by_date: Mapping[str, Mapping[date, Candle]], *,
+            contribute: bool = True) -> dict[str, Any]:
         """``master_dates`` 거래일 순서로 전진. ``by_date[sym][d]`` = 그 날 Candle.
 
         멱등: ``state['last_date']`` 이하 날짜는 건너뛴다. 같은 캐시로 재실행하면 결과 동일.
+
+        ``exec_lag``(전략 속성): 1=신호(종가 t)→익일 체결(t+1, 보수적 기본), 0=당일 종가 체결(MOC, 낙관적).
+        ``contribute``: True(포워드 기본)이고 전략의 ``real_monthly_contribution>0`` 이면 매월 첫 거래일에
+        실($36)장부에 그 금액을 현금 적립한다(단위장부는 미적용). 백필(BACKTEST)은 비교 왜곡을 피해 False.
         """
         if getattr(self.strategy, "overnight", False):
             return self._run_overnight(state, master_dates, by_date)
         strat = self.strategy
         uni = strat.universe()
         fill_on = state.get("fill_on", strat.fill_on)
+        exec_lag = int(getattr(strat, "exec_lag", 1) or 0)
+        contrib = float(getattr(strat, "real_monthly_contribution", 0.0) or 0.0)
+        do_contribute = bool(contribute) and contrib > 0.0
         start_date = date.fromisoformat(state["start_date"])
         last = date.fromisoformat(state["last_date"]) if state.get("last_date") else None
 
@@ -310,6 +346,7 @@ class PaperLab:
         real = PaperBook.from_dict(state["real"], self.fees, min_trade_usd=self.min_trade_usd)
         pending = state.get("pending")
         last_applied = state.get("last_applied")
+        real_contributed = float(state.get("real_contributed", 0.0) or 0.0)
         sstate = state.get("strategy_state") or {}
         equity: list[list[Any]] = list(state.get("equity") or [])
 
@@ -328,6 +365,7 @@ class PaperLab:
             else:
                 break
 
+        prev_d: date | None = last        # 직전 처리 거래일(월초 적립 판정용)
         for d in master_dates:
             if last is not None and d <= last:
                 continue
@@ -348,35 +386,56 @@ class PaperLab:
             if d < start_date:
                 continue          # 워밍업: 신호용 히스토리만 채우고 매매/에쿼티/결정은 하지 않음
 
-            # 1) 어제 정한 목표를 오늘 체결. **목표가 바뀐 날만** 리밸런스한다(변화 없으면 홀드·드리프트
-            #    = 신호 사이엔 바이앤홀드). 월간/주간/신호형 전략이 매일 드리프트 리밸런스로 과매매되는 걸 방지.
-            #    모든 목표심볼 가격이 있어야 실행(부분체결 금지); 없으면 pending 유지 후 다음날 재시도.
-            if pending is not None:
-                if _same_target(pending, last_applied):
-                    pending = None                    # 목표 동일 → 매매 없이 보유(드리프트)
-                else:
-                    need = [s for s, w in pending.items() if w > 1e-9]
-                    if all(s in fill_px for s in need):
-                        unit.rebalance(pending, fill_px, d)
-                        real.rebalance(pending, fill_px, d)
-                        last_applied = dict(pending)
-                        pending = None
+            # 0) 월초 적립(실장부 전용, 선택). 최초 세션엔 적립하지 않음(초기자본만). 결정/체결 전에 넣어
+            #    당일이 리밸런스일이면 그대로 배분되고, 아니면 다음 리밸런스까지 현금(이자 0%)으로 대기.
+            if (do_contribute and prev_d is not None
+                    and (prev_d.year, prev_d.month) != (d.year, d.month)):
+                real.cash += contrib
+                real_contributed += contrib
 
-            # 2) 마크투마켓(오늘 종가; 결측 심볼은 직전가로 캐리포워드)
+            if exec_lag == 0:
+                # (MOC, exec_lag=0) 낙관적: 오늘 종가까지의 데이터로 결정 → **오늘 종가**에 체결.
+                #   Composer 식 same-close 체결(관대). 목표가 바뀐 날만 리밸런스(변화 없으면 홀드).
+                tw = strat.decide(visible, sstate) or {}
+                target = {s: float(w) for s, w in tw.items() if float(w) > 0}
+                if not _same_target(target, last_applied):
+                    need = [s for s, w in target.items() if w > 1e-9]
+                    if all(s in close_px for s in need):
+                        unit.rebalance(target, close_px, d)
+                        real.rebalance(target, close_px, d)
+                        last_applied = dict(target)
+                pending = None
+            else:
+                # (t+1, 기본) 어제 정한 목표를 오늘 체결. **목표가 바뀐 날만** 리밸런스한다(변화 없으면
+                #   홀드·드리프트 = 신호 사이엔 바이앤홀드). 모든 목표심볼 가격이 있어야 실행(부분체결 금지);
+                #   없으면 pending 유지 후 다음날 재시도.
+                if pending is not None:
+                    if _same_target(pending, last_applied):
+                        pending = None                # 목표 동일 → 매매 없이 보유(드리프트)
+                    else:
+                        need = [s for s, w in pending.items() if w > 1e-9]
+                        if all(s in fill_px for s in need):
+                            unit.rebalance(pending, fill_px, d)
+                            real.rebalance(pending, fill_px, d)
+                            last_applied = dict(pending)
+                            pending = None
+
+            # 2) 마크투마켓(오늘 종가; 결측 심볼은 직전가로 캐리포워드). MOC 당일 체결도 여기서 반영.
             mark = dict(last_price)
             mark.update(close_px)
-            unit_eq = unit.equity(mark)
-            real_eq = real.equity(mark)
-            equity.append([d.isoformat(), unit_eq, real_eq])
+            equity.append([d.isoformat(), unit.equity(mark), real.equity(mark)])
 
-            # 3) 오늘 종가까지의 데이터로 새 목표 산출 → 내일 체결(pending)
-            tw = strat.decide(visible, sstate) or {}
-            pending = {s: float(w) for s, w in tw.items() if float(w) > 0}
+            # 3) t+1 모드는 오늘 종가까지의 데이터로 새 목표 산출 → 내일 체결(pending). MOC는 위에서 처리됨.
+            if exec_lag != 0:
+                tw = strat.decide(visible, sstate) or {}
+                pending = {s: float(w) for s, w in tw.items() if float(w) > 0}
+            prev_d = d
             last = d
 
         state["last_date"] = last.isoformat() if last else None
         state["pending"] = pending
         state["last_applied"] = last_applied
+        state["real_contributed"] = real_contributed
         state["strategy_state"] = sstate
         state["unit"] = unit.to_dict()
         state["real"] = real.to_dict()
@@ -504,6 +563,9 @@ class PaperLab:
             "curve": curve, "real_curve": real_curve,
             "position_text": _position_text(unit, dict()),
             "pending": state.get("pending"),
+            "real_contributed": float(state.get("real_contributed", 0.0) or 0.0),
+            "group": classify_group(self.strategy.universe(),
+                                    getattr(self.strategy, "group", None)),
         }
 
 
@@ -582,26 +644,22 @@ def render_leaderboard(summaries: Sequence[dict[str, Any]], *,
         f"guard only (unit MDD > −95% ⇒ FAIL). Live conversion needs cumulative return > QQQ "
         f"over ≥3 months + 0 ops errors + user approval.",
         "",
-        "## Strategies (sorted by unit-book total return)",
+        "## Strategies — grouped by real-account executability, sorted by unit-book total return",
         "",
-        "| Strategy | Fill | Start | Days | Total (u$1k) | Today | CAGR | MaxDD | Trades | "
-        "Fees(u) | $36 Total | $36 Fees | vs QQQ B&H | vs TQQQ B&H |",
-        "|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
+    _hdr = ("| Strategy | Fill | Start | Days | Total (u$1k) | Today | CAGR | MaxDD | Trades | "
+            "Fees(u) | $36 Total | $36 Fees | vs QQQ B&H | vs TQQQ B&H |")
+    _sep = "|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|"
     if not rows:
-        L.append("| (no strategies) | | | | | | | | | | | | | |")
-    for s in rows:
-        um: BookMetrics = s["unit"]
-        rm: BookMetrics = s["real"]
-        first = date.fromisoformat(s["first_session"]) if s["first_session"] else start_default
-        last = date.fromisoformat(s["last_session"]) if s["last_session"] else start_default
-        qqq = buy_hold_return(bench.get("QQQ", {}), first, last)
-        tqqq = buy_hold_return(bench.get("TQQQ", {}), first, last)
-        L.append(
-            f"| `{s['name']}` | {s['fill_on']} | {s['start_date']} | {s['days_live']} | "
-            f"{_pct(um.total_return)} | {_pct(um.today_return)} | {_pct(um.cagr)} | "
-            f"{_pct(um.max_dd)} | {um.trades} | ${um.fees:.3f} | {_pct(rm.total_return)} | "
-            f"${rm.fees:.3f} | {_pct(qqq)} | {_pct(tqqq)} |")
+        L += [_hdr, _sep, "| (no strategies) | | | | | | | | | | | | | |"]
+    for gkey in _GROUP_ORDER:
+        grp = [s for s in rows if s.get("group", "leverage") == gkey]
+        if not grp:
+            continue
+        L += [f"### {GROUP_LABELS[gkey]} ({len(grp)})", "", _hdr, _sep]
+        for s in grp:
+            L.append(_leaderboard_row(s, bench=bench, start_default=start_default))
+        L.append("")
 
     L += _daily_returns_table(rows, last_n=10)
     L += [
@@ -617,15 +675,37 @@ def render_leaderboard(summaries: Sequence[dict[str, Any]], *,
         "(hook for docs/aggressive_strategy_catalog.md candidates).",
         "",
     ]
+    contrib_rows = [s for s in rows if s.get("real_contributed", 0.0) > 0]
+    if contrib_rows:
+        L += ["- **Contributions**: " + ", ".join(
+            f"`{s['name']}` +${s['real_contributed']:.0f}" for s in contrib_rows)
+            + " added to the **$36 book only** (monthly, first session of each month; the $1k "
+            "book stays contribution-free). The $36 *Total* is therefore money-weighted "
+            "(deposits inflate it) and is not directly comparable to the $1k *Total*.", ""]
     if rows and all(s["days_live"] == 0 for s in rows):
         banner = (f"> ⏳ **Awaiting first forward session.** All books initialized at "
                   f"`{start_default.isoformat()}`; no keyless daily close ≥ start date has "
                   f"arrived yet (the cache ends earlier). Numbers populate once "
                   f"`scripts/paperlab_run.py` sees a session on/after the start date. For a "
                   f"historical sanity check, see `reports/paperlab_backfill.md` (BACKTEST).")
-        idx = L.index("## Strategies (sorted by unit-book total return)")
+        idx = next(i for i, ln in enumerate(L) if ln.startswith("## Strategies"))
         L[idx:idx] = [banner, ""]
     return "\n".join(L)
+
+
+def _leaderboard_row(s: Mapping[str, Any], *, bench: Mapping[str, Mapping[date, float]],
+                     start_default: date) -> str:
+    um: BookMetrics = s["unit"]
+    rm: BookMetrics = s["real"]
+    first = date.fromisoformat(s["first_session"]) if s["first_session"] else start_default
+    last = date.fromisoformat(s["last_session"]) if s["last_session"] else start_default
+    qqq = buy_hold_return(bench.get("QQQ", {}), first, last)
+    tqqq = buy_hold_return(bench.get("TQQQ", {}), first, last)
+    return (
+        f"| `{s['name']}` | {s['fill_on']} | {s['start_date']} | {s['days_live']} | "
+        f"{_pct(um.total_return)} | {_pct(um.today_return)} | {_pct(um.cagr)} | "
+        f"{_pct(um.max_dd)} | {um.trades} | ${um.fees:.3f} | {_pct(rm.total_return)} | "
+        f"${rm.fees:.3f} | {_pct(qqq)} | {_pct(tqqq)} |")
 
 
 def _sort_key(s: Mapping[str, Any]) -> float:
@@ -675,10 +755,11 @@ def render_backfill(summaries: Sequence[dict[str, Any]], *,
         "- Books: unit $1,000 and real $36. Cash 0%. Leveraged ETFs use listed history "
         "(no synthetic pre-inception here).",
         "",
-        "| Strategy | Fill | Sessions | Years | CAGR (u$1k) | Total | MaxDD | Trades | "
+        "| Strategy | Grp | Fill | Sessions | Years | CAGR (u$1k) | Total | MaxDD | Trades | "
         "Fees(u) | Final(u) | Final($36) | QQQ B&H CAGR | TQQQ B&H CAGR |",
-        "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+        "|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
+    _gtag = {"retail": "실계좌", "leverage": "레버ETP", "explore": "탐색"}
     for s in rows:
         um: BookMetrics = s["unit"]
         rm: BookMetrics = s["real"]
@@ -688,7 +769,8 @@ def render_backfill(summaries: Sequence[dict[str, Any]], *,
         qqq_c = _bh_cagr(bench.get("QQQ", {}), first, last)
         tqqq_c = _bh_cagr(bench.get("TQQQ", {}), first, last)
         L.append(
-            f"| `{s['name']}` | {s['fill_on']} | {s['days_live']} | {years:.1f} | "
+            f"| `{s['name']}` | {_gtag.get(s.get('group', 'leverage'), '?')} | {s['fill_on']} | "
+            f"{s['days_live']} | {years:.1f} | "
             f"{_pct(um.cagr)} | {_pct(um.total_return)} | {_pct(um.max_dd)} | {um.trades} | "
             f"${um.fees:.2f} | ${um.equity:.2f} | ${rm.equity:.2f} | "
             f"{_pct(qqq_c)} | {_pct(tqqq_c)} |")

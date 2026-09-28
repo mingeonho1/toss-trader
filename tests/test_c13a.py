@@ -41,7 +41,8 @@ def _walk(rng, n, start=100.0, drift=0.0, vol=0.02):
 
 
 def _panel(symbols, n=420, seed=7):
-    rng = random.Random(seed + (hash(tuple(symbols)) % 1000))
+    # hash()는 PYTHONHASHSEED로 프로세스마다 달라져 테스트가 간헐 실패했다 → 결정론적 시드.
+    rng = random.Random(seed + sum(ord(ch) for s in symbols for ch in s) % 1000)
     return {s: _walk(rng, n, start=50.0 + 10 * (i % 5), drift=0.0002 * ((i % 3) - 1))
             for i, s in enumerate(symbols)}, _dates(n)
 

@@ -35,6 +35,7 @@ from toss_trader.paperlab import (PaperLab, load_state, render_backfill,  # noqa
                                   render_leaderboard, save_state)
 from toss_trader.paperlab_strategies import build_roster          # noqa: E402
 from toss_trader.paperlab_strategies._universes import ETF_LIKE, NDX_100  # noqa: E402
+from toss_trader.paperlab_strategies.hibeta_universe import HIBETA_CANDIDATES  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data"
@@ -45,9 +46,16 @@ LEADERBOARD = REPORTS / "paperlab_latest.md"
 BACKFILL_REPORT = REPORTS / "paperlab_backfill.md"
 
 START_DATE = date(2026, 9, 28)        # 페이퍼 시작일(오늘의 다음 거래일; 부록 v3 목표 변경 시점)
-CORE_SYMBOLS = ["QQQ", "TQQQ", "SQQQ"]
+CORE_SYMBOLS = ["QQQ", "TQQQ", "SQQQ"]   # 캐시에 없으면 1회 전체 히스토리 페치(폴백)
 REFRESH_SPACING = 1.6                  # 정중 폴링(≥1.5s)
 REFRESH_DAYS = 14
+MAX_REFRESH = 40                       # 포워드 갱신 심볼 상한(유계 유지; ≥1.5s 간격·429 즉시 중단)
+
+# 포워드 갱신 대상 ETP(신규 전략이 쓰는 레버리지/1x/현금성). assetclass="etf".
+REFRESH_ETPS = ["QQQ", "TQQQ", "SQQQ", "SPY", "SPXL", "TECL", "SOXL", "UVXY", "BSV",
+                "SMH", "BIL", "SHY", "TMF", "AGG", "PSQ", "IBIT"]
+# 포워드 갱신 대상 단일주(btc_proxy + hibeta 상위 몇). assetclass="stocks".
+REFRESH_STOCKS_CORE = ["MSTR", "COIN"]
 
 
 def _now() -> str:
@@ -83,14 +91,18 @@ def _fetch_full(symbol: str) -> list[Candle] | None:
         return None
 
 
-def _polite_refresh(symbols: Sequence[str], *, sleep: Callable[[float], None] = time.sleep) -> str | None:
-    """코어 심볼 최근 종가만 Nasdaq 최근창으로 정중히 갱신(새 거래일만 병합). 429/오류 즉시 중단."""
+def _polite_refresh(pairs: Sequence[tuple[str, str]], *,
+                    sleep: Callable[[float], None] = time.sleep) -> str | None:
+    """(symbol, assetclass) 목록의 최근 종가만 Nasdaq 최근창으로 정중히 갱신(새 거래일만 병합).
+
+    ≥1.5s 간격, 429/오류 즉시 중단(정중). 갱신 파일이 없으면 최근창으로 부트스트랩(과거는 캐시에 의존).
+    """
     import json
-    for i, sym in enumerate(symbols):
+    for i, (sym, assetclass) in enumerate(pairs):
         if i > 0:
             sleep(REFRESH_SPACING)
         try:
-            rows = histdata.fetch_nasdaq_recent(sym, days=REFRESH_DAYS, assetclass="etf")
+            rows = histdata.fetch_nasdaq_recent(sym, days=REFRESH_DAYS, assetclass=assetclass)
         except Exception as exc:  # noqa: BLE001  429/네트워크/파싱 → 중단(정중)
             return f"{sym}: {type(exc).__name__}: {exc}"
         if not rows:
@@ -160,23 +172,43 @@ def _cached_universe() -> list[str]:
     return syms
 
 
-def _build(swing_universe: Sequence[str] | None, mom_universe: Sequence[str] | None):
-    return build_roster(swing_universe=swing_universe, mom_universe=mom_universe)
+def _build(swing_universe: Sequence[str] | None, mom_universe: Sequence[str] | None,
+           hibeta_universe: Sequence[str] | None = None):
+    return build_roster(swing_universe=swing_universe, mom_universe=mom_universe,
+                        hibeta_universe=hibeta_universe)
+
+
+def _hibeta_cached() -> list[str]:
+    """hibeta 후보 ∩ 캐시(포워드 = 생존편향 없음). 캐시 없는 이름은 자동 제외."""
+    return [s for s in HIBETA_CANDIDATES if _cache_file(s).exists()]
+
+
+def _refresh_pairs(hibeta_uni: Sequence[str]) -> list[tuple[str, str]]:
+    """포워드 갱신 (symbol, assetclass) 목록. ETP(etf) + MSTR/COIN + hibeta 단일주(stocks). MAX_REFRESH 상한."""
+    pairs: list[tuple[str, str]] = [(s, "etf") for s in REFRESH_ETPS if _cache_file(s).exists()]
+    seen = {s for s, _ in pairs}
+    for s in list(REFRESH_STOCKS_CORE) + list(hibeta_uni):
+        if s not in seen and _cache_file(s).exists():
+            pairs.append((s, "stocks"))
+            seen.add(s)
+    return pairs[:MAX_REFRESH]
 
 
 # ─────────────────────────────────────────── 실행: 포워드 페이퍼
 def run_forward(args: argparse.Namespace) -> int:
     swing_uni = _cached_universe()
     mom_uni = [s for s in NDX_100 if _cache_file(s).exists()]
-    roster = _build(swing_uni, mom_uni)
+    hibeta_uni = _hibeta_cached()
+    roster = _build(swing_uni, mom_uni, hibeta_uni)
 
     needed: set[str] = {"QQQ", "TQQQ"}
     for strat in roster:
         needed.update(strat.universe())
 
     if not args.offline and not args.no_refresh:
-        stopped = _polite_refresh(CORE_SYMBOLS)
-        _log(f"refresh core closes: stopped={stopped}")
+        pairs = _refresh_pairs(hibeta_uni)
+        stopped = _polite_refresh(pairs)
+        _log(f"refresh closes: symbols={len(pairs)} stopped={stopped}")
 
     panel = _load_panel(sorted(needed), offline=args.offline)
     if "QQQ" not in panel:
@@ -210,7 +242,8 @@ def run_forward(args: argparse.Namespace) -> int:
 def run_backfill(args: argparse.Namespace, backfill_from: date) -> int:
     swing_uni = _cached_universe()
     mom_uni = [s for s in NDX_100 if _cache_file(s).exists()]
-    roster = _build(swing_uni, mom_uni)
+    hibeta_uni = _hibeta_cached()
+    roster = _build(swing_uni, mom_uni, hibeta_uni)
 
     needed: set[str] = {"QQQ", "TQQQ"}
     for strat in roster:
@@ -226,7 +259,8 @@ def run_backfill(args: argparse.Namespace, backfill_from: date) -> int:
     for strat in roster:
         lab = PaperLab(strat)
         state = lab.fresh_state(backfill_from)
-        state = lab.run(state, master, by_date)
+        # 백필은 비교 왜곡을 피해 적립 비활성(실장부도 순수). 적립은 포워드 실장부에만 적용.
+        state = lab.run(state, master, by_date, contribute=False)
         # 검사 편의를 위해 별도 서브폴더에 멱등 저장(페이퍼 장부와 분리).
         save_state(PAPERLAB_DIR / "_backtest", strat.name, state)
         summaries.append(lab.summarize(state))
