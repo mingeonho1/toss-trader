@@ -1,0 +1,76 @@
+{
+  "created_at": "2026-09-28T03:10:07.172069+00:00",
+  "plan_start_month": "2026-09",
+  "seed_usd": 100.0,
+  "snapshots": [
+    {
+      "ts": "2026-09-28T04:22:08.827071+00:00",
+      "date": "2026-09-28",
+      "prices": {
+        "QQQ": 744.5,
+        "QLD": 96.95
+      },
+      "portfolios": {
+        "lifecycle_sleeve": {
+          "equity": 98.764786427252,
+          "contributed": 100.0,
+          "E": 2.0
+        },
+        "dca_qqq": {
+          "equity": 99.25644574210688,
+          "contributed": 100.0,
+          "E": null
+        }
+      }
+    }
+  ],
+  "portfolios": {
+    "lifecycle_sleeve": {
+      "cash": 0.0,
+      "positions": {
+        "QLD": {
+          "quantity": 1.0187187872847034,
+          "avg_price": 97.86891
+        }
+      },
+      "fills": [
+        {
+          "symbol": "QLD",
+          "side": "BUY",
+          "quantity": 1.0187187872847034,
+          "price": 97.86891,
+          "cost": 0.2991026919242274,
+          "dt": "2026-09-28",
+          "realized_pnl": 0.0
+        }
+      ],
+      "total_contributed": 100.0,
+      "last_contribution_period": "2026-09",
+      "initialized": true
+    },
+    "dca_qqq": {
+      "cash": 0.0,
+      "positions": {
+        "QQQ": {
+          "quantity": 0.13331960475769897,
+          "avg_price": 747.8337300000001
+        }
+      },
+      "fills": [
+        {
+          "symbol": "QQQ",
+          "side": "BUY",
+          "quantity": 0.13331960475769897,
+          "price": 747.8337300000001,
+          "cost": 0.29910269192422734,
+          "dt": "2026-09-28",
+          "realized_pnl": 0.0
+        }
+      ],
+      "total_contributed": 100.0,
+      "last_contribution_period": "2026-09",
+      "initialized": true
+    }
+  },
+  "months_remaining": 300
+}

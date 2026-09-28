@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "name": "simple_rsi_uvxy",
+  "fill_on": "close",
+  "start_date": "2026-09-28",
+  "last_date": null,
+  "pending": null,
+  "last_applied": null,
+  "real_contributed": 0.0,
+  "strategy_state": {},
+  "unit": {
+    "cash": 1000.0,
+    "start": 1000.0,
+    "positions": {},
+    "fills": []
+  },
+  "real": {
+    "cash": 36.0,
+    "start": 36.0,
+    "positions": {},
+    "fills": []
+  },
+  "equity": []
+}
