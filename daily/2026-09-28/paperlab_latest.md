@@ -1,6 +1,6 @@
 # Aggressive Forward Paper Lab — Leaderboard
 
-- Generated: `2026-09-28T07:50:22+00:00`
+- Generated: `2026-09-28T09:59:49+00:00`
 - **PAPER (forward, live prices going forward). Real orders: none, ever.** Signal at close t → fill at t+1 (close, or open where noted). Cash earns 0%.
 - Two books per strategy: **unit $1,000** (clean performance) and **real $36** (true small-scale Toss fees). Leaderboard ranks by the unit book's total return.
 - Fees: Toss exact — buys ≤$10 free, sells 0.1% + SEC/TAF minimums.

@@ -1,6 +1,6 @@
 # Forward Paper Strategy Comparison
 
-- Generated: `2026-09-28T04:22:08.780194+00:00`
+- Generated: `2026-09-28T09:58:35.119794+00:00`
 - Session date: `2026-09-28`
 - Real orders: none. These are virtual fills using current prices plus the cost model.
 - Cost model: roundtrip `70bps`
