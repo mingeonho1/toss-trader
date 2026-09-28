@@ -1,0 +1,403 @@
+{
+  "meta": {
+    "universe_n": 184,
+    "n_days": 2516,
+    "dates": [
+      "2016-09-22",
+      "2026-09-25"
+    ],
+    "coverage": {
+      "design_mean": 0.27063438894480696,
+      "holdout_mean": 0.309523584099293,
+      "months": 121
+    },
+    "qqq_cagr": {
+      "design": 0.2666850459439847,
+      "holdout": 0.14862623044325463,
+      "full": 0.20924376003127754
+    },
+    "cost": "10bp/side + 3bp(large)/15bp(hot) half-spread + 5bp slip; next-open; 2x stress; micro=free",
+    "lane": "A",
+    "upper_bound_caveat": "as-of \uba64\ubc84 \ucee4\ubc84\ub9ac\uc9c0 ~30% (\ub300\ud615\u00b7\uc0dd\uc874\uc8fc \ud3b8\uc911) \u2192 \uc131\uacfc\ub294 \uc0c1\ud55c"
+  },
+  "benchmarks": {
+    "QQQ": {
+      "design": {
+        "cagr": 0.2666850459439847,
+        "mdd": -0.2855937209891133,
+        "sharpe": 1.1900213226270722,
+        "realized_beta": 1.0
+      },
+      "holdout": {
+        "cagr": 0.14862623044325463,
+        "mdd": -0.34828040508531677,
+        "sharpe": 0.7146525482450122,
+        "realized_beta": 1.0
+      },
+      "full": {
+        "cagr": 0.20924376003127754,
+        "mdd": -0.3511878485046841,
+        "sharpe": 0.9584205200681992,
+        "realized_beta": 1.0
+      }
+    },
+    "QLD": {
+      "design": {
+        "cagr": 0.48911141848752093,
+        "mdd": -0.5171542553191493,
+        "sharpe": 1.1322199482408566,
+        "realized_beta": 1.9969465292556738
+      },
+      "holdout": {
+        "cagr": 0.17895297632939444,
+        "mdd": -0.6318917134367776,
+        "sharpe": 0.5875741986434984,
+        "realized_beta": 1.9981235607045058
+      },
+      "full": {
+        "cagr": 0.333133072196935,
+        "mdd": -0.637908638233384,
+        "sharpe": 0.8669322642211491,
+        "realized_beta": 1.9975988913695073
+      }
+    },
+    "TQQQ": {
+      "design": {
+        "cagr": 0.6837589292796769,
+        "mdd": -0.6992241233271219,
+        "sharpe": 1.1385252606893965,
+        "realized_beta": 2.94358277226473
+      },
+      "holdout": {
+        "cagr": 0.16948604529024913,
+        "mdd": -0.8091687105766123,
+        "sharpe": 0.5724329252619316,
+        "realized_beta": 2.970280277863847
+      },
+      "full": {
+        "cagr": 0.41685967737586793,
+        "mdd": -0.815642685288304,
+        "sharpe": 0.8615730311116219,
+        "realized_beta": 2.957073841708592
+      }
+    }
+  },
+  "ideas": {
+    "c12s_hibeta_basket": {
+      "idea": "c12s_hibeta_basket",
+      "params": {
+        "topk": 10,
+        "beta_win": 252,
+        "dv_top": 300,
+        "min_price": 5.0,
+        "use_filter": false
+      },
+      "kind": "portfolio",
+      "design": {
+        "cagr": 0.3312455064919124,
+        "mdd": -0.37387677742085623,
+        "sharpe": 1.0437170371306193,
+        "realized_beta": 1.1954699865082932,
+        "cagr_vs_qqq": 0.06456046054792774
+      },
+      "holdout": {
+        "cagr": 0.3129067019343905,
+        "mdd": -0.47662428524543154,
+        "sharpe": 0.8557095555066108,
+        "realized_beta": 1.631994261995808,
+        "cagr_vs_qqq": 0.1642804714911359,
+        "cagr_2x": 0.3032874097796927,
+        "cagr_micro": 0.3169246071975693,
+        "dsr": 0.9683336524692258,
+        "rc_p": 0.08133333333333333,
+        "spa_p": 0.037333333333333336
+      },
+      "full": {
+        "cagr": 0.32224066291646136,
+        "mdd": -0.48068253123479665
+      },
+      "turnover_yr": 2.9053927728047935,
+      "neighbor_frac_full": 1.0,
+      "neighbor_frac_design": 0.8333333333333334,
+      "neighbor_frac_holdout": 1.0,
+      "n_neighbors": 6,
+      "n_eff": 1,
+      "lane_a": {
+        "a_pass": true,
+        "b_pass": true,
+        "c_pass": true,
+        "bankruptcy": false
+      },
+      "verdict": "PASS",
+      "reasons": [
+        "(a)(b)(c) \ubaa8\ub450 \ucda9\uc871 \u2192 Lane A PASS(\ud398\uc774\ud37c \ud3b8\uc785 \ud6c4\ubcf4)"
+      ]
+    },
+    "c12s_hibeta_trend": {
+      "idea": "c12s_hibeta_trend",
+      "params": {
+        "topk": 10,
+        "beta_win": 252,
+        "dv_top": 300,
+        "min_price": 5.0,
+        "use_filter": true
+      },
+      "kind": "portfolio",
+      "design": {
+        "cagr": 0.25248674827392015,
+        "mdd": -0.373876777420856,
+        "sharpe": 0.9126971368985489,
+        "realized_beta": 0.9823624207996627,
+        "cagr_vs_qqq": -0.01419829767006453
+      },
+      "holdout": {
+        "cagr": 0.2436520273254199,
+        "mdd": -0.3115958358826131,
+        "sharpe": 0.814343361104734,
+        "realized_beta": 0.8785544135166938,
+        "cagr_vs_qqq": 0.09502579688216528,
+        "cagr_2x": 0.23459087912436916,
+        "cagr_micro": 0.24742922033655645,
+        "dsr": 0.9603700371816357,
+        "rc_p": 0.24333333333333335,
+        "spa_p": 0.234
+      },
+      "full": {
+        "cagr": 0.2480750825875817,
+        "mdd": -0.373876777420856
+      },
+      "turnover_yr": 3.0243502374419284,
+      "neighbor_frac_full": 0.8333333333333334,
+      "neighbor_frac_design": 0.0,
+      "neighbor_frac_holdout": 1.0,
+      "n_neighbors": 6,
+      "n_eff": 1,
+      "lane_a": {
+        "a_pass": false,
+        "b_pass": true,
+        "c_pass": false,
+        "bankruptcy": false
+      },
+      "verdict": "FAIL",
+      "reasons": [
+        "(a) \uc124\uacc4\u00b7\ud640\ub4dc\uc544\uc6c3 CAGR>QQQ \ubbf8\ucda9\uc871 \u2192 FAIL"
+      ]
+    },
+    "c12s_mom_hibeta": {
+      "idea": "c12s_mom_hibeta",
+      "params": {
+        "topk": 5,
+        "beta_top": 50,
+        "beta_win": 252,
+        "lookback": 252,
+        "skip": 21,
+        "dv_top": 300,
+        "min_price": 5.0,
+        "use_filter": true
+      },
+      "kind": "portfolio",
+      "design": {
+        "cagr": 0.2559710971082081,
+        "mdd": -0.33861002962014974,
+        "sharpe": 0.8947529925631303,
+        "realized_beta": 1.1045479286360433,
+        "cagr_vs_qqq": -0.010713948835776588
+      },
+      "holdout": {
+        "cagr": 0.21705163258711502,
+        "mdd": -0.3265604465092843,
+        "sharpe": 0.7220047468004401,
+        "realized_beta": 0.8607916999689742,
+        "cagr_vs_qqq": 0.06842540214386039,
+        "cagr_2x": 0.19627543696407868,
+        "cagr_micro": 0.22544253002073855,
+        "dsr": 0.9410167518402457,
+        "rc_p": 0.21733333333333332,
+        "spa_p": 0.23
+      },
+      "full": {
+        "cagr": 0.23720290096804986,
+        "mdd": -0.33861002962014974
+      },
+      "turnover_yr": 6.133395585209657,
+      "neighbor_frac_full": 1.0,
+      "neighbor_frac_design": 0.3333333333333333,
+      "neighbor_frac_holdout": 1.0,
+      "n_neighbors": 6,
+      "n_eff": 1,
+      "lane_a": {
+        "a_pass": false,
+        "b_pass": true,
+        "c_pass": false,
+        "bankruptcy": false
+      },
+      "verdict": "FAIL",
+      "reasons": [
+        "(a) \uc124\uacc4\u00b7\ud640\ub4dc\uc544\uc6c3 CAGR>QQQ \ubbf8\ucda9\uc871 \u2192 FAIL"
+      ]
+    },
+    "c12s_ep_gap": {
+      "idea": "c12s_ep_gap",
+      "params": {
+        "gap": 0.1,
+        "rvol_k": 3.0,
+        "rng_min": 0.5,
+        "avg_win": 50,
+        "sma_exit": 10,
+        "max_hold": 60,
+        "min_price": 5.0,
+        "max_pos": 3
+      },
+      "kind": "trades",
+      "n_signals": 92,
+      "n_taken": 82,
+      "design": {
+        "cagr": -0.09724448720683432,
+        "mdd": -0.6908169254870762,
+        "sharpe": -0.25758452987937874,
+        "realized_beta": 0.35398120846375736,
+        "cagr_vs_qqq": -0.363929533150819,
+        "trades": {
+          "n": 31,
+          "tstat": -0.3746623936609292,
+          "ci_lo": -0.06880481839974098,
+          "profit_factor": 0.7408370070907107,
+          "expectancy": -0.01696453405439995,
+          "win_rate": 0.2903225806451613,
+          "mean_ret_bps": -169.6453405439995
+        }
+      },
+      "holdout": {
+        "cagr": -0.06509850105895976,
+        "mdd": -0.4616350427202328,
+        "sharpe": -0.13776690837381747,
+        "realized_beta": 0.266070106228631,
+        "cagr_vs_qqq": -0.21372473150221438,
+        "trades": {
+          "n": 51,
+          "tstat": 0.009063880099491817,
+          "ci_lo": -0.018671742545709392,
+          "profit_factor": 1.0034572183485508,
+          "expectancy": 0.00012359742316392955,
+          "win_rate": 0.43137254901960786,
+          "mean_ret_bps": 1.2359742316392954
+        },
+        "trades_2xcost": {
+          "n": 51,
+          "tstat": -0.369657524850572,
+          "ci_lo": -0.023833629042405092,
+          "profit_factor": 0.8698585619243958,
+          "expectancy": -0.005035597400606859,
+          "win_rate": 0.43137254901960786,
+          "mean_ret_bps": -50.355974006068585
+        }
+      },
+      "full": {
+        "cagr": -0.08212306513061063,
+        "mdd": -0.6908169254870762
+      },
+      "turnover_yr": 14.931125492097493,
+      "verdict": "FAIL",
+      "reasons": [
+        "\ud640\ub4dc CAGR>QQQ=False, \uac70\ub798 t\u22653=False \ubbf8\ucda9\uc871"
+      ]
+    },
+    "c12s_btc_proxy": {
+      "idea": "c12s_btc_proxy",
+      "params": {
+        "sma_win": 100
+      },
+      "kind": "portfolio",
+      "design": {
+        "cagr": 0.16793875768131983,
+        "mdd": -0.70809847362171,
+        "sharpe": 0.5637990964297139,
+        "realized_beta": 0.40023853881535915,
+        "cagr_vs_qqq": -0.09874628826266485
+      },
+      "holdout": {
+        "cagr": 0.5705210562602494,
+        "mdd": -0.4177665301147584,
+        "sharpe": 1.0745432889551705,
+        "realized_beta": 0.5777185355055173,
+        "cagr_vs_qqq": 0.4218948258169948,
+        "cagr_2x": 0.5331607204284627,
+        "cagr_micro": 0.583126332764452,
+        "dsr": 0.9921106025540161,
+        "rc_p": 0.10733333333333334,
+        "spa_p": 0.09466666666666666
+      },
+      "full": {
+        "cagr": 0.34314000297380587,
+        "mdd": -0.7187145724923978
+      },
+      "turnover_yr": 6.000536628816404,
+      "neighbor_frac_full": 1.0,
+      "n_neighbors": 4,
+      "n_eff": 1,
+      "lane_a": {
+        "a_pass": false,
+        "b_pass": true,
+        "c_pass": false
+      },
+      "coin_start": "2021-04-14",
+      "verdict": "FAIL",
+      "reasons": [
+        "(a) \uc124\uacc4\u00b7\ud640\ub4dc\uc544\uc6c3 CAGR>QQQ \ubbf8\ucda9\uc871 \u2192 FAIL"
+      ]
+    },
+    "c12s_hibeta_ddguard": {
+      "idea": "c12s_hibeta_ddguard",
+      "params": {
+        "topk": 10,
+        "beta_win": 252,
+        "dv_top": 300,
+        "min_price": 5.0,
+        "use_filter": false,
+        "guard": true,
+        "dd_win": 100,
+        "dd_thresh": 0.1
+      },
+      "kind": "portfolio",
+      "design": {
+        "cagr": 0.22077081766366713,
+        "mdd": -0.3326324321444588,
+        "sharpe": 0.8956068188088375,
+        "realized_beta": 0.73154087633559,
+        "cagr_vs_qqq": -0.04591422828031755
+      },
+      "holdout": {
+        "cagr": 0.29162354982401073,
+        "mdd": -0.31159583588261275,
+        "sharpe": 0.9202237060594229,
+        "realized_beta": 0.8968884975854502,
+        "cagr_vs_qqq": 0.1429973193807561,
+        "cagr_2x": 0.2830736655744732,
+        "cagr_micro": 0.2952198800751298,
+        "dsr": 0.9711479431416227,
+        "rc_p": 0.184,
+        "spa_p": 0.16533333333333333
+      },
+      "full": {
+        "cagr": 0.2535355802385,
+        "mdd": -0.3326324321444588
+      },
+      "turnover_yr": 3.130705893351529,
+      "neighbor_frac_full": 0.8333333333333334,
+      "neighbor_frac_design": 0.0,
+      "neighbor_frac_holdout": 1.0,
+      "n_neighbors": 6,
+      "n_eff": 3,
+      "lane_a": {
+        "a_pass": false,
+        "b_pass": true,
+        "c_pass": false,
+        "bankruptcy": false
+      },
+      "verdict": "FAIL",
+      "reasons": [
+        "(a) \uc124\uacc4\u00b7\ud640\ub4dc\uc544\uc6c3 CAGR>QQQ \ubbf8\ucda9\uc871 \u2192 FAIL"
+      ]
+    }
+  }
+}
