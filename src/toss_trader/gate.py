@@ -33,7 +33,19 @@ _EULER = 0.5772156649015329             # 오일러–마스케로니 상수 γ
 _E = math.e
 
 DEFAULT_LEDGER = "reports/trials_ledger.jsonl"
+DEFAULT_LEDGER_FLAGS = "reports/trials_ledger_flags.json"
 DEFAULT_Q = 0.1                         # 정상 부트스트랩 기대 블록길이 1/q = 10봉
+
+# ── 부록 v2.2(2026-09-23): 프로그램 DSR 추정기 버그픽스 기본값 ─────────────────
+# 이 상수들은 **임계(threshold) 변경이 아니라 추정기(estimator) 정정**이다. 원장의 퇴화 시도
+# (무낙폭 현금성 행: 일 SR=2.28, 연율 ~36)가 시도 SR 표본분산 V 를 부풀려 E[maxSR] 문턱을
+# 비현실적으로 올리고, 그 결과 모든 실전략의 프로그램 DSR 이 ≈0.00 으로 붕괴하던 아티팩트를
+# 고친다. 판정 문턱(DSR≥0.95 등)은 그대로다. 상세: docs/gate_v2_spec.md 부록 v2.2.
+DESIGN_MIN_OBS = 252          # 시도풀 최소 관측(1년 미만 표본은 SR 분산 추정에서 제외)
+TRIAL_WINSOR_SIGMA = 5.0      # 로버스트 V 윈저화 컷: median ± 5·(1.4826·MAD)
+DEGENERATE_MIN_ABS_MDD = 1e-9 # |MDD|<이 값 = 사실상 무낙폭 → 퇴화(현금성) 시도로 간주·제외
+DEFAULT_TRIAL_EXCLUDE_FLAGS = ("benchmark", "diagnostic", "degenerate",
+                               "trade_lane", "cash_like")
 
 __all__ = [
     # 화폐가중
@@ -45,6 +57,9 @@ __all__ = [
     "stationary_bootstrap_indices", "probabilistic_sharpe_ratio",
     "expected_max_sharpe", "deflated_sharpe_ratio", "whites_reality_check",
     "hansen_spa", "n_eff_clusters", "program_n_eff", "dsr_program",
+    # 부록 v2.2 프로그램 DSR 추정기 정정
+    "filter_trial_records", "robust_sr_variance", "idea_cluster_n_eff",
+    "ledger_trial_records", "load_ledger_flags",
     # 부트스트랩 CI
     "stationary_bootstrap_mean_ci", "block_bootstrap_ci",
     # 강건성
@@ -74,6 +89,15 @@ def _std(x: list[float], ddof: int = 1) -> float:
         return 0.0
     m = sum(x) / n
     return math.sqrt(sum((v - m) ** 2 for v in x) / (n - ddof))
+
+
+def _median(x: list[float]) -> float:
+    n = len(x)
+    if n == 0:
+        return float("nan")
+    s = sorted(x)
+    m = n // 2
+    return s[m] if n % 2 else 0.5 * (s[m - 1] + s[m])
 
 
 def _quantile_sorted(sorted_x: list[float], p: float) -> float:
@@ -938,6 +962,178 @@ def _load_stream_ref(ref, ledger_path: str | None = None, loader=None):
     return None
 
 
+def ledger_trial_records(path: str, idea_id: str | None = None) -> list[dict]:
+    """원장 시도 레코드(dict) 목록. idea_id 지정시 그 아이디어만. filter_trial_records 의 입력원."""
+    return [r for r in _iter_ledger(path)
+            if idea_id is None or r.get("idea_id") == idea_id]
+
+
+def load_ledger_flags(flags_path: str | None = None, *,
+                      ledger_path: str | None = None) -> dict:
+    """사이드카 플래그 파일(reports/trials_ledger_flags.json)을 읽어 config_hash→플래그 맵을 준다.
+
+    원장(JSONL)은 append-only 이력이라 **되쓰지 않는다**(사양 §3.1). 퇴화·벤치·진단·거래레인
+    시도를 사후에 표시할 땐 이 사이드카에만 적재하고 `filter_trial_records(flags=...)`가 읽는다.
+    스키마: `{"flags": {"<config_hash>": {"idea_id": <옵션>, "flags": ["degenerate", …]}}}`.
+    파일이 없거나 파싱 실패면 빈 dict(=필터에 영향 없음). flags_path 미지정시 ledger 디렉터리의
+    기본 파일명을 시도한다.
+    """
+    path = flags_path
+    if path is None:
+        base = os.path.dirname(ledger_path) if ledger_path else ""
+        path = (os.path.join(base, os.path.basename(DEFAULT_LEDGER_FLAGS))
+                if base else DEFAULT_LEDGER_FLAGS)
+    if not os.path.exists(path):
+        return {}
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, json.JSONDecodeError):
+        return {}
+    flags = data.get("flags", data) if isinstance(data, dict) else {}
+    return flags if isinstance(flags, dict) else {}
+
+
+def _record_flags(rec: dict, sidecar: dict) -> set[str]:
+    """레코드 자체 필드 + 사이드카에서 이 행에 부여된 플래그 집합."""
+    out: set[str] = set()
+    for key in ("flags", "flag", "role"):
+        v = rec.get(key)
+        if isinstance(v, str):
+            out.add(v)
+        elif isinstance(v, (list, tuple, set)):
+            out.update(str(x) for x in v)
+    for key in ("benchmark", "diagnostic", "degenerate", "trade_lane"):
+        if rec.get(key) is True:
+            out.add(key)
+    ch = rec.get("config_hash")
+    side = sidecar.get(ch) if ch is not None else None
+    if isinstance(side, dict):
+        if side.get("idea_id") in (None, rec.get("idea_id")):
+            sf = side.get("flags", [])
+            out.update([sf] if isinstance(sf, str) else [str(x) for x in sf])
+    elif isinstance(side, (list, tuple)):
+        out.update(str(x) for x in side)
+    return out
+
+
+def filter_trial_records(records, *, splits=("design",), exclude_lanes=(3,),
+                         min_obs: int | None = DESIGN_MIN_OBS,
+                         min_abs_mdd: float | None = DEGENERATE_MIN_ABS_MDD,
+                         require_sr: bool = True,
+                         exclude_flags=DEFAULT_TRIAL_EXCLUDE_FLAGS,
+                         flags: dict | None = None) -> list[dict]:
+    """프로그램 DSR 시도풀(=SR 분산 V·N_eff 산정 대상)을 정제한다(부록 v2.2).
+
+    Bailey–López de Prado 에서 DSR 의 시도집합은 "**같은 데이터에 시도한 구성(configuration)**"이다.
+    이 정의에 맞춰 다음을 뺀다:
+      1) 비설계 분할(홀드아웃/WF): 시도가 아니라 사후평가 → 기본 splits={"design"} 만 유지.
+      2) 레인3(거래단위 PnL·연단위 SR 부적용, 사양 §3.5): SR 단위가 달라 V 오염 → exclude_lanes.
+      3) 관측수 부족(min_obs): 1년 미만 표본의 SR 은 분산 추정을 왜곡 → 제외.
+      4) 퇴화 시도(min_vol 대용): 무낙폭 현금성 행(|MDD|<min_abs_mdd 또는 MDD=Ulcer=0)은 변동성이
+         사실상 0 이라 |SR|이 폭증(원장 아티팩트: 일 SR=2.28) → 제외. 스트림 미저장 원장에서
+         MDD/Ulcer 이 변동성 0 의 관측 가능한 대리지표다.
+      5) 벤치/진단/거래/현금성 플래그(레코드 필드 또는 사이드카): exclude_flags 와 교차하면 제외.
+    각 인자에 None 을 주면 해당 필터를 끈다(예 splits=None → 전 분할 포함). SR 결측 행은 require_sr.
+    """
+    splits_set = set(splits) if splits is not None else None
+    lanes = set(exclude_lanes or ())
+    exflags = set(exclude_flags or ())
+    sidecar = flags or {}
+    kept: list[dict] = []
+    for r in records:
+        if splits_set is not None and r.get("period") not in splits_set:
+            continue
+        if r.get("lane") in lanes:
+            continue
+        T = r.get("T")
+        if min_obs is not None and not (isinstance(T, (int, float)) and T >= min_obs):
+            continue
+        sr = r.get("sr_daily")
+        if require_sr and not (isinstance(sr, (int, float)) and math.isfinite(sr)):
+            continue
+        # 퇴화(무낙폭 현금성) 필터 — min_abs_mdd=None 이면 통째로 끈다.
+        if min_abs_mdd is not None:
+            mdd = r.get("mdd")
+            ul = r.get("ulcer")
+            if isinstance(mdd, (int, float)) and abs(mdd) < min_abs_mdd:
+                continue
+            if (isinstance(mdd, (int, float)) and mdd == 0.0
+                    and isinstance(ul, (int, float)) and ul == 0.0):
+                continue
+        if exflags and (_record_flags(r, sidecar) & exflags):
+            continue
+        kept.append(r)
+    return kept
+
+
+def robust_sr_variance(sr_trials, *, winsor_sigma: float | None = TRIAL_WINSOR_SIGMA
+                       ) -> dict:
+    """시도 SR 표본분산 V 의 **로버스트** 추정(부록 v2.2). 단일 퇴화/이상 시도가 V 를 부풀려
+    E[maxSR] 문턱을 비현실적으로 올리는 것을 막는다.
+
+        σ_MAD = 1.4826 · median(|SRᵢ − median(SR)|)      (정규분포에서 σ의 일치추정)
+        윈저화: SRᵢ ← clip(SRᵢ, median ± winsor_sigma·σ_MAD)
+        V      = 표본분산(ddof=1) of 윈저화된 SR
+
+    MAD=0(동률 과다) 이면 고전 표준편차로 폴백. winsor_sigma=None 이면 윈저화 없이 고전 V.
+    반환: V(로버스트), V_raw(비로버스트), n, median, mad_sigma, lo, hi, n_winsorized.
+    """
+    xs = [float(x) for x in sr_trials
+          if isinstance(x, (int, float)) and math.isfinite(x)]
+    n = len(xs)
+    if n < 2:
+        return {"V": 0.0, "V_raw": 0.0, "n": n,
+                "median": (xs[0] if xs else float("nan")), "mad_sigma": 0.0,
+                "lo": float("nan"), "hi": float("nan"), "n_winsorized": 0}
+    v_raw = _std(xs, ddof=1) ** 2
+    med = _median(xs)
+    sigma = _median([abs(x - med) for x in xs]) * 1.4826
+    if sigma <= 0 or winsor_sigma is None:
+        return {"V": v_raw, "V_raw": v_raw, "n": n, "median": med,
+                "mad_sigma": sigma, "lo": float("nan"), "hi": float("nan"),
+                "n_winsorized": 0}
+    lo, hi = med - winsor_sigma * sigma, med + winsor_sigma * sigma
+    wins = [hi if x > hi else lo if x < lo else x for x in xs]
+    nwin = sum(1 for x in xs if x < lo or x > hi)
+    return {"V": _std(wins, ddof=1) ** 2, "V_raw": v_raw, "n": n, "median": med,
+            "mad_sigma": sigma, "lo": lo, "hi": hi, "n_winsorized": nwin}
+
+
+def idea_cluster_n_eff(records, *, theta: float = 0.9, stream_loader=None,
+                       ledger_path: str | None = None) -> dict:
+    """N_eff = **아이디어 레벨 클러스터 수**(부록 v2.2). 한 아이디어의 그리드 이웃(lookback 200 vs
+    201 …)이 N 을 부풀려 DSR 이 과도하게 엄격해지는 것을 막는다.
+
+    각 idea_id 를 그 config 들의 SR **평균(대표값)** 으로 1개 대표 시도로 접는다. 대표 스트림을
+    불러올 수 있으면(stream_loader) 대표 간 상관 그리디 클러스터(n_eff_clusters, theta)로 더 접고,
+    아니면 대표 수(=고유 idea_id 수)를 N_eff 로 쓴다(스트림 미저장 원장의 보수적 폴백).
+    반환: N_eff, n_ideas, representatives(idea→평균SR), method.
+    """
+    reps: dict[str, list[float]] = {}
+    for r in records:
+        i = r.get("idea_id")
+        sr = r.get("sr_daily")
+        if i is None or not (isinstance(sr, (int, float)) and math.isfinite(sr)):
+            continue
+        reps.setdefault(i, []).append(float(sr))
+    rep_sr = {i: _mean(v) for i, v in reps.items() if v}
+    n_ideas = len(rep_sr)
+    n_eff = n_ideas
+    method = "idea_representative"
+    if stream_loader is not None and rep_sr:
+        streams: dict[str, list[float]] = {}
+        for i in rep_sr:
+            s = _load_stream_ref(i, ledger_path, stream_loader)
+            if s and len(s) >= 2:
+                streams[i] = s
+        if len(streams) == n_ideas:
+            n_eff = n_eff_clusters(streams, theta=theta)
+            method = "idea_stream_cluster"
+    return {"N_eff": max(1, n_eff) if rep_sr else 0, "n_ideas": n_ideas,
+            "representatives": rep_sr, "method": method}
+
+
 def program_n_eff(ledger_path: str, *, theta: float = 0.9, stream_loader=None) -> dict:
     """원장 전체(아이디어 간 포함) 시도의 (N, N_eff)(사양 부록 v2.1-3).
 
@@ -970,24 +1166,58 @@ def program_n_eff(ledger_path: str, *, theta: float = 0.9, stream_loader=None) -
 
 
 def dsr_program(returns: list[float], ledger_path: str, idea_id: str, *,
-                theta: float = 0.9, stream_loader=None) -> dict:
+                theta: float = 0.9, stream_loader=None,
+                robust: bool = False, trial_filter: dict | None = None,
+                flags: dict | None = None) -> dict:
     """프로그램 전체 N_eff DSR과 아이디어 내부 N DSR을 함께 보고한다(사양 부록 v2.1-3).
 
     dsr_program: 원장 전체 시도 SR 분산 + program N_eff(아이디어 간 포함) → 다중검정 최종 방어.
     dsr_idea:    해당 idea_id 시도 SR + 내부 N → 참고치.
-    반환 키: dsr_program, dsr_idea, N_program, N_eff_program, N_idea, n_ideas, method.
+
+    ``robust=False``(기본, 하위호환): 원래 코드 그대로 — 전 원장 행의 SR 로 V, idea_id 폴백 N_eff.
+    ``robust=True``(부록 v2.2 정정): 시도풀을 `filter_trial_records`(설계분할·비레인3·최소관측·
+    퇴화 제외; `trial_filter` dict 로 인자 조정)로 정제하고, `robust_sr_variance`(MAD 윈저화)로 V 를,
+    `idea_cluster_n_eff`(아이디어 대표 1개)로 N_eff 를 산정한다. 이는 임계 변경이 아니라 **추정기
+    버그픽스**(퇴화 현금성 시도가 V 를 부풀려 모든 실전략 DSR 을 0.00 으로 붕괴시키던 아티팩트 제거).
+    반환 키: dsr_program, dsr_idea, N_program, N_eff_program, N_idea, n_ideas, method
+    (robust=True 면 추가로 N_trials, V, V_raw, n_winsorized).
     """
     prog = program_n_eff(ledger_path, theta=theta, stream_loader=stream_loader)
-    all_sr = ledger_trial_sharpes(ledger_path)
     idea_sr = ledger_trial_sharpes(ledger_path, idea_id)
-    dsr_prog = (deflated_sharpe_ratio(returns, all_sr, n_eff=prog["N_eff"])
-                if all_sr else float("nan"))
     dsr_idea = (deflated_sharpe_ratio(returns, idea_sr, n_eff=len(idea_sr))
                 if idea_sr else float("nan"))
-    return {"dsr_program": dsr_prog, "dsr_idea": dsr_idea,
-            "N_program": prog["N"], "N_eff_program": prog["N_eff"],
-            "N_idea": len(idea_sr), "n_ideas": prog["n_ideas"],
-            "method": prog["method"]}
+    out = {"dsr_idea": dsr_idea, "N_program": prog["N"],
+           "N_idea": len(idea_sr), "n_ideas": prog["n_ideas"]}
+
+    if not robust:
+        all_sr = ledger_trial_sharpes(ledger_path)
+        dsr_prog = (deflated_sharpe_ratio(returns, all_sr, n_eff=prog["N_eff"])
+                    if all_sr else float("nan"))
+        out.update({"dsr_program": dsr_prog, "N_eff_program": prog["N_eff"],
+                    "method": prog["method"]})
+        return out
+
+    # ── robust(부록 v2.2): 정제된 설계 시도풀 + 로버스트 V + 아이디어 클러스터 N_eff ──
+    if flags is None:
+        flags = load_ledger_flags(ledger_path=ledger_path)
+    kept = filter_trial_records(ledger_trial_records(ledger_path),
+                                flags=flags, **(trial_filter or {}))
+    rv = robust_sr_variance([r["sr_daily"] for r in kept])
+    ne = idea_cluster_n_eff(kept, theta=theta, stream_loader=stream_loader,
+                            ledger_path=ledger_path)
+    v, n_eff = rv["V"], ne["N_eff"]
+    dsr_prog = float("nan")
+    if kept and len(returns) >= 2:
+        sd = _std(returns, ddof=1)
+        if sd > 0:
+            sk, ku = skew_kurt(returns)
+            sr_star = expected_max_sharpe(n_eff, v)
+            dsr_prog = probabilistic_sharpe_ratio(_mean(returns) / sd, sr_star,
+                                                  len(returns), sk, ku)
+    out.update({"dsr_program": dsr_prog, "N_eff_program": n_eff,
+                "N_trials": len(kept), "V": v, "V_raw": rv["V_raw"],
+                "n_winsorized": rv["n_winsorized"], "method": "robust_v2.2"})
+    return out
 
 
 # ── 결정표 (PASS / CONDITIONAL / FAIL) ───────────────────────────────────────

@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "generated": "2026-09-23",
+  "description": "trials_ledger.jsonl 사이드카(원장 append-only 불변). 프로그램 DSR 시도풀에서 제외할 퇴화/거래레인 행. gate.filter_trial_records(flags=...)·gate.load_ledger_flags 가 소비. 부록 v2.2.",
+  "flags": {
+    "dce378868dc7": {
+      "idea_id": "c2b_vix_1x",
+      "flags": [
+        "degenerate",
+        "cash_like"
+      ],
+      "reason": "무낙폭 현금성(MDD=0.0, Ulcer=0.0, sr_daily=2.277, 연율~36.1) → 변동성≈0 로 |SR| 폭증, V 오염"
+    },
+    "b2bef898a358": {
+      "idea_id": "c2b_vix_2x",
+      "flags": [
+        "degenerate",
+        "cash_like"
+      ],
+      "reason": "무낙폭 현금성(MDD=0.0, Ulcer=0.0, sr_daily=2.277, 연율~36.1) → 변동성≈0 로 |SR| 폭증, V 오염"
+    },
+    "c0ec25ecc3c2": {
+      "idea_id": "c2b_vix_3x",
+      "flags": [
+        "degenerate",
+        "cash_like"
+      ],
+      "reason": "무낙폭 현금성(MDD=0.0, Ulcer=0.0, sr_daily=2.277, 연율~36.1) → 변동성≈0 로 |SR| 폭증, V 오염"
+    },
+    "2f8570aca504": {
+      "idea_id": "c2b_gapdown_QQQ",
+      "flags": [
+        "trade_lane"
+      ],
+      "reason": "레인3 거래단위(연단위 SR 부적용, 사양 §3.5) → 일 SR 단위 불일치"
+    },
+    "2330d43f8667": {
+      "idea_id": "c2b_gapdown_QLD",
+      "flags": [
+        "trade_lane"
+      ],
+      "reason": "레인3 거래단위(연단위 SR 부적용, 사양 §3.5) → 일 SR 단위 불일치"
+    },
+    "bf5634b6a2a5": {
+      "idea_id": "c2b_gapdown_TQQQ",
+      "flags": [
+        "trade_lane"
+      ],
+      "reason": "레인3 거래단위(연단위 SR 부적용, 사양 §3.5) → 일 SR 단위 불일치"
+    }
+  }
+}

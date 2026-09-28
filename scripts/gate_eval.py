@@ -15,6 +15,7 @@
 """
 from __future__ import annotations
 
+import math
 import random
 import sys
 from dataclasses import dataclass, field
@@ -172,6 +173,8 @@ def run_splits(idea_id: str, config: dict, lane: int,
                family_excess: dict[str, list[float]] | None = None,
                universe: list[str] | None = None,
                program_dsr: bool = False,
+               program_dsr_robust: bool = False,
+               trial_filter: dict | None = None,
                stream_loader=None,
                ledger_path: str = DEFAULT_LEDGER,
                rc_B: int = 2000, log: bool = True) -> dict:
@@ -223,8 +226,10 @@ def run_splits(idea_id: str, config: dict, lane: int,
         period_out = {"unit": um, "money": mw, "reality_check": rc,
                       "axis_input": axis_input}
         # 프로그램 전체 N_eff DSR + 아이디어 내부 DSR 병기(부록 v2.1-3)
+        # program_dsr_robust=True 면 부록 v2.2 로버스트 추정기(정제 시도풀·MAD 윈저 V·아이디어 N_eff).
         if program_dsr:
-            pdd = gate.dsr_program(cr, ledger_path, idea_id, stream_loader=stream_loader)
+            pdd = gate.dsr_program(cr, ledger_path, idea_id, stream_loader=stream_loader,
+                                   robust=program_dsr_robust, trial_filter=trial_filter)
             axis_input["dsr"] = pdd["dsr_program"]    # 권위값: 프로그램 N_eff DSR
             axis_input["dsr_idea"] = pdd["dsr_idea"]
             period_out["program_dsr"] = pdd
@@ -299,3 +304,96 @@ def evaluate_and_render(idea_id: str, config: dict, lane: int,
     if prog_lines:
         result["markdown_program"] = "\n".join(prog_lines)
     return result
+
+
+# ── 프로그램 DSR 재계산: 구(버그) 추정기 vs 신(부록 v2.2) 로버스트 추정기 ──────────
+def _num(v):
+    return float(v) if isinstance(v, (int, float)) and math.isfinite(v) else None
+
+
+def _dsr_bin(d: float) -> str:
+    """DSR → 유의성 결정표 구간(사양 §6): ≥0.95 PASS · 0.90–0.95 BORDER · else FAIL."""
+    if d is None or d != d:
+        return "n/a"
+    return "PASS" if d >= 0.95 else ("BORDER" if d >= 0.90 else "FAIL")
+
+
+def _dsr_from_row(rec: dict, sr_star: float) -> float:
+    """저장된 행 통계(sr_daily/T/skew/kurt)만으로 DSR=PSR(SR*=sr_star) 계산(스트림 불필요)."""
+    srh, T = _num(rec.get("sr_daily")), _num(rec.get("T"))
+    if srh is None or T is None or T < 2:
+        return float("nan")
+    sk = _num(rec.get("skew"))
+    ku = _num(rec.get("kurt"))
+    return gate.probabilistic_sharpe_ratio(srh, sr_star, int(T),
+                                           0.0 if sk is None else sk,
+                                           3.0 if ku is None else ku)
+
+
+def program_dsr_recheck(ledger_path: str = DEFAULT_LEDGER, *,
+                        flags_path: str | None = None,
+                        trial_filter: dict | None = None,
+                        period: str = "holdout") -> dict:
+    """원장 전체 아이디어의 프로그램 DSR을 (구)버그 추정기 vs (신)부록 v2.2 로버스트 추정기로
+    나란히 재계산한다(reports/cycle5_dsr_recheck.md 재현 엔진).
+
+    스트림 미저장 원장에서도 동작하도록 각 행에 저장된 sr_daily/T/skew/kurt 통계만 쓴다.
+    - 구: 전 원장 행 SR 의 표본분산 V + idea_id 폴백 N_eff(=고유 아이디어 수) → 원래 보고 재현.
+    - 신: filter_trial_records(정제 설계 시도풀) + robust_sr_variance(V) + idea_cluster_n_eff(N).
+    아이디어별 후보 SR_hat 은 `period`(기본 홀드아웃=게이트 판정 축) 행, 없으면 최고 설계 행에서
+    취하되 레인3·퇴화 행은 후보에서 제외(정직한 후보만). 반환: old/new 요약 + rows + 판정변화 수.
+    """
+    records = gate.ledger_trial_records(ledger_path)
+
+    # ── 구(버그) 추정기: 원래 코드 그대로 ──
+    all_sr = [r["sr_daily"] for r in records
+              if isinstance(r.get("sr_daily"), (int, float)) and math.isfinite(r["sr_daily"])]
+    old_prog = gate.program_n_eff(ledger_path)
+    v_old = gate._std(all_sr, ddof=1) ** 2 if len(all_sr) >= 2 else 0.0
+    star_old = gate.expected_max_sharpe(old_prog["N_eff"], v_old)
+
+    # ── 신(부록 v2.2) 로버스트 추정기 ──
+    flags = gate.load_ledger_flags(flags_path, ledger_path=ledger_path)
+    kept = gate.filter_trial_records(records, flags=flags, **(trial_filter or {}))
+    rv = gate.robust_sr_variance([r["sr_daily"] for r in kept])
+    ne = gate.idea_cluster_n_eff(kept)
+    v_new, n_new = rv["V"], ne["N_eff"]
+    star_new = gate.expected_max_sharpe(n_new, v_new)
+
+    def _honest_candidate(rs, want):
+        cand = [r for r in rs if r.get("period") == want and _num(r.get("sr_daily")) is not None
+                and r.get("lane") != 3
+                and not (_num(r.get("mdd")) is not None and abs(_num(r.get("mdd"))) < gate.DEGENERATE_MIN_ABS_MDD)]
+        return max(cand, key=lambda r: r["sr_daily"]) if cand else None
+
+    by_idea: dict[str, list[dict]] = {}
+    for r in records:
+        by_idea.setdefault(r.get("idea_id"), []).append(r)
+
+    rows_out, changed = [], 0
+    for idea, rs in by_idea.items():
+        axis = period
+        cand = _honest_candidate(rs, period)
+        if cand is None:
+            cand = _honest_candidate(rs, "design")
+            axis = "design"
+        if cand is None:
+            continue
+        d_old, d_new = _dsr_from_row(cand, star_old), _dsr_from_row(cand, star_new)
+        ch = _dsr_bin(d_old) != _dsr_bin(d_new)
+        changed += int(ch)
+        rows_out.append({"idea_id": idea, "axis": axis,
+                         "sr_hat": _num(cand.get("sr_daily")), "T": _num(cand.get("T")),
+                         "dsr_old": d_old, "dsr_new": d_new,
+                         "verdict_old": _dsr_bin(d_old), "verdict_new": _dsr_bin(d_new),
+                         "changed": ch})
+    rows_out.sort(key=lambda x: (x["dsr_new"] if x["dsr_new"] == x["dsr_new"] else -1.0),
+                  reverse=True)
+    return {
+        "old": {"star": star_old, "V": v_old, "N_eff": old_prog["N_eff"],
+                "n_rows": len(all_sr), "method": old_prog["method"]},
+        "new": {"star": star_new, "V": v_new, "V_raw": rv["V_raw"], "N_eff": n_new,
+                "n_trials": len(kept), "n_ideas": ne["n_ideas"],
+                "n_winsorized": rv["n_winsorized"], "median": rv["median"],
+                "mad_sigma": rv["mad_sigma"], "method": ne["method"]},
+        "rows": rows_out, "n_verdict_changes": changed}

@@ -209,6 +209,8 @@ def main() -> int:
                    help=f"캐시 디렉터리. 기본 {INTRADAY_CACHE_DIR}.")
     p.add_argument("--dry-run", action="store_true",
                    help="쓰지 않고 페치 개수만 출력.")
+    p.add_argument("--then-shadow", action="store_true",
+                   help="수집 직후 레인3 인트라데이 섀도(scripts/intraday_shadow_run.py) 를 이어 실행.")
     p.add_argument("--yahoo-spacing", type=float, default=1.6,
                    help="Yahoo 요청 최소 간격(초). 기본 1.6(≥1.5 준수).")
     p.add_argument("--nasdaq-spacing", type=float, default=0.6,
@@ -217,7 +219,22 @@ def main() -> int:
     if args.yahoo_spacing < 1.5:
         _log(f"경고: yahoo-spacing {args.yahoo_spacing}s < 1.5s 권고. 1.5로 올림.")
         args.yahoo_spacing = 1.5
-    return run(args)
+    rc = run(args)
+    if args.then_shadow and not args.dry_run:
+        rc = _then_shadow() or rc
+    return rc
+
+
+def _then_shadow() -> int:
+    """수집 후 레인3 섀도 실행기를 이어서 돌린다(가상 트레이드 누적). 실패해도 수집 rc 는 보존."""
+    try:
+        sys.path.insert(0, str(ROOT / "scripts"))
+        import intraday_shadow_run  # noqa: E402
+        _log("--then-shadow: intraday_shadow_run 실행")
+        return intraday_shadow_run.run([])
+    except Exception as e:  # noqa: BLE001
+        _log(f"--then-shadow 실패(수집은 성공): {type(e).__name__}: {e}")
+        return 1
 
 
 if __name__ == "__main__":

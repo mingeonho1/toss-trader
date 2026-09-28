@@ -1,0 +1,1644 @@
+{
+  "meta": {
+    "ledger": "reports/trials_ledger.jsonl",
+    "rc_b": 800,
+    "program_n_at_start": 475,
+    "fee_correction": "STANDARD=10bp/side (Toss 2025-12-01)",
+    "design_end": "2008-12-31",
+    "program_n_end": 503
+  },
+  "configs": {
+    "c2b_rsi2_1x": {
+      "label": "RSI(2) 1x (c2b)",
+      "leveraged": false,
+      "tier": "ETF",
+      "pre_params": {
+        "rsi_entry": "10.0",
+        "sma_trend": "200",
+        "sma_exit": "5",
+        "max_hold": "10",
+        "exec": "1x"
+      },
+      "dca": {
+        "R1": {
+          "final": 4913.804419508303,
+          "xirr": 0.027443250785345846,
+          "n_trades": 346,
+          "total_dep": 4267.0
+        },
+        "R3": {
+          "final": 4237.5748842496205,
+          "xirr": -0.0013583104149952681,
+          "n_trades": 349,
+          "total_dep": 4267.0
+        },
+        "tv0": 0.4487229228209669,
+        "tv1": 0.37203539274154057
+      },
+      "r2": {
+        "final": 5137.824254813813,
+        "xirr": 0.03601680148787182,
+        "n_trades": 351,
+        "tv0": 0.4691801544659779,
+        "tv1": 0.3889964478211647
+      },
+      "cash_sens": {
+        "idle0": {
+          "final": 4913.804419508303,
+          "xirr": 0.027443250785345846,
+          "n_trades": 346,
+          "total_dep": 4267.0
+        },
+        "sgov_yield": {
+          "final": 5785.010927112729,
+          "xirr": 0.05863964933840766,
+          "n_trades": 346,
+          "total_dep": 4267.0
+        },
+        "sgov_park": {
+          "final": 4961.468350561538,
+          "xirr": 0.029303309265236832,
+          "n_trades": 1338,
+          "total_dep": 4267.0
+        }
+      },
+      "per_trade_fred": {
+        "n": 329,
+        "mean_bps": 30.1314983592201,
+        "tstat": 2.1178140926471465,
+        "ci_lo_bps": 3.414193846487259,
+        "ci_hi_bps": 56.288231730299984,
+        "pf": 1.468690522188648,
+        "gross_bps": 62.231068068129105,
+        "rt_bps": 32.0,
+        "rt_bps_per_exposure": 32.0,
+        "tier": "ETF",
+        "notional_frac": 1.0,
+        "leverage": 1.0
+      },
+      "per_trade_r2_by_size": {
+        "50": {
+          "n": 329,
+          "mean_bps": 36.231068068129105,
+          "tstat": 2.5424523057754294,
+          "ci_lo_bps": 9.470947362266887,
+          "ci_hi_bps": 62.429719281149836,
+          "pf": 1.581991426867761,
+          "r2_rt_bps_per_exposure": 26.0
+        },
+        "200": {
+          "n": 329,
+          "mean_bps": 39.231068068129105,
+          "tstat": 2.7529720978771626,
+          "ci_lo_bps": 12.47094736226689,
+          "ci_hi_bps": 65.42971928114983,
+          "pf": 1.6407414979865207,
+          "r2_rt_bps_per_exposure": 23.0
+        },
+        "1000": {
+          "n": 329,
+          "mean_bps": 39.92506806812911,
+          "tstat": 2.801672343116697,
+          "ci_lo_bps": 13.164947362266886,
+          "ci_hi_bps": 66.12371928114982,
+          "pf": 1.654594893933202,
+          "r2_rt_bps_per_exposure": 22.306
+        },
+        "5000": {
+          "n": 329,
+          "mean_bps": 40.005068068129106,
+          "tstat": 2.8072862042394098,
+          "ci_lo_bps": 13.244947362266888,
+          "ci_hi_bps": 66.20371928114984,
+          "pf": 1.6561969285217688,
+          "r2_rt_bps_per_exposure": 22.226
+        }
+      },
+      "gate_fee10": {
+        "idea_id": "c4b_c2b_rsi2_1x_fee10",
+        "full_mdd": -0.3103215450915733,
+        "design": {
+          "verdict": "FAIL",
+          "axes": {
+            "economic": "FAIL",
+            "significance": "FAIL",
+            "plateau": "SKIP",
+            "subperiod": "SKIP",
+            "cost_stress": "CONDITIONAL",
+            "start_date": "SKIP",
+            "risk": "PASS"
+          },
+          "tags": [
+            "holdout_semi_contaminated"
+          ],
+          "dsr": 0.0,
+          "rc_p": 0.985,
+          "spa_p": 1.0,
+          "tv0": 0.4487229228209669,
+          "tv1": 0.37203539274154057,
+          "mdd": -0.3103215450915733,
+          "cagr": 0.02093957459720408,
+          "sharpe": 0.25057081377055423,
+          "ulcer": 16.859588276964345,
+          "calmar": 0.06747702480994347,
+          "bench_cagr": 0.10866723999768046,
+          "bench_sharpe": 0.49816330310293644,
+          "bench_mdd": -0.8259232288938408,
+          "bench_ulcer": 40.01022814476334
+        },
+        "holdout": {
+          "verdict": "FAIL",
+          "axes": {
+            "economic": "FAIL",
+            "significance": "FAIL",
+            "plateau": "SKIP",
+            "subperiod": "SKIP",
+            "cost_stress": "CONDITIONAL",
+            "start_date": "SKIP",
+            "risk": "PASS"
+          },
+          "tags": [
+            "holdout_semi_contaminated"
+          ],
+          "dsr": 0.0,
+          "rc_p": 1.0,
+          "spa_p": 1.0,
+          "tv0": 0.4487229228209669,
+          "tv1": 0.37203539274154057,
+          "mdd": -0.1931909866090784,
+          "cagr": 0.022311971975955247,
+          "sharpe": 0.3064252955125385,
+          "ulcer": 7.418417489931724,
+          "calmar": 0.11549178544806275,
+          "bench_cagr": 0.20899568292778503,
+          "bench_sharpe": 1.0019549878219194,
+          "bench_mdd": -0.35099648760838753,
+          "bench_ulcer": 8.434422658170565
+        }
+      },
+      "gate_micro": {
+        "idea_id": "c4b_c2b_rsi2_1x_micro",
+        "full_mdd": -0.3103215450915733,
+        "design": {
+          "verdict": "FAIL",
+          "axes": {
+            "economic": "FAIL",
+            "significance": "FAIL",
+            "plateau": "SKIP",
+            "subperiod": "SKIP",
+            "cost_stress": "CONDITIONAL",
+            "start_date": "SKIP",
+            "risk": "PASS"
+          },
+          "tags": [
+            "holdout_semi_contaminated"
+          ],
+          "dsr": 0.0,
+          "rc_p": 0.985,
+          "spa_p": 1.0,
+          "tv0": 0.4691801544659779,
+          "tv1": 0.3889964478211647,
+          "mdd": -0.3103215450915733,
+          "cagr": 0.02093957459720408,
+          "sharpe": 0.25057081377055423,
+          "ulcer": 16.859588276964345,
+          "calmar": 0.06747702480994347,
+          "bench_cagr": 0.10866723999768046,
+          "bench_sharpe": 0.49816330310293644,
+          "bench_mdd": -0.8259232288938408,
+          "bench_ulcer": 40.01022814476334
+        },
+        "holdout": {
+          "verdict": "FAIL",
+          "axes": {
+            "economic": "FAIL",
+            "significance": "FAIL",
+            "plateau": "SKIP",
+            "subperiod": "SKIP",
+            "cost_stress": "CONDITIONAL",
+            "start_date": "SKIP",
+            "risk": "PASS"
+          },
+          "tags": [
+            "holdout_semi_contaminated"
+          ],
+          "dsr": 0.0,
+          "rc_p": 1.0,
+          "spa_p": 1.0,
+          "tv0": 0.4691801544659779,
+          "tv1": 0.3889964478211647,
+          "mdd": -0.1931909866090784,
+          "cagr": 0.022311971975955247,
+          "sharpe": 0.3064252955125385,
+          "ulcer": 7.418417489931724,
+          "calmar": 0.11549178544806275,
+          "bench_cagr": 0.20899568292778503,
+          "bench_sharpe": 1.0019549878219194,
+          "bench_mdd": -0.35099648760838753,
+          "bench_ulcer": 8.434422658170565
+        }
+      },
+      "break_even_notional": 20.0,
+      "size_bps": {
+        "50": {
+          "R2_rt_bps": 26.0,
+          "R1_rt_bps": 32.0,
+          "R3_rt_bps": 64.0
+        },
+        "200": {
+          "R2_rt_bps": 23.0,
+          "R1_rt_bps": 32.0,
+          "R3_rt_bps": 64.0
+        },
+        "1000": {
+          "R2_rt_bps": 22.306,
+          "R1_rt_bps": 32.0,
+          "R3_rt_bps": 64.0
+        },
+        "5000": {
+          "R2_rt_bps": 22.226,
+          "R1_rt_bps": 32.0,
+          "R3_rt_bps": 64.0
+        }
+      }
+    },
+    "c3b_lcc_rsi2": {
+      "label": "RSI(2) 3x\u00b7\u2153 TQQQ (c3b_lcc)",
+      "leveraged": true,
+      "tier": "LEV",
+      "pre_params": {
+        "rsi_entry": "10.0",
+        "sma_trend": "200",
+        "sma_exit": "5",
+        "max_hold": "10",
+        "notional": "0.3333333333333333",
+        "exec": "tqqq_1_3"
+      },
+      "dca": {
+        "R1": {
+          "final": 5309.065517246659,
+          "xirr": 0.042295673123797735,
+          "n_trades": 351,
+          "total_dep": 4267.0
+        },
+        "R3": {
+          "final": 5017.1399380549,
+          "xirr": 0.03145085607631152,
+          "n_trades": 351,
+          "total_dep": 4267.0
+        },
+        "tv0": 0.4848177080245519,
+        "tv1": 0.40196151620480536
+      },
+      "r2": {
+        "final": 5389.371214805826,
+        "xirr": 0.045163654208379894,
+        "n_trades": 351,
+        "tv0": 0.49215113122407184,
+        "tv1": 0.4080416445900938
+      },
+      "cash_sens": {
+        "idle0": {
+          "final": 5309.065517246659,
+          "xirr": 0.042295673123797735,
+          "n_trades": 351,
+          "total_dep": 4267.0
+        },
+        "sgov_yield": {
+          "final": 6372.205297151781,
+          "xirr": 0.07689050722907188,
+          "n_trades": 351,
+          "total_dep": 4267.0
+        },
+        "sgov_park": {
+          "final": 6030.53321144485,
+          "xirr": 0.06650516814843821,
+          "n_trades": 1533,
+          "total_dep": 4267.0
+        }
+      },
+      "per_trade_fred": {
+        "n": 329,
+        "mean_bps": 43.07212082008195,
+        "tstat": 3.1880720478440163,
+        "ci_lo_bps": 17.887802343010787,
+        "ci_hi_bps": 67.41200147806681,
+        "pf": 1.7106216272324961,
+        "gross_bps": 54.49810092498777,
+        "rt_bps": 34.0,
+        "rt_bps_per_exposure": 11.333333333333334,
+        "tier": "LEV",
+        "notional_frac": 0.3333333333333333,
+        "leverage": 3.0
+      },
+      "per_trade_r2_by_size": {
+        "50": {
+          "n": 329,
+          "mean_bps": 42.49810092498777,
+          "tstat": 3.140237284748425,
+          "ci_lo_bps": 17.270896199883925,
+          "ci_hi_bps": 66.87942984213176,
+          "pf": 1.697386272031391,
+          "r2_rt_bps_per_exposure": 12.0
+        },
+        "200": {
+          "n": 329,
+          "mean_bps": 45.49810092498777,
+          "tstat": 3.3619109983779705,
+          "ci_lo_bps": 20.27089619988393,
+          "ci_hi_bps": 69.87942984213176,
+          "pf": 1.7594781157153745,
+          "r2_rt_bps_per_exposure": 8.999999999999998
+        },
+        "1000": {
+          "n": 329,
+          "mean_bps": 46.29810092498777,
+          "tstat": 3.4210239886791833,
+          "ci_lo_bps": 21.07089619988393,
+          "ci_hi_bps": 70.67942984213175,
+          "pf": 1.776393169383007,
+          "r2_rt_bps_per_exposure": 8.2
+        },
+        "5000": {
+          "n": 329,
+          "mean_bps": 46.409434258321106,
+          "tstat": 3.429250546496102,
+          "ci_lo_bps": 21.182229533217267,
+          "ci_hi_bps": 70.79076317546509,
+          "pf": 1.778759545203991,
+          "r2_rt_bps_per_exposure": 8.088666666666667
+        }
+      },
+      "gate_fee10": {
+        "idea_id": "c4b_c3b_lcc_rsi2_fee10",
+        "full_mdd": -0.3059997340427145,
+        "design": {
+          "verdict": "FAIL",
+          "axes": {
+            "economic": "FAIL",
+            "significance": "FAIL",
+            "plateau": "SKIP",
+            "subperiod": "SKIP",
+            "cost_stress": "PASS",
+            "start_date": "SKIP",
+            "risk": "PASS"
+          },
+          "tags": [
+            "holdout_semi_contaminated"
+          ],
+          "dsr": 0.0,
+          "rc_p": 0.97875,
+          "spa_p": 1.0,
+          "tv0": 0.4848177080245519,
+          "tv1": 0.40196151620480536,
+          "mdd": -0.3059997340427145,
+          "cagr": 0.03228111530116018,
+          "sharpe": 0.3564040150307808,
+          "ulcer": 14.87099815427226,
+          "calmar": 0.10549393254261474,
+          "bench_cagr": 0.10866723999768046,
+          "bench_sharpe": 0.49816330310293644,
+          "bench_mdd": -0.8259232288938408,
+          "bench_ulcer": 40.01022814476334
+        },
+        "holdout": {
+          "verdict": "FAIL",
+          "axes": {
+            "economic": "FAIL",
+            "significance": "FAIL",
+            "plateau": "SKIP",
+            "subperiod": "SKIP",
+            "cost_stress": "PASS",
+            "start_date": "SKIP",
+            "risk": "PASS"
+          },
+          "tags": [
+            "holdout_semi_contaminated"
+          ],
+          "dsr": 0.0,
+          "rc_p": 1.0,
+          "spa_p": 1.0,
+          "tv0": 0.4848177080245519,
+          "tv1": 0.40196151620480536,
+          "mdd": -0.13419139789948475,
+          "cagr": 0.03875973789368392,
+          "sharpe": 0.49891826718605187,
+          "ulcer": 4.689608391282896,
+          "calmar": 0.28883921399132206,
+          "bench_cagr": 0.20899568292778503,
+          "bench_sharpe": 1.0019549878219194,
+          "bench_mdd": -0.35099648760838753,
+          "bench_ulcer": 8.434422658170565
+        }
+      },
+      "gate_micro": {
+        "idea_id": "c4b_c3b_lcc_rsi2_micro",
+        "full_mdd": -0.3059997340427145,
+        "design": {
+          "verdict": "FAIL",
+          "axes": {
+            "economic": "FAIL",
+            "significance": "FAIL",
+            "plateau": "SKIP",
+            "subperiod": "SKIP",
+            "cost_stress": "PASS",
+            "start_date": "SKIP",
+            "risk": "PASS"
+          },
+          "tags": [
+            "holdout_semi_contaminated"
+          ],
+          "dsr": 0.0,
+          "rc_p": 0.97875,
+          "spa_p": 1.0,
+          "tv0": 0.49215113122407184,
+          "tv1": 0.4080416445900938,
+          "mdd": -0.3059997340427145,
+          "cagr": 0.03228111530116018,
+          "sharpe": 0.3564040150307808,
+          "ulcer": 14.87099815427226,
+          "calmar": 0.10549393254261474,
+          "bench_cagr": 0.10866723999768046,
+          "bench_sharpe": 0.49816330310293644,
+          "bench_mdd": -0.8259232288938408,
+          "bench_ulcer": 40.01022814476334
+        },
+        "holdout": {
+          "verdict": "FAIL",
+          "axes": {
+            "economic": "FAIL",
+            "significance": "FAIL",
+            "plateau": "SKIP",
+            "subperiod": "SKIP",
+            "cost_stress": "PASS",
+            "start_date": "SKIP",
+            "risk": "PASS"
+          },
+          "tags": [
+            "holdout_semi_contaminated"
+          ],
+          "dsr": 0.0,
+          "rc_p": 1.0,
+          "spa_p": 1.0,
+          "tv0": 0.49215113122407184,
+          "tv1": 0.4080416445900938,
+          "mdd": -0.13419139789948475,
+          "cagr": 0.03875973789368392,
+          "sharpe": 0.49891826718605187,
+          "ulcer": 4.689608391282896,
+          "calmar": 0.28883921399132206,
+          "bench_cagr": 0.20899568292778503,
+          "bench_sharpe": 1.0019549878219194,
+          "bench_mdd": -0.35099648760838753,
+          "bench_ulcer": 8.434422658170565
+        }
+      },
+      "break_even_notional": 20.0,
+      "size_bps": {
+        "50": {
+          "R2_rt_bps": 28.000000000000004,
+          "R1_rt_bps": 34.0,
+          "R3_rt_bps": 68.0
+        },
+        "200": {
+          "R2_rt_bps": 25.0,
+          "R1_rt_bps": 34.0,
+          "R3_rt_bps": 68.0
+        },
+        "1000": {
+          "R2_rt_bps": 24.306,
+          "R1_rt_bps": 34.0,
+          "R3_rt_bps": 68.0
+        },
+        "5000": {
+          "R2_rt_bps": 24.226,
+          "R1_rt_bps": 34.0,
+          "R3_rt_bps": 68.0
+        }
+      }
+    },
+    "c3b_lcc_events": {
+      "label": "RSI2\u222aTOM\u222apreFOMC 3x\u00b7\u2153 (c3b_lcc)",
+      "leveraged": true,
+      "tier": "LEV",
+      "pre_params": {
+        "union": "rsi2|tom|fomc",
+        "tom": "(1, 3)",
+        "notional": "0.3333333333333333",
+        "exec": "tqqq_1_3"
+      },
+      "dca": {
+        "R1": {
+          "final": 6080.380712802602,
+          "xirr": 0.06805950006878524,
+          "n_trades": 953,
+          "total_dep": 4267.0
+        },
+        "R3": {
+          "final": 5288.603583987622,
+          "xirr": 0.04155725960319073,
+          "n_trades": 953,
+          "total_dep": 4267.0
+        },
+        "tv0": 0.5552533174663948,
+        "tv1": 0.46035955715387666
+      },
+      "r2": {
+        "final": 6318.923274796499,
+        "xirr": 0.0753112096357291,
+        "n_trades": 953,
+        "tv0": 0.5770367476758157,
+        "tv1": 0.47842016115037295
+      },
+      "cash_sens": {
+        "idle0": {
+          "final": 6080.380712802602,
+          "xirr": 0.06805950006878524,
+          "n_trades": 953,
+          "total_dep": 4267.0
+        },
+        "sgov_yield": {
+          "final": 7268.534451139304,
+          "xirr": 0.10151408289715785,
+          "n_trades": 953,
+          "total_dep": 4267.0
+        },
+        "sgov_park": {
+          "final": 6343.384538291778,
+          "xirr": 0.07603802950926722,
+          "n_trades": 2719,
+          "total_dep": 4267.0
+        }
+      },
+      "per_trade_fred": {
+        "n": 824,
+        "mean_bps": 46.07139132490581,
+        "tstat": 4.568512135621006,
+        "ci_lo_bps": 26.17549003680425,
+        "ci_hi_bps": 66.05851246426798,
+        "pf": 1.589147040537846,
+        "gross_bps": 57.502478872322094,
+        "rt_bps": 34.0,
+        "rt_bps_per_exposure": 11.333333333333334,
+        "tier": "LEV",
+        "notional_frac": 0.3333333333333333,
+        "leverage": 3.0
+      },
+      "per_trade_r2_by_size": {
+        "50": {
+          "n": 824,
+          "mean_bps": 45.502478872322094,
+          "tstat": 4.504427309341451,
+          "ci_lo_bps": 25.572696954961017,
+          "ci_hi_bps": 65.52363597876521,
+          "pf": 1.5789558975974471,
+          "r2_rt_bps_per_exposure": 12.0
+        },
+        "200": {
+          "n": 824,
+          "mean_bps": 48.502478872322094,
+          "tstat": 4.801406336922388,
+          "ci_lo_bps": 28.572696954961017,
+          "ci_hi_bps": 68.52363597876521,
+          "pf": 1.626730726875908,
+          "r2_rt_bps_per_exposure": 8.999999999999998
+        },
+        "1000": {
+          "n": 824,
+          "mean_bps": 49.30247887232209,
+          "tstat": 4.880600744277304,
+          "ci_lo_bps": 29.372696954961015,
+          "ci_hi_bps": 69.3236359787652,
+          "pf": 1.6397020094384676,
+          "r2_rt_bps_per_exposure": 8.2
+        },
+        "5000": {
+          "n": 824,
+          "mean_bps": 49.413812205655425,
+          "tstat": 4.89162196596753,
+          "ci_lo_bps": 29.48403028829435,
+          "ci_hi_bps": 69.43496931209856,
+          "pf": 1.6415154471251152,
+          "r2_rt_bps_per_exposure": 8.088666666666667
+        }
+      },
+      "gate_fee10": {
+        "idea_id": "c4b_c3b_lcc_events_fee10",
+        "full_mdd": -0.40713285425529644,
+        "design": {
+          "verdict": "FAIL",
+          "axes": {
+            "economic": "FAIL",
+            "significance": "FAIL",
+            "plateau": "SKIP",
+            "subperiod": "SKIP",
+            "cost_stress": "PASS",
+            "start_date": "SKIP",
+            "risk": "PASS"
+          },
+          "tags": [
+            "holdout_semi_contaminated"
+          ],
+          "dsr": 0.0,
+          "rc_p": 0.79625,
+          "spa_p": 1.0,
+          "tv0": 0.5552533174663948,
+          "tv1": 0.46035955715387666,
+          "mdd": -0.40713285425529644,
+          "cagr": 0.09732555259843623,
+          "sharpe": 0.6365773697390099,
+          "ulcer": 12.75182468284525,
+          "calmar": 0.23905109003413252,
+          "bench_cagr": 0.10866723999768046,
+          "bench_sharpe": 0.49816330310293644,
+          "bench_mdd": -0.8259232288938408,
+          "bench_ulcer": 40.01022814476334
+        },
+        "holdout": {
+          "verdict": "FAIL",
+          "axes": {
+            "economic": "FAIL",
+            "significance": "FAIL",
+            "plateau": "SKIP",
+            "subperiod": "SKIP",
+            "cost_stress": "PASS",
+            "start_date": "SKIP",
+            "risk": "PASS"
+          },
+          "tags": [
+            "holdout_semi_contaminated"
+          ],
+          "dsr": 0.0,
+          "rc_p": 1.0,
+          "spa_p": 1.0,
+          "tv0": 0.5552533174663948,
+          "tv1": 0.46035955715387666,
+          "mdd": -0.20152488368079458,
+          "cagr": 0.0826942159270665,
+          "sharpe": 0.7139171320481413,
+          "ulcer": 6.0892784504157635,
+          "calmar": 0.4103424570538397,
+          "bench_cagr": 0.20899568292778503,
+          "bench_sharpe": 1.0019549878219194,
+          "bench_mdd": -0.35099648760838753,
+          "bench_ulcer": 8.434422658170565
+        }
+      },
+      "gate_micro": {
+        "idea_id": "c4b_c3b_lcc_events_micro",
+        "full_mdd": -0.40713285425529644,
+        "design": {
+          "verdict": "FAIL",
+          "axes": {
+            "economic": "FAIL",
+            "significance": "FAIL",
+            "plateau": "SKIP",
+            "subperiod": "SKIP",
+            "cost_stress": "PASS",
+            "start_date": "SKIP",
+            "risk": "PASS"
+          },
+          "tags": [
+            "holdout_semi_contaminated"
+          ],
+          "dsr": 0.0,
+          "rc_p": 0.79625,
+          "spa_p": 1.0,
+          "tv0": 0.5770367476758157,
+          "tv1": 0.47842016115037295,
+          "mdd": -0.40713285425529644,
+          "cagr": 0.09732555259843623,
+          "sharpe": 0.6365773697390099,
+          "ulcer": 12.75182468284525,
+          "calmar": 0.23905109003413252,
+          "bench_cagr": 0.10866723999768046,
+          "bench_sharpe": 0.49816330310293644,
+          "bench_mdd": -0.8259232288938408,
+          "bench_ulcer": 40.01022814476334
+        },
+        "holdout": {
+          "verdict": "FAIL",
+          "axes": {
+            "economic": "FAIL",
+            "significance": "FAIL",
+            "plateau": "SKIP",
+            "subperiod": "SKIP",
+            "cost_stress": "PASS",
+            "start_date": "SKIP",
+            "risk": "PASS"
+          },
+          "tags": [
+            "holdout_semi_contaminated"
+          ],
+          "dsr": 0.0,
+          "rc_p": 1.0,
+          "spa_p": 1.0,
+          "tv0": 0.5770367476758157,
+          "tv1": 0.47842016115037295,
+          "mdd": -0.20152488368079458,
+          "cagr": 0.0826942159270665,
+          "sharpe": 0.7139171320481413,
+          "ulcer": 6.0892784504157635,
+          "calmar": 0.4103424570538397,
+          "bench_cagr": 0.20899568292778503,
+          "bench_sharpe": 1.0019549878219194,
+          "bench_mdd": -0.35099648760838753,
+          "bench_ulcer": 8.434422658170565
+        }
+      },
+      "break_even_notional": 20.0,
+      "size_bps": {
+        "50": {
+          "R2_rt_bps": 28.000000000000004,
+          "R1_rt_bps": 34.0,
+          "R3_rt_bps": 68.0
+        },
+        "200": {
+          "R2_rt_bps": 25.0,
+          "R1_rt_bps": 34.0,
+          "R3_rt_bps": 68.0
+        },
+        "1000": {
+          "R2_rt_bps": 24.306,
+          "R1_rt_bps": 34.0,
+          "R3_rt_bps": 68.0
+        },
+        "5000": {
+          "R2_rt_bps": 24.226,
+          "R1_rt_bps": 34.0,
+          "R3_rt_bps": 68.0
+        }
+      }
+    },
+    "c3b_core_boost": {
+      "label": "\uc0c1\uc2dc QQQ + \uc774\ubca4\ud2b8 \u2153\u2192TQQQ (c3b)",
+      "leveraged": true,
+      "tier": "LEV",
+      "pre_params": {
+        "base": "qqq_100",
+        "boost_frac": "0.3333333333333333",
+        "event": "rsi2|tom|fomc"
+      },
+      "dca": {
+        "R1": {
+          "final": 13182.64884393453,
+          "xirr": 0.21090127582451199,
+          "n_trades": 2719,
+          "total_dep": 4267.0
+        },
+        "R3": {
+          "final": 9681.444239621,
+          "xirr": 0.15448048342195703,
+          "n_trades": 2843,
+          "total_dep": 4267.0
+        },
+        "tv0": 1.203824209259973,
+        "tv1": 0.9980885524372897
+      },
+      "r2": {
+        "final": 14193.066668042262,
+        "xirr": 0.22435344046341954,
+        "n_trades": 3465,
+        "tv0": 1.2960943935399958,
+        "tv1": 1.0745896013053657
+      },
+      "cash_sens": {
+        "idle0": {
+          "final": 13182.64884393453,
+          "xirr": 0.21090127582451199,
+          "n_trades": 2719,
+          "total_dep": 4267.0
+        },
+        "sgov_yield": {
+          "final": 13182.127161156282,
+          "xirr": 0.21089406467071864,
+          "n_trades": 2719,
+          "total_dep": 4267.0
+        },
+        "sgov_park": {
+          "final": 13182.64884393453,
+          "xirr": 0.21090127582451199,
+          "n_trades": 2719,
+          "total_dep": 4267.0
+        }
+      },
+      "per_trade_fred": null,
+      "per_trade_r2_by_size": null,
+      "gate_fee10": {
+        "idea_id": "c4b_c3b_core_boost_fee10",
+        "full_mdd": -0.8923898911057013,
+        "design": {
+          "verdict": "FAIL",
+          "axes": {
+            "economic": "CONDITIONAL",
+            "significance": "FAIL",
+            "plateau": "SKIP",
+            "subperiod": "SKIP",
+            "cost_stress": "SKIP",
+            "start_date": "SKIP",
+            "risk": "FAIL"
+          },
+          "tags": [
+            "holdout_semi_contaminated"
+          ],
+          "dsr": 0.0,
+          "rc_p": 0.035,
+          "spa_p": 0.03,
+          "tv0": 1.203824209259973,
+          "tv1": 0.9980885524372897,
+          "mdd": -0.8923898911057013,
+          "cagr": 0.12437918526063108,
+          "sharpe": 0.5019526399817004,
+          "ulcer": 46.36338501076699,
+          "calmar": 0.13937762686500296,
+          "bench_cagr": 0.10866723999768046,
+          "bench_sharpe": 0.49816330310293644,
+          "bench_mdd": -0.8259232288938408,
+          "bench_ulcer": 40.01022814476334
+        },
+        "holdout": {
+          "verdict": "FAIL",
+          "axes": {
+            "economic": "CONDITIONAL",
+            "significance": "FAIL",
+            "plateau": "SKIP",
+            "subperiod": "SKIP",
+            "cost_stress": "SKIP",
+            "start_date": "SKIP",
+            "risk": "FAIL"
+          },
+          "tags": [
+            "holdout_semi_contaminated"
+          ],
+          "dsr": 0.0,
+          "rc_p": 0.05875,
+          "spa_p": 0.07,
+          "tv0": 1.203824209259973,
+          "tv1": 0.9980885524372897,
+          "mdd": -0.4035303192447751,
+          "cagr": 0.22318327455231657,
+          "sharpe": 0.8901742269249756,
+          "ulcer": 10.937898488377346,
+          "calmar": 0.5530768418343731,
+          "bench_cagr": 0.20899568292778503,
+          "bench_sharpe": 1.0019549878219194,
+          "bench_mdd": -0.35099648760838753,
+          "bench_ulcer": 8.434422658170565
+        }
+      },
+      "gate_micro": {
+        "idea_id": "c4b_c3b_core_boost_micro",
+        "full_mdd": -0.8923898911057013,
+        "design": {
+          "verdict": "FAIL",
+          "axes": {
+            "economic": "PASS",
+            "significance": "FAIL",
+            "plateau": "SKIP",
+            "subperiod": "SKIP",
+            "cost_stress": "SKIP",
+            "start_date": "SKIP",
+            "risk": "FAIL"
+          },
+          "tags": [
+            "holdout_semi_contaminated"
+          ],
+          "dsr": 0.0,
+          "rc_p": 0.035,
+          "spa_p": 0.03,
+          "tv0": 1.2960943935399958,
+          "tv1": 1.0745896013053657,
+          "mdd": -0.8923898911057013,
+          "cagr": 0.12437918526063108,
+          "sharpe": 0.5019526399817004,
+          "ulcer": 46.36338501076699,
+          "calmar": 0.13937762686500296,
+          "bench_cagr": 0.10866723999768046,
+          "bench_sharpe": 0.49816330310293644,
+          "bench_mdd": -0.8259232288938408,
+          "bench_ulcer": 40.01022814476334
+        },
+        "holdout": {
+          "verdict": "FAIL",
+          "axes": {
+            "economic": "PASS",
+            "significance": "FAIL",
+            "plateau": "SKIP",
+            "subperiod": "SKIP",
+            "cost_stress": "SKIP",
+            "start_date": "SKIP",
+            "risk": "FAIL"
+          },
+          "tags": [
+            "holdout_semi_contaminated"
+          ],
+          "dsr": 0.0,
+          "rc_p": 0.05875,
+          "spa_p": 0.07,
+          "tv0": 1.2960943935399958,
+          "tv1": 1.0745896013053657,
+          "mdd": -0.4035303192447751,
+          "cagr": 0.22318327455231657,
+          "sharpe": 0.8901742269249756,
+          "ulcer": 10.937898488377346,
+          "calmar": 0.5530768418343731,
+          "bench_cagr": 0.20899568292778503,
+          "bench_sharpe": 1.0019549878219194,
+          "bench_mdd": -0.35099648760838753,
+          "bench_ulcer": 8.434422658170565
+        }
+      },
+      "break_even_notional": 20.0,
+      "size_bps": {
+        "50": {
+          "R2_rt_bps": 28.000000000000004,
+          "R1_rt_bps": 34.0,
+          "R3_rt_bps": 68.0
+        },
+        "200": {
+          "R2_rt_bps": 25.0,
+          "R1_rt_bps": 34.0,
+          "R3_rt_bps": 68.0
+        },
+        "1000": {
+          "R2_rt_bps": 24.306,
+          "R1_rt_bps": 34.0,
+          "R3_rt_bps": 68.0
+        },
+        "5000": {
+          "R2_rt_bps": 24.226,
+          "R1_rt_bps": 34.0,
+          "R3_rt_bps": 68.0
+        }
+      }
+    },
+    "c2c_tom_1x": {
+      "label": "Turn-of-month 1x (c2c)",
+      "leveraged": false,
+      "tier": "ETF",
+      "pre_params": {
+        "n_end": "1",
+        "n_start": "3",
+        "leg": "1x"
+      },
+      "dca": {
+        "R1": {
+          "final": 4519.407250589391,
+          "xirr": 0.011232980012665048,
+          "n_trades": 600,
+          "total_dep": 4267.0
+        },
+        "R3": {
+          "final": 3719.748437120331,
+          "xirr": -0.027193500626897526,
+          "n_trades": 600,
+          "total_dep": 4267.0
+        },
+        "tv0": 0.4127070305955865,
+        "tv1": 0.3421746793089165
+      },
+      "r2": {
+        "final": 4799.152525799328,
+        "xirr": 0.022885406133078316,
+        "n_trades": 600,
+        "tv0": 0.4382530448079551,
+        "tv1": 0.36335483514033917
+      },
+      "cash_sens": {
+        "idle0": {
+          "final": 4519.407250589391,
+          "xirr": 0.011232980012665048,
+          "n_trades": 600,
+          "total_dep": 4267.0
+        },
+        "sgov_yield": {
+          "final": 5251.775139514115,
+          "xirr": 0.04022024449052171,
+          "n_trades": 600,
+          "total_dep": 4267.0
+        },
+        "sgov_park": {
+          "final": 4296.219813841665,
+          "xirr": 0.0013383559248210477,
+          "n_trades": 1445,
+          "total_dep": 4267.0
+        }
+      },
+      "per_trade_fred": {
+        "n": 489,
+        "mean_bps": 24.28693220108592,
+        "tstat": 1.6959305999689642,
+        "ci_lo_bps": -2.1208515403549746,
+        "ci_hi_bps": 48.763839052246034,
+        "pf": 1.2304535247969295,
+        "gross_bps": 56.37713561807484,
+        "rt_bps": 32.0,
+        "rt_bps_per_exposure": 32.0,
+        "tier": "ETF",
+        "notional_frac": 1.0,
+        "leverage": 1.0
+      },
+      "per_trade_r2_by_size": {
+        "50": {
+          "n": 489,
+          "mean_bps": 30.377135618074842,
+          "tstat": 2.117809091164916,
+          "ci_lo_bps": 3.9270317103816352,
+          "ci_hi_bps": 54.893268281496425,
+          "pf": 1.2955308889114563,
+          "r2_rt_bps_per_exposure": 26.0
+        },
+        "200": {
+          "n": 489,
+          "mean_bps": 33.377135618074846,
+          "tstat": 2.326960716037485,
+          "ci_lo_bps": 6.927031710381636,
+          "ci_hi_bps": 57.893268281496425,
+          "pf": 1.329038384354159,
+          "r2_rt_bps_per_exposure": 23.0
+        },
+        "1000": {
+          "n": 489,
+          "mean_bps": 34.071135618074834,
+          "tstat": 2.375344458591339,
+          "ci_lo_bps": 7.621031710381633,
+          "ci_hi_bps": 58.58726828149643,
+          "pf": 1.33690409184033,
+          "r2_rt_bps_per_exposure": 22.306
+        },
+        "5000": {
+          "n": 489,
+          "mean_bps": 34.15113561807484,
+          "tstat": 2.3809218352546075,
+          "ci_lo_bps": 7.7010317103816375,
+          "ci_hi_bps": 58.66726828149643,
+          "pf": 1.3378137394837226,
+          "r2_rt_bps_per_exposure": 22.226
+        }
+      },
+      "gate_fee10": {
+        "idea_id": "c4b_c2c_tom_1x_fee10",
+        "full_mdd": -0.4296082208035563,
+        "design": {
+          "verdict": "FAIL",
+          "axes": {
+            "economic": "FAIL",
+            "significance": "FAIL",
+            "plateau": "SKIP",
+            "subperiod": "SKIP",
+            "cost_stress": "CONDITIONAL",
+            "start_date": "SKIP",
+            "risk": "PASS"
+          },
+          "tags": [
+            "holdout_semi_contaminated"
+          ],
+          "dsr": 0.0,
+          "rc_p": 0.98,
+          "spa_p": 1.0,
+          "tv0": 0.4127070305955865,
+          "tv1": 0.3421746793089165,
+          "mdd": -0.4296082208035563,
+          "cagr": 0.03242336770935661,
+          "sharpe": 0.30518745409163667,
+          "ulcer": 15.07814290910882,
+          "calmar": 0.0754719442954575,
+          "bench_cagr": 0.10866723999768046,
+          "bench_sharpe": 0.49816330310293644,
+          "bench_mdd": -0.8259232288938408,
+          "bench_ulcer": 40.01022814476334
+        },
+        "holdout": {
+          "verdict": "FAIL",
+          "axes": {
+            "economic": "FAIL",
+            "significance": "FAIL",
+            "plateau": "SKIP",
+            "subperiod": "SKIP",
+            "cost_stress": "CONDITIONAL",
+            "start_date": "SKIP",
+            "risk": "PASS"
+          },
+          "tags": [
+            "holdout_semi_contaminated"
+          ],
+          "dsr": 0.0,
+          "rc_p": 1.0,
+          "spa_p": 1.0,
+          "tv0": 0.4127070305955865,
+          "tv1": 0.3421746793089165,
+          "mdd": -0.23072391272870985,
+          "cagr": 0.011813708920759725,
+          "sharpe": 0.1747667804461837,
+          "ulcer": 12.113868337728327,
+          "calmar": 0.05120279376785075,
+          "bench_cagr": 0.20899568292778503,
+          "bench_sharpe": 1.0019549878219194,
+          "bench_mdd": -0.35099648760838753,
+          "bench_ulcer": 8.434422658170565
+        }
+      },
+      "gate_micro": {
+        "idea_id": "c4b_c2c_tom_1x_micro",
+        "full_mdd": -0.4296082208035563,
+        "design": {
+          "verdict": "FAIL",
+          "axes": {
+            "economic": "FAIL",
+            "significance": "FAIL",
+            "plateau": "SKIP",
+            "subperiod": "SKIP",
+            "cost_stress": "CONDITIONAL",
+            "start_date": "SKIP",
+            "risk": "PASS"
+          },
+          "tags": [
+            "holdout_semi_contaminated"
+          ],
+          "dsr": 0.0,
+          "rc_p": 0.98,
+          "spa_p": 1.0,
+          "tv0": 0.4382530448079551,
+          "tv1": 0.36335483514033917,
+          "mdd": -0.4296082208035563,
+          "cagr": 0.03242336770935661,
+          "sharpe": 0.30518745409163667,
+          "ulcer": 15.07814290910882,
+          "calmar": 0.0754719442954575,
+          "bench_cagr": 0.10866723999768046,
+          "bench_sharpe": 0.49816330310293644,
+          "bench_mdd": -0.8259232288938408,
+          "bench_ulcer": 40.01022814476334
+        },
+        "holdout": {
+          "verdict": "FAIL",
+          "axes": {
+            "economic": "FAIL",
+            "significance": "FAIL",
+            "plateau": "SKIP",
+            "subperiod": "SKIP",
+            "cost_stress": "CONDITIONAL",
+            "start_date": "SKIP",
+            "risk": "PASS"
+          },
+          "tags": [
+            "holdout_semi_contaminated"
+          ],
+          "dsr": 0.0,
+          "rc_p": 1.0,
+          "spa_p": 1.0,
+          "tv0": 0.4382530448079551,
+          "tv1": 0.36335483514033917,
+          "mdd": -0.23072391272870985,
+          "cagr": 0.011813708920759725,
+          "sharpe": 0.1747667804461837,
+          "ulcer": 12.113868337728327,
+          "calmar": 0.05120279376785075,
+          "bench_cagr": 0.20899568292778503,
+          "bench_sharpe": 1.0019549878219194,
+          "bench_mdd": -0.35099648760838753,
+          "bench_ulcer": 8.434422658170565
+        }
+      },
+      "break_even_notional": 20.0,
+      "size_bps": {
+        "50": {
+          "R2_rt_bps": 26.0,
+          "R1_rt_bps": 32.0,
+          "R3_rt_bps": 64.0
+        },
+        "200": {
+          "R2_rt_bps": 23.0,
+          "R1_rt_bps": 32.0,
+          "R3_rt_bps": 64.0
+        },
+        "1000": {
+          "R2_rt_bps": 22.306,
+          "R1_rt_bps": 32.0,
+          "R3_rt_bps": 64.0
+        },
+        "5000": {
+          "R2_rt_bps": 22.226,
+          "R1_rt_bps": 32.0,
+          "R3_rt_bps": 64.0
+        }
+      }
+    },
+    "c2a_voltarget25": {
+      "label": "vol-target 25% \uace0\ud68c\uc804 (c2a)",
+      "leveraged": true,
+      "tier": "LEV",
+      "pre_params": {
+        "vol_target": "0.25",
+        "vol_win": "20",
+        "lev_band": "0.25"
+      },
+      "dca": {
+        "R1": {
+          "final": 16634.87479591821,
+          "xirr": 0.25325300997315614,
+          "n_trades": 4352,
+          "total_dep": 4267.0
+        },
+        "R3": {
+          "final": 14219.778001761038,
+          "xirr": 0.22469581570776476,
+          "n_trades": 4358,
+          "total_dep": 4267.0
+        },
+        "tv0": 1.5190774808925303,
+        "tv1": 1.259464490148564
+      },
+      "r2": {
+        "final": 17213.911126867013,
+        "xirr": 0.25948257886481096,
+        "n_trades": 4416,
+        "tv0": 1.5719544073349698,
+        "tv1": 1.3033046576450382
+      },
+      "cash_sens": {
+        "idle0": {
+          "final": 16634.87479591821,
+          "xirr": 0.25325300997315614,
+          "n_trades": 4352,
+          "total_dep": 4267.0
+        },
+        "sgov_yield": {
+          "final": 16823.050695333128,
+          "xirr": 0.2553008693895454,
+          "n_trades": 4352,
+          "total_dep": 4267.0
+        },
+        "sgov_park": {
+          "final": 16677.852758503606,
+          "xirr": 0.25372275178294584,
+          "n_trades": 4891,
+          "total_dep": 4267.0
+        }
+      },
+      "per_trade_fred": null,
+      "per_trade_r2_by_size": null,
+      "gate_fee10": {
+        "idea_id": "c4b_c2a_voltarget25_fee10",
+        "full_mdd": -0.6116626483918701,
+        "design": {
+          "verdict": "FAIL",
+          "axes": {
+            "economic": "PASS",
+            "significance": "FAIL",
+            "plateau": "SKIP",
+            "subperiod": "SKIP",
+            "cost_stress": "SKIP",
+            "start_date": "SKIP",
+            "risk": "PASS"
+          },
+          "tags": [
+            "holdout_semi_contaminated"
+          ],
+          "dsr": 0.0,
+          "rc_p": 0.23625,
+          "spa_p": 0.22375,
+          "tv0": 1.5190774808925303,
+          "tv1": 1.259464490148564,
+          "mdd": -0.6116626483918701,
+          "cagr": 0.13426256409802817,
+          "sharpe": 0.589350069447538,
+          "ulcer": 28.349920832123058,
+          "calmar": 0.21950427159647487,
+          "bench_cagr": 0.10645310347997472,
+          "bench_sharpe": 0.49134927096501047,
+          "bench_mdd": -0.8267998359882569,
+          "bench_ulcer": 40.203437770150245
+        },
+        "holdout": {
+          "verdict": "FAIL",
+          "axes": {
+            "economic": "PASS",
+            "significance": "FAIL",
+            "plateau": "SKIP",
+            "subperiod": "SKIP",
+            "cost_stress": "SKIP",
+            "start_date": "SKIP",
+            "risk": "PASS"
+          },
+          "tags": [
+            "holdout_semi_contaminated"
+          ],
+          "dsr": 0.0,
+          "rc_p": 0.03625,
+          "spa_p": 0.0275,
+          "tv0": 1.5190774808925303,
+          "tv1": 1.259464490148564,
+          "mdd": -0.36243440881793565,
+          "cagr": 0.25091596559082485,
+          "sharpe": 0.9369777291888234,
+          "ulcer": 12.265577308627694,
+          "calmar": 0.6923072409409928,
+          "bench_cagr": 0.20658169069815013,
+          "bench_sharpe": 0.9925176862428108,
+          "bench_mdd": -0.352154063755732,
+          "bench_ulcer": 8.478343022226682
+        }
+      },
+      "gate_micro": {
+        "idea_id": "c4b_c2a_voltarget25_micro",
+        "full_mdd": -0.6116626483918701,
+        "design": {
+          "verdict": "FAIL",
+          "axes": {
+            "economic": "PASS",
+            "significance": "FAIL",
+            "plateau": "SKIP",
+            "subperiod": "SKIP",
+            "cost_stress": "SKIP",
+            "start_date": "SKIP",
+            "risk": "PASS"
+          },
+          "tags": [
+            "holdout_semi_contaminated"
+          ],
+          "dsr": 0.0,
+          "rc_p": 0.23625,
+          "spa_p": 0.22375,
+          "tv0": 1.5719544073349698,
+          "tv1": 1.3033046576450382,
+          "mdd": -0.6116626483918701,
+          "cagr": 0.13426256409802817,
+          "sharpe": 0.589350069447538,
+          "ulcer": 28.349920832123058,
+          "calmar": 0.21950427159647487,
+          "bench_cagr": 0.10645310347997472,
+          "bench_sharpe": 0.49134927096501047,
+          "bench_mdd": -0.8267998359882569,
+          "bench_ulcer": 40.203437770150245
+        },
+        "holdout": {
+          "verdict": "FAIL",
+          "axes": {
+            "economic": "PASS",
+            "significance": "FAIL",
+            "plateau": "SKIP",
+            "subperiod": "SKIP",
+            "cost_stress": "SKIP",
+            "start_date": "SKIP",
+            "risk": "PASS"
+          },
+          "tags": [
+            "holdout_semi_contaminated"
+          ],
+          "dsr": 0.0,
+          "rc_p": 0.03625,
+          "spa_p": 0.0275,
+          "tv0": 1.5719544073349698,
+          "tv1": 1.3033046576450382,
+          "mdd": -0.36243440881793565,
+          "cagr": 0.25091596559082485,
+          "sharpe": 0.9369777291888234,
+          "ulcer": 12.265577308627694,
+          "calmar": 0.6923072409409928,
+          "bench_cagr": 0.20658169069815013,
+          "bench_sharpe": 0.9925176862428108,
+          "bench_mdd": -0.352154063755732,
+          "bench_ulcer": 8.478343022226682
+        }
+      },
+      "break_even_notional": 20.0,
+      "size_bps": {
+        "50": {
+          "R2_rt_bps": 28.000000000000004,
+          "R1_rt_bps": 34.0,
+          "R3_rt_bps": 68.0
+        },
+        "200": {
+          "R2_rt_bps": 25.0,
+          "R1_rt_bps": 34.0,
+          "R3_rt_bps": 68.0
+        },
+        "1000": {
+          "R2_rt_bps": 24.306,
+          "R1_rt_bps": 34.0,
+          "R3_rt_bps": 68.0
+        },
+        "5000": {
+          "R2_rt_bps": 24.226,
+          "R1_rt_bps": 34.0,
+          "R3_rt_bps": 68.0
+        }
+      }
+    },
+    "c3a_vt_ewma": {
+      "label": "\uc8fc\uac04 EWMA vol-target (c3a, qld_cash)",
+      "leveraged": true,
+      "tier": "LEV",
+      "pre_params": {
+        "T": "0.2",
+        "Lmax": "2.0",
+        "lam": "0.97",
+        "band": "0.5",
+        "rep": "qld_cash"
+      },
+      "dca": {
+        "R1": {
+          "final": 8698.087642638373,
+          "xirr": 0.13477701470016332,
+          "n_trades": 2452,
+          "total_dep": 4267.0
+        },
+        "R3": {
+          "final": 8537.234783806667,
+          "xirr": 0.13133374905451525,
+          "n_trades": 2452,
+          "total_dep": 4267.0
+        },
+        "tv0": 0.7942992794874362,
+        "tv1": 0.6585521473712045
+      },
+      "r2": {
+        "final": 8693.670761097961,
+        "xirr": 0.13468335894124164,
+        "n_trades": 2452,
+        "tv0": 0.7938959349858318,
+        "tv1": 0.658217735148354
+      },
+      "cash_sens": {
+        "idle0": {
+          "final": 8698.087642638373,
+          "xirr": 0.13477701470016332,
+          "n_trades": 2452,
+          "total_dep": 4267.0
+        },
+        "sgov_yield": {
+          "final": 9681.075641198368,
+          "xirr": 0.15447349444767355,
+          "n_trades": 2452,
+          "total_dep": 4267.0
+        },
+        "sgov_park": {
+          "final": 9526.206367870009,
+          "xirr": 0.15151233934625669,
+          "n_trades": 4928,
+          "total_dep": 4267.0
+        }
+      },
+      "per_trade_fred": null,
+      "per_trade_r2_by_size": null,
+      "gate_fee10": {
+        "idea_id": "c4b_c3a_vt_ewma_fee10",
+        "full_mdd": -0.5834650819088438,
+        "design": {
+          "verdict": "FAIL",
+          "axes": {
+            "economic": "FAIL",
+            "significance": "FAIL",
+            "plateau": "SKIP",
+            "subperiod": "SKIP",
+            "cost_stress": "SKIP",
+            "start_date": "SKIP",
+            "risk": "PASS"
+          },
+          "tags": [
+            "holdout_semi_contaminated"
+          ],
+          "dsr": 0.0,
+          "rc_p": 0.9525,
+          "spa_p": 1.0,
+          "tv0": 0.7942992794874362,
+          "tv1": 0.6585521473712045,
+          "mdd": -0.5784076414218744,
+          "cagr": 0.06965944979373151,
+          "sharpe": 0.41385289990494367,
+          "ulcer": 29.5722691723939,
+          "calmar": 0.12043314231203915,
+          "bench_cagr": 0.10645310347997472,
+          "bench_sharpe": 0.49134927096501047,
+          "bench_mdd": -0.8267998359882569,
+          "bench_ulcer": 40.203437770150245
+        },
+        "holdout": {
+          "verdict": "FAIL",
+          "axes": {
+            "economic": "FAIL",
+            "significance": "FAIL",
+            "plateau": "SKIP",
+            "subperiod": "SKIP",
+            "cost_stress": "SKIP",
+            "start_date": "SKIP",
+            "risk": "PASS"
+          },
+          "tags": [
+            "holdout_semi_contaminated"
+          ],
+          "dsr": 0.0,
+          "rc_p": 0.8775,
+          "spa_p": 1.0,
+          "tv0": 0.7942992794874362,
+          "tv1": 0.6585521473712045,
+          "mdd": -0.34239233959932247,
+          "cagr": 0.17948017193109567,
+          "sharpe": 0.8626035113950268,
+          "ulcer": 10.91335043605156,
+          "calmar": 0.5241944727534752,
+          "bench_cagr": 0.20658169069815013,
+          "bench_sharpe": 0.9925176862428108,
+          "bench_mdd": -0.352154063755732,
+          "bench_ulcer": 8.478343022226682
+        }
+      },
+      "gate_micro": {
+        "idea_id": "c4b_c3a_vt_ewma_micro",
+        "full_mdd": -0.5834650819088438,
+        "design": {
+          "verdict": "FAIL",
+          "axes": {
+            "economic": "FAIL",
+            "significance": "FAIL",
+            "plateau": "SKIP",
+            "subperiod": "SKIP",
+            "cost_stress": "SKIP",
+            "start_date": "SKIP",
+            "risk": "PASS"
+          },
+          "tags": [
+            "holdout_semi_contaminated"
+          ],
+          "dsr": 0.0,
+          "rc_p": 0.9525,
+          "spa_p": 1.0,
+          "tv0": 0.7938959349858318,
+          "tv1": 0.658217735148354,
+          "mdd": -0.5784076414218744,
+          "cagr": 0.06965944979373151,
+          "sharpe": 0.41385289990494367,
+          "ulcer": 29.5722691723939,
+          "calmar": 0.12043314231203915,
+          "bench_cagr": 0.10645310347997472,
+          "bench_sharpe": 0.49134927096501047,
+          "bench_mdd": -0.8267998359882569,
+          "bench_ulcer": 40.203437770150245
+        },
+        "holdout": {
+          "verdict": "FAIL",
+          "axes": {
+            "economic": "FAIL",
+            "significance": "FAIL",
+            "plateau": "SKIP",
+            "subperiod": "SKIP",
+            "cost_stress": "SKIP",
+            "start_date": "SKIP",
+            "risk": "PASS"
+          },
+          "tags": [
+            "holdout_semi_contaminated"
+          ],
+          "dsr": 0.0,
+          "rc_p": 0.8775,
+          "spa_p": 1.0,
+          "tv0": 0.7938959349858318,
+          "tv1": 0.658217735148354,
+          "mdd": -0.34239233959932247,
+          "cagr": 0.17948017193109567,
+          "sharpe": 0.8626035113950268,
+          "ulcer": 10.91335043605156,
+          "calmar": 0.5241944727534752,
+          "bench_cagr": 0.20658169069815013,
+          "bench_sharpe": 0.9925176862428108,
+          "bench_mdd": -0.352154063755732,
+          "bench_ulcer": 8.478343022226682
+        }
+      },
+      "break_even_notional": 20.0,
+      "size_bps": {
+        "50": {
+          "R2_rt_bps": 28.000000000000004,
+          "R1_rt_bps": 34.0,
+          "R3_rt_bps": 68.0
+        },
+        "200": {
+          "R2_rt_bps": 25.0,
+          "R1_rt_bps": 34.0,
+          "R3_rt_bps": 68.0
+        },
+        "1000": {
+          "R2_rt_bps": 24.306,
+          "R1_rt_bps": 34.0,
+          "R3_rt_bps": 68.0
+        },
+        "5000": {
+          "R2_rt_bps": 24.226,
+          "R1_rt_bps": 34.0,
+          "R3_rt_bps": 68.0
+        }
+      }
+    }
+  },
+  "benchmarks": {
+    "B0": {
+      "final": 10950.642745453926,
+      "xirr": 0.17704733701595027
+    },
+    "B1": {
+      "final": 13207.895042722475,
+      "xirr": 0.21124990610215091
+    }
+  }
+}
