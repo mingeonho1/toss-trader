@@ -1,0 +1,706 @@
+{
+  "meta": {
+    "generated": "2026-09-28",
+    "fast": false,
+    "monthly_krw": 500000.0,
+    "fx_cost": 0.0005,
+    "parking_minus_pp": 1.0,
+    "force_months": 3,
+    "ma_window": 250,
+    "z_window": 250,
+    "spike_window": 20,
+    "spike_thresh": 0.02,
+    "kr_rate_series": "IR3TIB01KRM156N"
+  },
+  "ndx": {
+    "fx_first": 892.5,
+    "fx_last": 1387.97,
+    "n": 10261,
+    "first": "1986-01-02",
+    "last": "2026-09-22",
+    "horizons": {
+      "10": {
+        "n_starts": 370,
+        "design": {
+          "_n": 240,
+          "ma": {
+            "n": 240,
+            "median_ratio": 0.999915488518633,
+            "p5_ratio": 0.9864354364436839,
+            "p95_ratio": 1.0124029762511766,
+            "worst_ratio": 0.9683887813024096,
+            "p_beat": 0.49583333333333335,
+            "mean_delay_months": 0.6497926988067615,
+            "median_delay_months": 0.6195632106514916,
+            "decision": "FAIL"
+          },
+          "z": {
+            "n": 240,
+            "median_ratio": 0.999915488518633,
+            "p5_ratio": 0.9864354364436839,
+            "p95_ratio": 1.0124029762511766,
+            "worst_ratio": 0.9683887813024096,
+            "p_beat": 0.49583333333333335,
+            "mean_delay_months": 0.6497926988067615,
+            "median_delay_months": 0.6195632106514916,
+            "decision": "FAIL"
+          },
+          "split": {
+            "n": 240,
+            "median_ratio": 0.9999577442593166,
+            "p5_ratio": 0.9932177182218411,
+            "p95_ratio": 1.0062014881255887,
+            "worst_ratio": 0.9841943906512043,
+            "p_beat": 0.49583333333333335,
+            "mean_delay_months": 0.32382896759112967,
+            "median_delay_months": 0.3097816053257458,
+            "decision": "FAIL"
+          },
+          "spike": {
+            "n": 240,
+            "median_ratio": 0.9957983975709743,
+            "p5_ratio": 0.9733425748863731,
+            "p95_ratio": 1.0052401973647775,
+            "worst_ratio": 0.9626865624585345,
+            "p_beat": 0.25833333333333336,
+            "mean_delay_months": 1.3206721211699275,
+            "median_delay_months": 1.3035205869469995,
+            "decision": "FAIL"
+          }
+        },
+        "holdout": {
+          "_n": 130,
+          "ma": {
+            "n": 130,
+            "median_ratio": 0.9957567011525083,
+            "p5_ratio": 0.9927287599106125,
+            "p95_ratio": 1.0015433734322932,
+            "worst_ratio": 0.9867176756928145,
+            "p_beat": 0.23846153846153847,
+            "mean_delay_months": 0.6978441914668533,
+            "median_delay_months": 0.6987790188348664,
+            "decision": "FAIL"
+          },
+          "z": {
+            "n": 130,
+            "median_ratio": 0.9957567011525083,
+            "p5_ratio": 0.9927287599106125,
+            "p95_ratio": 1.0015433734322932,
+            "worst_ratio": 0.9867176756928145,
+            "p_beat": 0.23846153846153847,
+            "mean_delay_months": 0.6978441914668533,
+            "median_delay_months": 0.6987790188348664,
+            "decision": "FAIL"
+          },
+          "split": {
+            "n": 130,
+            "median_ratio": 0.9978783505762515,
+            "p5_ratio": 0.9963643799553088,
+            "p95_ratio": 1.0007716867161471,
+            "worst_ratio": 0.9933588378464093,
+            "p_beat": 0.23846153846153847,
+            "mean_delay_months": 0.3474631047348059,
+            "median_delay_months": 0.34836289969338585,
+            "decision": "FAIL"
+          },
+          "spike": {
+            "n": 130,
+            "median_ratio": 0.9853135984913258,
+            "p5_ratio": 0.9789068295809724,
+            "p95_ratio": 0.997769245844982,
+            "worst_ratio": 0.9753052915056547,
+            "p_beat": 0.007692307692307693,
+            "mean_delay_months": 1.2747826341325694,
+            "median_delay_months": 1.3026532886479165,
+            "decision": "FAIL"
+          }
+        }
+      },
+      "20": {
+        "n_starts": 250,
+        "design": {
+          "_n": 240,
+          "ma": {
+            "n": 240,
+            "median_ratio": 0.9996675092288791,
+            "p5_ratio": 0.9915043086694466,
+            "p95_ratio": 1.0072498072657166,
+            "worst_ratio": 0.976422325914092,
+            "p_beat": 0.4875,
+            "mean_delay_months": 0.6106755456119116,
+            "median_delay_months": 0.5937870885836682,
+            "decision": "FAIL"
+          },
+          "z": {
+            "n": 240,
+            "median_ratio": 0.9996675092288791,
+            "p5_ratio": 0.9915043086694466,
+            "p95_ratio": 1.0072498072657166,
+            "worst_ratio": 0.976422325914092,
+            "p_beat": 0.4875,
+            "mean_delay_months": 0.6106755456119116,
+            "median_delay_months": 0.5937870885836682,
+            "decision": "FAIL"
+          },
+          "split": {
+            "n": 240,
+            "median_ratio": 0.9998337546144389,
+            "p5_ratio": 0.9957521543347196,
+            "p95_ratio": 1.0036249036328537,
+            "worst_ratio": 0.988211162957049,
+            "p_beat": 0.4875,
+            "mean_delay_months": 0.30484901947284,
+            "median_delay_months": 0.29658463650099465,
+            "decision": "FAIL"
+          },
+          "spike": {
+            "n": 240,
+            "median_ratio": 0.9941828217531048,
+            "p5_ratio": 0.9805665377381191,
+            "p95_ratio": 1.0023029747796715,
+            "worst_ratio": 0.9696255831329904,
+            "p_beat": 0.09166666666666666,
+            "mean_delay_months": 1.291248834774099,
+            "median_delay_months": 1.276965615418309,
+            "decision": "FAIL"
+          }
+        },
+        "holdout": {
+          "_n": 10,
+          "ma": {
+            "n": 10,
+            "median_ratio": 1.0006676640197747,
+            "p5_ratio": 1.0005703249157638,
+            "p95_ratio": 1.000774789768779,
+            "worst_ratio": 1.0005691187615695,
+            "p_beat": 1.0,
+            "mean_delay_months": 0.6861542156804028,
+            "median_delay_months": 0.6842827202239368,
+            "decision": "CONDITIONAL"
+          },
+          "z": {
+            "n": 10,
+            "median_ratio": 1.0006676640197747,
+            "p5_ratio": 1.0005703249157638,
+            "p95_ratio": 1.000774789768779,
+            "worst_ratio": 1.0005691187615695,
+            "p_beat": 1.0,
+            "mean_delay_months": 0.6861542156804028,
+            "median_delay_months": 0.6842827202239368,
+            "decision": "CONDITIONAL"
+          },
+          "split": {
+            "n": 10,
+            "median_ratio": 1.000333832009896,
+            "p5_ratio": 1.0002851624578835,
+            "p95_ratio": 1.0003873948843895,
+            "worst_ratio": 1.000284559380785,
+            "p_beat": 1.0,
+            "mean_delay_months": 0.3419485843024205,
+            "median_delay_months": 0.33963762425226585,
+            "decision": "CONDITIONAL"
+          },
+          "spike": {
+            "n": 10,
+            "median_ratio": 0.9941401706570558,
+            "p5_ratio": 0.986898548134468,
+            "p95_ratio": 0.9953517696413556,
+            "worst_ratio": 0.9867488880414553,
+            "p_beat": 0.0,
+            "mean_delay_months": 1.2815025748504425,
+            "median_delay_months": 1.2819689828059502,
+            "decision": "FAIL"
+          }
+        }
+      }
+    }
+  },
+  "ndx_parking0": {
+    "fx_first": 892.5,
+    "fx_last": 1387.97,
+    "n": 10261,
+    "first": "1986-01-02",
+    "last": "2026-09-22",
+    "horizons": {
+      "10": {
+        "n_starts": 124,
+        "design": {
+          "_n": 80,
+          "ma": {
+            "n": 80,
+            "median_ratio": 0.9916073959189842,
+            "p5_ratio": 0.9747766573687358,
+            "p95_ratio": 1.0109015414424793,
+            "worst_ratio": 0.9696525110959077,
+            "p_beat": 0.3875,
+            "mean_delay_months": 0.6501315461165402,
+            "median_delay_months": 0.6195632106514916,
+            "decision": "FAIL"
+          },
+          "z": {
+            "n": 80,
+            "median_ratio": 0.9916073959189842,
+            "p5_ratio": 0.9747766573687358,
+            "p95_ratio": 1.0109015414424793,
+            "worst_ratio": 0.9696525110959077,
+            "p_beat": 0.3875,
+            "mean_delay_months": 0.6501315461165402,
+            "median_delay_months": 0.6195632106514916,
+            "decision": "FAIL"
+          },
+          "split": {
+            "n": 80,
+            "median_ratio": 0.9958036979594914,
+            "p5_ratio": 0.9873883286843689,
+            "p95_ratio": 1.00545077072124,
+            "worst_ratio": 0.984826255547951,
+            "p_beat": 0.3875,
+            "mean_delay_months": 0.3236647343371083,
+            "median_delay_months": 0.3097816053257458,
+            "decision": "FAIL"
+          },
+          "spike": {
+            "n": 80,
+            "median_ratio": 0.9822908644766073,
+            "p5_ratio": 0.961897451924622,
+            "p95_ratio": 0.998572206358667,
+            "worst_ratio": 0.9601695988937529,
+            "p_beat": 0.0125,
+            "mean_delay_months": 1.321742321744849,
+            "median_delay_months": 1.3034811465734202,
+            "decision": "FAIL"
+          }
+        },
+        "holdout": {
+          "_n": 44,
+          "ma": {
+            "n": 44,
+            "median_ratio": 0.9953127428706603,
+            "p5_ratio": 0.9928027948988086,
+            "p95_ratio": 1.0001946343055423,
+            "worst_ratio": 0.9899787058320076,
+            "p_beat": 0.11363636363636363,
+            "mean_delay_months": 0.6977148776200357,
+            "median_delay_months": 0.7023379325448971,
+            "decision": "FAIL"
+          },
+          "z": {
+            "n": 44,
+            "median_ratio": 0.9953127428706603,
+            "p5_ratio": 0.9928027948988086,
+            "p95_ratio": 1.0001946343055423,
+            "worst_ratio": 0.9899787058320076,
+            "p_beat": 0.11363636363636363,
+            "mean_delay_months": 0.6977148776200357,
+            "median_delay_months": 0.7023379325448971,
+            "decision": "FAIL"
+          },
+          "split": {
+            "n": 44,
+            "median_ratio": 0.9976563714353324,
+            "p5_ratio": 0.996401397449403,
+            "p95_ratio": 1.0000973171527718,
+            "worst_ratio": 0.9949893529160049,
+            "p_beat": 0.11363636363636363,
+            "mean_delay_months": 0.34739514761140655,
+            "median_delay_months": 0.3483772779808375,
+            "decision": "FAIL"
+          },
+          "spike": {
+            "n": 44,
+            "median_ratio": 0.9839378120434185,
+            "p5_ratio": 0.9779812151657595,
+            "p95_ratio": 0.9946712934489624,
+            "worst_ratio": 0.9743995704792936,
+            "p_beat": 0.0,
+            "mean_delay_months": 1.275018668932334,
+            "median_delay_months": 1.3020657989523716,
+            "decision": "FAIL"
+          }
+        }
+      },
+      "20": {
+        "n_starts": 84,
+        "design": {
+          "_n": 80,
+          "ma": {
+            "n": 80,
+            "median_ratio": 0.9941734047581297,
+            "p5_ratio": 0.9811565651848,
+            "p95_ratio": 1.0059916100024742,
+            "worst_ratio": 0.9767168410340852,
+            "p_beat": 0.2125,
+            "mean_delay_months": 0.6110749288199232,
+            "median_delay_months": 0.5951439741331834,
+            "decision": "FAIL"
+          },
+          "z": {
+            "n": 80,
+            "median_ratio": 0.9941734047581297,
+            "p5_ratio": 0.9811565651848,
+            "p95_ratio": 1.0059916100024742,
+            "worst_ratio": 0.9767168410340852,
+            "p_beat": 0.2125,
+            "mean_delay_months": 0.6110749288199232,
+            "median_delay_months": 0.5951439741331834,
+            "decision": "FAIL"
+          },
+          "split": {
+            "n": 80,
+            "median_ratio": 0.9970867023790659,
+            "p5_ratio": 0.9905782825924041,
+            "p95_ratio": 1.002995805001238,
+            "worst_ratio": 0.9883584205170428,
+            "p_beat": 0.2125,
+            "mean_delay_months": 0.3050443344496464,
+            "median_delay_months": 0.2971680168501444,
+            "decision": "FAIL"
+          },
+          "spike": {
+            "n": 80,
+            "median_ratio": 0.9847280322275949,
+            "p5_ratio": 0.9680292620700626,
+            "p95_ratio": 0.9945068278636479,
+            "worst_ratio": 0.965599801420489,
+            "p_beat": 0.0125,
+            "mean_delay_months": 1.2918089733129436,
+            "median_delay_months": 1.276533691663262,
+            "decision": "FAIL"
+          }
+        },
+        "holdout": {
+          "_n": 4,
+          "ma": {
+            "n": 4,
+            "median_ratio": 0.9995390548555584,
+            "p5_ratio": 0.9994060776125873,
+            "p95_ratio": 0.9996597304594158,
+            "worst_ratio": 0.9994014308598285,
+            "p_beat": 0.0,
+            "mean_delay_months": 0.6865172586114482,
+            "median_delay_months": 0.6913668107184813,
+            "decision": "FAIL"
+          },
+          "z": {
+            "n": 4,
+            "median_ratio": 0.9995390548555584,
+            "p5_ratio": 0.9994060776125873,
+            "p95_ratio": 0.9996597304594158,
+            "worst_ratio": 0.9994014308598285,
+            "p_beat": 0.0,
+            "mean_delay_months": 0.6865172586114482,
+            "median_delay_months": 0.6913668107184813,
+            "decision": "FAIL"
+          },
+          "split": {
+            "n": 4,
+            "median_ratio": 0.9997695274277796,
+            "p5_ratio": 0.9997030388062964,
+            "p95_ratio": 0.9998298652297084,
+            "worst_ratio": 0.9997007154299169,
+            "p_beat": 0.0,
+            "mean_delay_months": 0.3422076831040724,
+            "median_delay_months": 0.34460983366617404,
+            "decision": "FAIL"
+          },
+          "spike": {
+            "n": 4,
+            "median_ratio": 0.9888292461699861,
+            "p5_ratio": 0.9847516605451619,
+            "p95_ratio": 0.9926377963340302,
+            "worst_ratio": 0.9846663632335588,
+            "p_beat": 0.0,
+            "mean_delay_months": 1.2777220625812493,
+            "median_delay_months": 1.277584180264697,
+            "decision": "FAIL"
+          }
+        }
+      }
+    }
+  },
+  "neighbors": {
+    "ma_window=180": {
+      "n": 240,
+      "median_ratio": 0.9994744315878505,
+      "p5_ratio": 0.9891946505101574,
+      "p95_ratio": 1.0027762792774826,
+      "worst_ratio": 0.9816318054382286,
+      "p_beat": 0.4708333333333333,
+      "mean_delay_months": 0.5810898247488823,
+      "median_delay_months": 0.5676162547804929
+    },
+    "ma_window=320": {
+      "n": 240,
+      "median_ratio": 0.9957171203097226,
+      "p5_ratio": 0.9870825423910089,
+      "p95_ratio": 1.0024307672291357,
+      "worst_ratio": 0.9740946737556494,
+      "p_beat": 0.20833333333333334,
+      "mean_delay_months": 0.6202578383060355,
+      "median_delay_months": 0.6066192497265127
+    },
+    "force=2m": {
+      "n": 240,
+      "median_ratio": 1.0001376653481477,
+      "p5_ratio": 0.9965725473805417,
+      "p95_ratio": 1.0088180865740768,
+      "worst_ratio": 0.9891286589585095,
+      "p_beat": 0.5125,
+      "mean_delay_months": 0.4265771091295557,
+      "median_delay_months": 0.424200817698195
+    },
+    "force=4m": {
+      "n": 240,
+      "median_ratio": 0.9952474322919693,
+      "p5_ratio": 0.9798100289636857,
+      "p95_ratio": 1.0049196137510563,
+      "worst_ratio": 0.9661631731906326,
+      "p_beat": 0.225,
+      "mean_delay_months": 0.7970952100897378,
+      "median_delay_months": 0.7749535114529087
+    },
+    "z_window=180": {
+      "n": 240,
+      "median_ratio": 0.9994744315878505,
+      "p5_ratio": 0.9891946505101574,
+      "p95_ratio": 1.0027762792774826,
+      "worst_ratio": 0.9816318054382286,
+      "p_beat": 0.4708333333333333,
+      "mean_delay_months": 0.5810898247488823,
+      "median_delay_months": 0.5676162547804929
+    },
+    "z_window=320": {
+      "n": 240,
+      "median_ratio": 0.9957171203097226,
+      "p5_ratio": 0.9870825423910089,
+      "p95_ratio": 1.0024307672291357,
+      "worst_ratio": 0.9740946737556494,
+      "p_beat": 0.20833333333333334,
+      "mean_delay_months": 0.6202578383060355,
+      "median_delay_months": 0.6066192497265127
+    },
+    "spike=1.5%": {
+      "n": 240,
+      "median_ratio": 0.9899958374028888,
+      "p5_ratio": 0.9794371202008648,
+      "p95_ratio": 0.9990272320270793,
+      "worst_ratio": 0.9699399164753163,
+      "p_beat": 0.05,
+      "mean_delay_months": 1.1192587162934247,
+      "median_delay_months": 1.085538554020347
+    },
+    "spike=3%": {
+      "n": 240,
+      "median_ratio": 0.9891824134937444,
+      "p5_ratio": 0.9806816042770469,
+      "p95_ratio": 1.002639310730937,
+      "worst_ratio": 0.9699632534742904,
+      "p_beat": 0.10833333333333334,
+      "mean_delay_months": 1.4085867654088167,
+      "median_delay_months": 1.4130290749677006
+    }
+  },
+  "sp_shiller": {
+    "fx_first": 892.5,
+    "fx_last": 1321.35,
+    "n": 450,
+    "first": "1986-01-01",
+    "last": "2023-06-01",
+    "horizons": {
+      "10": {
+        "n_starts": 330,
+        "design": {
+          "_n": 240,
+          "ma": {
+            "n": 240,
+            "median_ratio": 0.9979829200281063,
+            "p5_ratio": 0.9877772119491784,
+            "p95_ratio": 1.0141651248227943,
+            "worst_ratio": 0.9839874176392764,
+            "p_beat": 0.4125,
+            "mean_delay_months": 1.446956676119118,
+            "median_delay_months": 1.5111695137976346,
+            "decision": "FAIL"
+          },
+          "z": {
+            "n": 240,
+            "median_ratio": 0.9979829200281063,
+            "p5_ratio": 0.9877772119491784,
+            "p95_ratio": 1.0141651248227943,
+            "worst_ratio": 0.9839874176392764,
+            "p_beat": 0.4125,
+            "mean_delay_months": 1.446956676119118,
+            "median_delay_months": 1.5111695137976346,
+            "decision": "FAIL"
+          },
+          "split": {
+            "n": 240,
+            "median_ratio": 0.998991460014053,
+            "p5_ratio": 0.9938886059745892,
+            "p95_ratio": 1.0070825624113977,
+            "worst_ratio": 0.9919937088196382,
+            "p_beat": 0.4125,
+            "mean_delay_months": 0.7194031330949514,
+            "median_delay_months": 0.7524495504386562,
+            "decision": "FAIL"
+          },
+          "spike": {
+            "n": 240,
+            "median_ratio": 0.9962915243905489,
+            "p5_ratio": 0.9894579271938022,
+            "p95_ratio": 1.006955901901606,
+            "worst_ratio": 0.9828545014119802,
+            "p_beat": 0.25833333333333336,
+            "mean_delay_months": 0.8977781264558538,
+            "median_delay_months": 0.9184848122848361,
+            "decision": "FAIL"
+          }
+        },
+        "holdout": {
+          "_n": 90,
+          "ma": {
+            "n": 90,
+            "median_ratio": 0.9908480460873532,
+            "p5_ratio": 0.9844675444451887,
+            "p95_ratio": 0.9983690069428292,
+            "worst_ratio": 0.9832855370177427,
+            "p_beat": 0.0,
+            "mean_delay_months": 1.139974710955014,
+            "median_delay_months": 1.1350061359020862,
+            "decision": "FAIL"
+          },
+          "z": {
+            "n": 90,
+            "median_ratio": 0.9908480460873532,
+            "p5_ratio": 0.9844675444451887,
+            "p95_ratio": 0.9983690069428292,
+            "worst_ratio": 0.9832855370177427,
+            "p_beat": 0.0,
+            "mean_delay_months": 1.139974710955014,
+            "median_delay_months": 1.1350061359020862,
+            "decision": "FAIL"
+          },
+          "split": {
+            "n": 90,
+            "median_ratio": 0.9954240230436757,
+            "p5_ratio": 0.9922337722225938,
+            "p95_ratio": 0.9991845034714149,
+            "worst_ratio": 0.9916427685088702,
+            "p_beat": 0.0,
+            "mean_delay_months": 0.567304282934901,
+            "median_delay_months": 0.5669424600198506,
+            "decision": "FAIL"
+          },
+          "spike": {
+            "n": 90,
+            "median_ratio": 0.9914667099616215,
+            "p5_ratio": 0.9881284636488195,
+            "p95_ratio": 0.9993681717387308,
+            "worst_ratio": 0.9871300509578725,
+            "p_beat": 0.03333333333333333,
+            "mean_delay_months": 0.9589309182153166,
+            "median_delay_months": 0.9420770390561932,
+            "decision": "FAIL"
+          }
+        }
+      },
+      "20": {
+        "n_starts": 211,
+        "design": {
+          "_n": 211,
+          "ma": {
+            "n": 211,
+            "median_ratio": 0.9973978374030054,
+            "p5_ratio": 0.9926465407436242,
+            "p95_ratio": 1.006222091545883,
+            "worst_ratio": 0.9908710024315537,
+            "p_beat": 0.3412322274881517,
+            "mean_delay_months": 1.355899011194135,
+            "median_delay_months": 1.3716536818434233,
+            "decision": "FAIL"
+          },
+          "z": {
+            "n": 211,
+            "median_ratio": 0.9973978374030054,
+            "p5_ratio": 0.9926465407436242,
+            "p95_ratio": 1.006222091545883,
+            "worst_ratio": 0.9908710024315537,
+            "p_beat": 0.3412322274881517,
+            "mean_delay_months": 1.355899011194135,
+            "median_delay_months": 1.3716536818434233,
+            "decision": "FAIL"
+          },
+          "split": {
+            "n": 211,
+            "median_ratio": 0.9986989187015024,
+            "p5_ratio": 0.9963232703718125,
+            "p95_ratio": 1.0031110457729415,
+            "worst_ratio": 0.9954355012157767,
+            "p_beat": 0.3412322274881517,
+            "mean_delay_months": 0.6763190438732712,
+            "median_delay_months": 0.6846336715721287,
+            "decision": "FAIL"
+          },
+          "spike": {
+            "n": 211,
+            "median_ratio": 0.9966796502608205,
+            "p5_ratio": 0.9916158694424744,
+            "p95_ratio": 1.0024226221584998,
+            "worst_ratio": 0.98760879880129,
+            "p_beat": 0.23696682464454977,
+            "mean_delay_months": 0.8643077768065255,
+            "median_delay_months": 0.8579560634892939,
+            "decision": "FAIL"
+          }
+        },
+        "holdout": {
+          "_n": 0,
+          "ma": {
+            "n": 0,
+            "median_ratio": NaN,
+            "p5_ratio": NaN,
+            "p95_ratio": NaN,
+            "worst_ratio": NaN,
+            "p_beat": 0.0,
+            "mean_delay_months": 0.0,
+            "median_delay_months": 0.0,
+            "decision": "FAIL"
+          },
+          "z": {
+            "n": 0,
+            "median_ratio": NaN,
+            "p5_ratio": NaN,
+            "p95_ratio": NaN,
+            "worst_ratio": NaN,
+            "p_beat": 0.0,
+            "mean_delay_months": 0.0,
+            "median_delay_months": 0.0,
+            "decision": "FAIL"
+          },
+          "split": {
+            "n": 0,
+            "median_ratio": NaN,
+            "p5_ratio": NaN,
+            "p95_ratio": NaN,
+            "worst_ratio": NaN,
+            "p_beat": 0.0,
+            "mean_delay_months": 0.0,
+            "median_delay_months": 0.0,
+            "decision": "FAIL"
+          },
+          "spike": {
+            "n": 0,
+            "median_ratio": NaN,
+            "p5_ratio": NaN,
+            "p95_ratio": NaN,
+            "worst_ratio": NaN,
+            "p_beat": 0.0,
+            "mean_delay_months": 0.0,
+            "median_delay_months": 0.0,
+            "decision": "FAIL"
+          }
+        }
+      }
+    }
+  }
+}
