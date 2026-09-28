@@ -113,23 +113,49 @@ def test_deposit_plan_no_cash_no_trades_when_within_band():
 
 # ── deposit_plan: 밴드 매도 트리거 ───────────────────────────────────────────
 def test_deposit_plan_band_sell_trigger():
+    # 기본(sells_executed=True): 매도 대금 실현 가정 → 완전 리밸런싱(forward_lifecycle_paper 계약).
     # QLD 전량(E_actual=2.0) > E_target 1.3 + band 0.3 = 1.6 → 리밸런싱(매도+매수)
     plan = pl.deposit_plan({"QQQ": 0.0, "QLD": 100.0}, cash_usd=0.0, E_target=1.3, band=0.3)
     assert plan.e_actual == pytest.approx(2.0, abs=1e-9)
     assert plan.sell_triggered is True
-    # 목표 E=1.3 → QQQ 0.7 / QLD 0.3. equity_ref=100 → QLD 70 매도, QQQ 70 매수.
+    # 목표 E=1.3 → QQQ 0.7 / QLD 0.3. equity_ref=100 → QLD 70 매도, QQQ 70 매수(매도 대금 재투자).
     assert plan.sells.get("QLD", 0.0) == pytest.approx(70.0, abs=1e-9)
     assert plan.buys.get("QQQ", 0.0) == pytest.approx(70.0, abs=1e-9)
     assert "QLD" not in plan.buys and "QQQ" not in plan.sells
 
 
 def test_deposit_plan_sell_uses_cash_and_proceeds():
-    # 현금이 있으면 매도 대금 + 현금으로 미달분 매수(equity_ref = 보유+현금)
+    # 기본(sells_executed=True): 매도 대금 + 현금으로 미달분 매수(equity_ref = 보유+현금)
     plan = pl.deposit_plan({"QQQ": 0.0, "QLD": 100.0}, cash_usd=20.0, E_target=1.0, band=0.3)
     # E_target=1.0 → QQQ 1.0/QLD 0.0. equity_ref=120 → QLD 전량(100) 매도, QQQ 120 매수.
     assert plan.sell_triggered is True
     assert plan.sells.get("QLD", 0.0) == pytest.approx(100.0, abs=1e-9)
     assert plan.buys.get("QQQ", 0.0) == pytest.approx(120.0, abs=1e-9)
+
+
+# ── 🟡 Finding 3: 매도 미집행(sells_executed=False)이면 매수는 현금으로만 캡 ──────
+def test_deposit_plan_sell_trigger_caps_buys_to_cash_when_sells_not_executed():
+    # 매도 신호는 유지하되(경고용), 매수는 가용현금으로만 집행(매도 대금 가정 금지).
+    plan = pl.deposit_plan({"QQQ": 0.0, "QLD": 100.0}, cash_usd=20.0, E_target=1.0,
+                           band=0.3, sells_executed=False)
+    assert plan.sell_triggered is True
+    assert plan.sells.get("QLD", 0.0) == pytest.approx(100.0, abs=1e-9)   # 경고 신호 유지
+    # 완전 리밸런싱이면 QQQ 120 매수지만, 매도 미집행이므로 현금 20으로만 매수.
+    assert plan.buys.get("QQQ", 0.0) == pytest.approx(20.0, abs=1e-9)
+    assert sum(plan.buys.values()) <= 20.0 + 1e-9
+
+
+def test_deposit_plan_sell_trigger_never_buys_more_than_cash():
+    # 재현: 현금 5달러뿐인데 매도 신호. 기본(True)이면 buys≈73.5(현금 초과)=insufficient-BP 위험.
+    default = pl.deposit_plan({"QQQ": 0.0, "QLD": 100.0}, cash_usd=5.0, E_target=1.3, band=0.3)
+    assert sum(default.buys.values()) > 5.0        # 기본(매도 집행 가정)은 현금 초과 매수(문서화된 계약)
+    # 실계좌 경로(sells_executed=False): 매수 총액 ≤ 현금.
+    plan = pl.deposit_plan({"QQQ": 0.0, "QLD": 100.0}, cash_usd=5.0, E_target=1.3, band=0.3,
+                           sells_executed=False)
+    assert plan.sell_triggered is True
+    assert sum(plan.buys.values()) <= 5.0 + 1e-9
+    # equity_ref=invested(100)+cash(5)=105 → QLD 목표 0.3*105=31.5 → 매도 신호 68.5 유지.
+    assert plan.sells.get("QLD", 0.0) == pytest.approx(68.5, abs=1e-9)
 
 
 # ── 연구코드(glide)와 수치 동치성 ────────────────────────────────────────────

@@ -97,6 +97,9 @@ def test_409_request_in_progress_retries():
 
 # ------------------------------------------------------- idempotency conflict
 def test_idempotency_conflict_fetches_existing():
+    # 최근(≤10분) + 금액일치인 기존 주문만 재사용해야 하므로 orderedAt을 현재 근처로 만든다.
+    recent = (datetime.now(timezone.utc) - timedelta(minutes=1)).isoformat()
+
     def urlopen(req):
         url = req.full_url
         method = req.get_method()
@@ -107,17 +110,101 @@ def test_idempotency_conflict_fetches_existing():
                 "code": "idempotency-key-conflict",
                 "message": "동일 clientOrderId 다른 본문"}})
         if "/api/v1/orders?" in url and method == "GET":
-            # OPEN 목록에 기존 주문 존재
+            # OPEN 목록에 기존 주문 존재(최근·금액 $10 일치)
             return _Resp({"result": {"orders": [
                 {"orderId": "prev-1", "symbol": "AAPL", "side": "BUY",
-                 "orderedAt": "2026-09-23T23:41:00+09:00"}],
+                 "orderAmount": "10.00", "orderedAt": recent}],
                 "nextCursor": None, "hasNext": False}})
         return _Resp({"result": {}})
 
     c = _make_client(urlopen)
     resp = c.create_order("AAPL", "BUY", order_type="MARKET",
                           order_amount="10.00", client_order_id="dca-2026-09-23-AAPL")
-    assert resp["orderId"] == "prev-1", "idempotency 충돌 시 기존 주문을 조회해 재사용해야 한다"
+    assert resp["orderId"] == "prev-1", "idempotency 충돌 시 최근·금액일치 기존 주문을 재사용해야 한다"
+
+
+def test_idempotency_conflict_rejects_stale_or_mismatched_order():
+    """오매칭 방지: 기존 주문이 오래됐거나(>10분) 금액이 다르면 재사용하지 않고 재-raise.
+
+    현재 버그: symbol+side만으로 가장 최근 주문을 반환 → 무관한 과거/타금액 주문을 done 처리.
+    """
+    scenario = {"orderedAt": None, "orderAmount": "10.00"}
+
+    def urlopen(req):
+        url = req.full_url
+        method = req.get_method()
+        if url.endswith("/oauth2/token"):
+            return _token_resp()
+        if url.endswith("/api/v1/orders") and method == "POST":
+            raise _http_error(url, 422, {"error": {
+                "code": "idempotency-key-conflict", "message": "conflict"}})
+        if "/api/v1/orders?" in url and method == "GET":
+            return _Resp({"result": {"orders": [
+                {"orderId": "unrelated", "symbol": "AAPL", "side": "BUY",
+                 "orderAmount": scenario["orderAmount"],
+                 "orderedAt": scenario["orderedAt"]}],
+                "nextCursor": None, "hasNext": False}})
+        return _Resp({"result": {}})
+
+    # (a) 2시간 전 주문(금액은 일치) → 시간창 밖 → 재-raise
+    scenario["orderedAt"] = (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat()
+    scenario["orderAmount"] = "10.00"
+    c = _make_client(urlopen)
+    with pytest.raises(IdempotencyConflictError):
+        c.create_order("AAPL", "BUY", order_type="MARKET",
+                       order_amount="10.00", client_order_id="cid")
+
+    # (b) 최근 주문이지만 금액 불일치($50 vs $10) → 재-raise
+    scenario["orderedAt"] = (datetime.now(timezone.utc) - timedelta(minutes=1)).isoformat()
+    scenario["orderAmount"] = "50.00"
+    c = _make_client(urlopen)
+    with pytest.raises(IdempotencyConflictError):
+        c.create_order("AAPL", "BUY", order_type="MARKET",
+                       order_amount="10.00", client_order_id="cid")
+
+
+def test_find_order_by_client_id_guards_direct():
+    """find_order_by_client_id 단위 검증(now 주입, 결정론적)."""
+    now = datetime(2026, 9, 23, 14, 41, tzinfo=timezone.utc)
+    fresh = (now - timedelta(minutes=2)).isoformat()
+    stale = (now - timedelta(minutes=30)).isoformat()
+
+    def make(orders):
+        def urlopen(req):
+            url = req.full_url
+            if url.endswith("/oauth2/token"):
+                return _token_resp()
+            if "/api/v1/orders?" in url:
+                return _Resp({"result": {"orders": orders,
+                                         "nextCursor": None, "hasNext": False}})
+            return _Resp({"result": {}})
+        return _make_client(urlopen)
+
+    # 최근 + 금액일치 → 채택
+    c = make([{"orderId": "ok", "symbol": "QQQ", "side": "BUY",
+               "orderAmount": "10.00", "orderedAt": fresh}])
+    got = c.find_order_by_client_id("cid", symbol="QQQ", side="BUY",
+                                    order_amount="10.00", within_minutes=10, now=now)
+    assert got and got["orderId"] == "ok"
+
+    # 30분 전(시간창 밖) → None
+    c = make([{"orderId": "old", "symbol": "QQQ", "side": "BUY",
+               "orderAmount": "10.00", "orderedAt": stale}])
+    assert c.find_order_by_client_id("cid", symbol="QQQ", side="BUY",
+                                     order_amount="10.00", within_minutes=10, now=now) is None
+
+    # 최근이지만 orderAmount 필드 없음 → 확인 불가 → None(보수적)
+    c = make([{"orderId": "noamt", "symbol": "QQQ", "side": "BUY",
+               "orderedAt": fresh}])
+    assert c.find_order_by_client_id("cid", symbol="QQQ", side="BUY",
+                                     order_amount="10.00", within_minutes=10, now=now) is None
+
+    # 수량주문(SELL) 근사일치 → 채택
+    c = make([{"orderId": "sell", "symbol": "QQQ", "side": "SELL",
+               "quantity": "5", "orderedAt": fresh}])
+    got = c.find_order_by_client_id("cid", symbol="QQQ", side="SELL",
+                                    quantity="5", within_minutes=10, now=now)
+    assert got and got["orderId"] == "sell"
 
 
 def test_idempotency_conflict_reraises_when_not_found():
@@ -374,6 +461,34 @@ def test_order_window_across_dst():
     assert r.order_window_status(None)[0] is False
     assert r.client_order_id("2026-09-23", "QQQ") == "dca-2026-09-23-QQQ"
     assert len(r.client_order_id("2026-09-23", "VERYLONGTICKERNAME12345")) <= 36
+
+
+# ------------------------------------------ half-day (early close) order window
+def test_order_window_half_day_early_close():
+    """반나절장(조기 종료 13:00 ET): 창은 캘린더 endTime(13:00 ET) − 1h 에 마감해야 한다.
+
+    캘린더 regularMarket.endTime이 조기 종료(13:00 ET)를 반영하면 order_window가 그대로
+    end−1h 를 쓰므로 반나절 처리가 자동으로 옳다(안전성 확인 — 별도 반나절 로직 불필요).
+    """
+    import run_dca as r
+
+    KST = timezone(timedelta(hours=9))
+
+    def at(y, mo, d, h, mi):
+        return datetime(y, mo, d, h, mi, tzinfo=KST)
+
+    # EST(11월): 09:30 ET=23:30 KST 시작, 조기종료 13:00 ET=익일 03:00 KST(=13:00 EST=18:00 UTC).
+    half = {"startTime": "2026-11-27T23:30:00+09:00", "endTime": "2026-11-28T03:00:00+09:00"}
+    start, close = r.order_window(half)
+    assert start == at(2026, 11, 27, 23, 30)
+    assert close == at(2026, 11, 28, 2, 0)          # 13:00 ET − 1h = 12:00 ET = 02:00 KST
+    assert r.order_window_status(half, at(2026, 11, 28, 1, 30))[0] is True    # 01:30 창 안
+    assert r.order_window_status(half, at(2026, 11, 28, 2, 30))[0] is False   # 02:30 마감 후
+    # 정상장(16:00 ET=06:00 KST) 대비 조기 마감(02:00 < 05:00)이 앞당겨졌는지 확인.
+    normal = {"startTime": "2026-11-27T23:30:00+09:00", "endTime": "2026-11-28T06:00:00+09:00"}
+    _, nclose = r.order_window(normal)
+    assert nclose == at(2026, 11, 28, 5, 0)
+    assert close < nclose
 
 
 # --------------------------------------- new thin wrappers: exact spec params

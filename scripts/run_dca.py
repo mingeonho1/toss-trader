@@ -155,17 +155,25 @@ def plan_buy_chunks(amount: float, *, split: bool = True,
 
 def _execute_buys(client, plan, session_date, skip, done, log, *,
                   split: bool = True,
-                  max_orders_per_run: int = MAX_SPLIT_ORDERS_PER_RUN) -> bool:
+                  max_orders_per_run: int = MAX_SPLIT_ORDERS_PER_RUN,
+                  chunks_done: dict | None = None,
+                  remaining_bp: float | None = None) -> bool:
     """플랜의 각 (종목, 금액)을 매수 접수한다. split이면 ≤$10 청크로 나눠(수수료 절감) 낸다.
 
-    - 각 청크 cid = dca-{session}-{sym}-{k}(단건은 -k 없음). 서버측 cid dedup으로 재실행 멱등.
+    - 청크 번호는 **이번 세션에 이미 접수된 청크 수(chunks_done[sym])에서 이어** 매긴다. 따라서
+      같은 세션(같은 US date)의 다음 launchd 트리거가 부분 실패분을 재개해도 성공한 청크 cid를
+      절대 재사용하지 않는다 → 서버 cid dedup(10분) 만료 후에도 중복 매수가 생기지 않는다.
+    - 각 청크는 접수 성공 즉시 chunks_done[sym]에 (cid, amount)로 기록·영속한다(중간 실패/크래시
+      대비). done은 그 종목의 남은 청크가 모두 성공해야만 세팅한다(부분 성공은 done 아님).
+    - remaining_bp 지정 시 이번 실행 누적 매수 노셔널을 실제 매수가능금액으로 제한(과매수 방지).
     - 이번 실행 총 주문 건수는 max_orders_per_run으로 제한(레이트리밋 그룹 ORDER·남용 가드).
     - 어떤 청크라도 실패하면 그 즉시 분할·실행을 중단(부분 체결 연쇄 방지)하고 False.
-    - 종목은 그 종목의 **모든 청크**가 성공했을 때만 done 처리(부분 성공은 done 아님 → 재실행 시 cid 멱등 재개).
-    반환: 전부 성공/스킵이면 True, 하나라도 실패면 False.
+    반환: 전부 성공/스킵/보류면 True, 하나라도 실패면 False.
     """
     ok = True
     orders_placed = 0
+    chunks_done = chunks_done if chunks_done is not None else {}
+    bp_left = remaining_bp                          # None이면 매수가능금액 제한 없음
     for sym, amt in plan:
         if sym in skip:
             log(f"  ⏭ {sym} 이미 이번 세션 주문 존재 → 건너뜀(중복 방지)")
@@ -174,30 +182,46 @@ def _execute_buys(client, plan, session_date, skip, done, log, *,
         if budget <= 0:
             log(f"  ⏸ 이번 실행 주문 한도({max_orders_per_run}건) 도달 → {sym} 이하 보류(다음 트리거에서 재개)")
             break
+        start_idx = len(chunks_done.get(sym, []))   # 이번 세션 이미 접수된 청크 수 → 이어서 번호 매김
         chunks = plan_buy_chunks(amt, split=split, max_orders=min(budget, MAX_SPLIT_ORDERS_PER_RUN))
-        multi = len(chunks) > 1
+        # 재개(start_idx>0)면 단건이라도 인덱스 접미사를 붙여 앞선 청크 cid와의 충돌을 막는다.
+        multi = len(chunks) > 1 or start_idx > 0
         placed_this_sym = 0
         sym_ok = True
-        for k, chunk in enumerate(chunks):
+        deferred = False
+        for j, chunk in enumerate(chunks):
+            if bp_left is not None and chunk > bp_left + 1e-9:
+                log(f"  ⏸ {sym} ${chunk:.2f}: 잔여 매수가능금액 ${bp_left:.2f} 부족 → 이하 보류(과매수 방지)")
+                deferred = True
+                break                              # 매수가능금액 초과 → 이번 실행 보류(다음 트리거 재개)
+            k = start_idx + j
             cid = client_order_id(session_date, sym, k if multi else None)
-            tag = f" [{k + 1}/{len(chunks)}]" if multi else ""
+            tag = f" [#{k + 1}]" if multi else ""
             try:
                 resp = client.create_order(sym, "BUY", order_type="MARKET",
                                            order_amount=f"{chunk:.2f}", client_order_id=cid)
                 oid = resp.get("orderId") if isinstance(resp, dict) else None
                 orders_placed += 1
                 placed_this_sym += 1
+                if bp_left is not None:
+                    bp_left -= chunk
+                # 접수 성공 즉시 세션 누적에 기록·영속(재개 시 cid 재사용 금지의 근거).
+                chunks_done.setdefault(sym, []).append({"cid": cid, "amount": round(float(chunk), 2)})
+                _record_session_progress(session_date, done, chunks_done)
                 log(f"  ✅ {sym} ${chunk:.2f} 매수 접수{tag}: orderId={oid} (cid={cid})")
             except Exception as e:  # noqa: BLE001
                 sym_ok = False
                 ok = False
                 log(f"  ❌ {sym} ${chunk:.2f} 매수 실패{tag}{' [분할 중단]' if multi else ''}: {e}")
                 break                              # 어떤 오류든 즉시 분할 중단
-        if placed_this_sym > 0 and sym_ok:
+        # 이 종목의 남은 청크를 모두 성공적으로 접수했을 때만 done(부분·보류는 done 아님 → 재개).
+        if placed_this_sym > 0 and sym_ok and not deferred:
             done.add(sym)
-            _record_session_progress(session_date, done)   # 증분 저장(중간 실패 대비)
+            _record_session_progress(session_date, done, chunks_done)
         if not sym_ok:
             break                                  # 실패 시 이번 실행 전체 중단(안전)
+        if deferred:
+            break                                  # 매수가능금액 소진 → 이번 실행 중단(다음 트리거 재개)
     return ok
 
 
@@ -282,33 +306,66 @@ def backtest_mode() -> int:
     return 0
 
 
-def _session_skip_symbols(client, session_date: str, log) -> set[str]:
+def _session_skip_symbols(client, session_date: str, log,
+                          session_start: datetime | None = None) -> set[str]:
     """이번 세션에 이미 접수된 것으로 볼 종목 집합(서버 OPEN 매수주문 기준, best-effort).
 
     ⚠️ Order 스키마는 clientOrderId를 응답하지 않으므로 cid로는 매칭할 수 없다. 진짜 멱등은
     결정론적 cid의 서버측 dedup(동일 cid 재요청=원주문 반환, 10분)이 담당하며, 여기선
-    '아직 미체결(OPEN)인 매수주문이 있는 종목'만 스킵해 중복 접수를 줄인다.
+    '이번 세션에 이 봇이 낸 미체결(OPEN) 매수주문이 있는 종목'만 스킵해 중복 접수를 줄인다.
+
+    사용자가 직접 낸 무관한 LIMIT 매수(장기 지정가 등)까지 스킵하면 정작 필요한 적립 매수를
+    건너뛰어 **미매수**가 된다. 그래서 (1) 이 봇이 쓰는 MARKET/금액(orderAmount) 주문이고
+    (2) orderedAt이 세션 시작(session_start) 이후인 OPEN BUY만 스킵 대상으로 본다.
     """
     skip: set[str] = set()
     try:
         resp = client.list_orders("OPEN")
         for o in (resp.get("orders") if isinstance(resp, dict) else []) or []:
             sym = o.get("symbol")
-            if sym and str(o.get("side", "")).upper() == "BUY":
-                skip.add(sym)
+            if not sym or str(o.get("side", "")).upper() != "BUY":
+                continue
+            # 이 봇의 매수는 MARKET 금액주문뿐 → 사용자 LIMIT 등은 무시(오스킵=미매수 방지).
+            is_amount = o.get("orderAmount") not in (None, "")
+            if str(o.get("orderType", "")).upper() != "MARKET" and not is_amount:
+                continue
+            # 이번 세션 시작 이후 주문만(과거·타 세션 잔여 주문은 무시).
+            if session_start is not None:
+                oa = _parse_dt(o.get("orderedAt"))
+                if oa is None or oa < session_start:
+                    continue
+            skip.add(sym)
     except Exception as e:  # noqa: BLE001
         log(f"  (사전 list_orders 확인 실패, 무시: {e})")
     return skip
 
 
-def _record_session_progress(session_date: str, done: set[str]) -> None:
-    """세션 진행 상황을 증분 저장(중간 실패 후 재실행 시 완료 종목 스킵용)."""
+def _record_session_progress(session_date: str, done: set[str],
+                             chunks_done: dict | None = None) -> None:
+    """세션 진행 상황을 증분 저장(중간 실패 후 재실행 시 완료 종목 스킵·청크 재개용).
+
+    chunks_done={sym: [{"cid","amount"}, ...]}는 접수된 청크 누적이며, 재실행 시 이 개수에서
+    청크 번호를 이어 매겨 성공한 cid를 재사용하지 않게 한다(같은 세션 내 중복 매수 방지).
+    """
     st = _state()
     if st.get("session_date") != session_date:
         st = {"session_date": session_date}
     st["done_symbols"] = sorted(done)
+    if chunks_done is not None:
+        st["chunks_done"] = {s: list(v) for s, v in chunks_done.items()}
     st["last_run"] = datetime.now(timezone.utc).isoformat()
     _save_state(st)
+
+
+def _session_chunks_done(session_date: str) -> dict:
+    """이번 세션(같은 US date)에 이미 접수된 청크 누적을 상태에서 로드. 세션이 다르면 빈 dict."""
+    st = _state()
+    if st.get("session_date") != session_date:
+        return {}
+    cd = st.get("chunks_done")
+    if not isinstance(cd, dict):
+        return {}
+    return {s: list(v) for s, v in cd.items() if isinstance(v, list)}
 
 
 def _mark_session_complete(session_date: str, done: set[str] | None = None) -> None:
@@ -408,12 +465,15 @@ def live_plan(execute: bool, auto: bool = False, split: bool = True,
         return 1
 
     # 멱등: 이미 이번 세션에 접수된 종목(로컬 상태 + 서버 OPEN 매수주문)은 건너뛴다.
-    skip = _session_skip_symbols(client, session_date, log)
+    session_start = _parse_dt(reg.get("startTime"))
+    skip = _session_skip_symbols(client, session_date, log, session_start=session_start)
     st = _state()
     done = set(st.get("done_symbols", [])) if st.get("session_date") == session_date else set()
     skip |= done
+    chunks_done = _session_chunks_done(session_date)   # 같은 세션 재개 시 청크 번호 이어 매김
 
-    ok = _execute_buys(client, plan, session_date, skip, done, log, split=split)
+    ok = _execute_buys(client, plan, session_date, skip, done, log, split=split,
+                       chunks_done=chunks_done, remaining_bp=avail_usd)
 
     # 모든 대상이 성공/기존존재로 처리됐으면 세션 완료 마킹(이후 트리거는 즉시 no-op).
     if ok:
@@ -572,7 +632,10 @@ def lifecycle_plan(execute: bool, auto: bool = False, split: bool = True,
     sleeve_cash = sleeve * avail_usd
     base_cash = avail_usd - sleeve_cash
     sleeve_held = {pl.QQQ: sleeve * held.get(pl.QQQ, 0.0), pl.QLD: held.get(pl.QLD, 0.0)}
-    dep = pl.deposit_plan(sleeve_held, sleeve_cash, E, band=LIFECYCLE_BAND)
+    # ⚠️ 실계좌는 디레버리지 매도를 자동 집행하지 않으므로(경고만), 매도 대금을 가정한 현금 초과
+    # 매수를 막기 위해 sells_executed=False로 매수를 가용현금 범위로 캡한다(insufficient-BP·과매수 방지).
+    dep = pl.deposit_plan(sleeve_held, sleeve_cash, E, band=LIFECYCLE_BAND,
+                          sells_executed=False)
     log(f"  슬리브 목표노출 E={E:.3f} → 비중 QQQ {dep.weights[pl.QQQ]:.2f} / "
         f"QLD {dep.weights[pl.QLD]:.2f} (실제노출 E_actual={dep.e_actual:.3f})")
     if dep.sell_triggered:
@@ -630,11 +693,14 @@ def lifecycle_plan(execute: bool, auto: bool = False, split: bool = True,
         log("❌ --execute에는 TRADING_MODE=live 필요. paper라 주문 안 함.")
         return 1
 
-    skip = _session_skip_symbols(client, session_date, log)
+    session_start = _parse_dt(reg.get("startTime"))
+    skip = _session_skip_symbols(client, session_date, log, session_start=session_start)
     st = _state()
     done = set(st.get("done_symbols", [])) if st.get("session_date") == session_date else set()
     skip |= done
-    ok = _execute_buys(client, plan, session_date, skip, done, log, split=split)
+    chunks_done = _session_chunks_done(session_date)   # 같은 세션 재개 시 청크 번호 이어 매김
+    ok = _execute_buys(client, plan, session_date, skip, done, log, split=split,
+                       chunks_done=chunks_done, remaining_bp=avail_usd)
     if ok:
         remaining_targets = [s_ for s_, _ in plan if s_ not in done and s_ not in skip]
         if not remaining_targets:
