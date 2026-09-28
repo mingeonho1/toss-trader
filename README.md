@@ -226,3 +226,40 @@ TRADING_MODE=live PYTHONPATH=src python scripts/run_dca.py --execute
 #    → 매수가능 현금을 QQQ60/SCHD25/GLD15로 시장가 매수. data/dca.log에 기록.
 ```
 (원하면 자동화 자체를 live로: `bash scripts/install_dca_automation.sh --live` — 단 무인 실주문이므로 비권장. 기본은 dry-run.)
+
+## 페이퍼 전략 → 실계좌(선택)
+포워드 페이퍼 랩(`scripts/paperlab_run.py`)에서 **검증한 전략 1개**를 골라 실계좌 주문으로 돌리는 브릿지.
+`scripts/run_strategy.py` 는 **기본이 항상 dry-run**(주문 없음)이고, **자동으로 켜지지 않는다**. 실주문은
+다음이 **전부** 참일 때만 나간다: `--execute` + `TRADING_MODE=live` + 미 정규장 **금액주문 접수 시간창**
+(정규장 시작~종료 1시간 전) + 사전 **안전검사 통과**.
+
+동작: 페이퍼 랩과 **동일한 코드**(`strategy.decide`)로 최신 종가 기준 오늘의 목표비중을 산출 → 실보유·매수가능
+금액을 읽어 **매도 먼저**(전량은 단건, 부분은 소수점 6자리 내림 단건 — SEC/TAF 최소금액 최소화) → **매수**를
+≤$10 무료 청크로 분할(매수가능금액·`--max-usd` 캡). run_dca 의 하드닝된 실행 머신러리(`toss_trader.live_exec`)를 재사용한다.
+
+```bash
+# 1) 플랜만 보기(dry-run, 주문 없음) — 예: ftlt_1x(비레버리지 실계좌판)
+PYTHONPATH=src python scripts/run_strategy.py --strategy ftlt_1x
+
+# 2) 계좌의 20%만 이 전략에 배정해서 플랜 확인(sleeve)
+PYTHONPATH=src python scripts/run_strategy.py --strategy ftlt_1x --sleeve-frac 0.2
+
+# 3) 실주문 — 반드시 미 정규장 접수시간창에서, 한 번 실행당 최대 $50 매수
+TRADING_MODE=live PYTHONPATH=src python scripts/run_strategy.py \
+    --strategy ftlt_1x --execute --sleeve-frac 0.2 --max-usd 50
+```
+
+**안전장치**
+- **레버리지/인버스 ETP 게이트**: 매수 대상 종목의 `leverageFactor` 를 조회해 `|배수|>1` 이면 거부하고 한국 규제
+  안내를 출력한다 — *최초 거래 기본예탁금 ₩10,000,000 + 사전 교육 1시간, 개별주식 레버리지 ETP는 매수 건마다
+  ₩30,000,000*. 요건을 충족했다면 `--allow-leveraged-etp` 로만 진행(본인 책임). 주문 시 422 `prerequisite-required`/
+  `stock-restricted` 도 같은 안내로 매핑된다. (TQQQ/SQQQ 등 레버리지 심볼을 쓰는 전략은 `_1x` 섀도판(QQQ/SPY/PSQ)이
+  실계좌 대상이다.)
+- **킬스위치**: 페이퍼 장부 낙폭이 `--max-paper-dd`(기본 −35%) 또는 계좌 당일 손익이 `--max-intraday-loss`
+  (기본 −10%)를 넘으면 실주문을 거부. `0` 을 주면 해당 검사를 끈다.
+- **세션당 1회 멱등**: 결정론적 cid(`strat-…`, DCA 봇과 네임스페이스 분리) + `data/strategy_live/{name}_state.json`
+  으로 같은 세션 재실행 시 중복 접수가 없다(부분 접수는 청크 번호를 이어 재개).
+- **기록**: 모든 플랜/주문을 `data/strategy_live/{name}.jsonl` 과 사람이 읽는 `reports/strategy_live_latest.md` 에 남긴다.
+
+> ⚠️ 이 브릿지는 **레버리지·인버스·고회전 전략을 실계좌에서 자동 집행**할 수 있다. 페이퍼(≥3개월, QQQ 상회, 0 운영오류)로
+> 먼저 검증하고, 소액·`--sleeve-frac`·`--max-usd` 로 시작하라. 자동화(launchd 등)에 **live 로 올리지 말 것**(무인 실주문 비권장).
