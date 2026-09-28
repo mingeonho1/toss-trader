@@ -39,8 +39,12 @@ Ayres–Nalebuff *Lifecycle Investing* 의 생애주기 글라이드 노출을 *
 구현한다(W=이미 투자된 슬리브 자산, PV=남은 적립의 현재가치). 젊을수록(W 작음) ~2x 로 시작해
 자산이 커지며 1x 로 글라이드한다.
 
-> 🔴 **채택 여부는 아직 결정되지 않았다.** 별도 감사(audit)가 병행 중이며, 이 정책은 **항상
-> dry-run 이 기본**이고 **자동으로 켜지지 않는다**. 실계좌 적용 전 아래 리스크를 반드시 읽을 것.
+> 🔴 **채택 보류(기본 OFF 유지).** 이 정책은 **항상 dry-run 이 기본**이고 **자동으로 켜지지 않는다**.
+> 검증 경과: NDX 1986–2026 20y 사전등록 규칙 PASS(1.36×/1.24×), NASDAQCOM 1971–85 OOS PASS →
+> 적대적 감사 **WEAKENED**(유효표본≈2, 닛케이 FAIL) → **Shiller 1871–2026 심층 OOS에서 20y 우위
+> 대부분 소멸(pre-1986 시작 median 1.04× → FAIL)**, 30년 지평만 PASS(1.30×).
+> 즉 성과는 1986–2026 NDX 레짐 의존적이다. 쓴다면 **30년 이상 지평·소액 슬리브(≤10–15%)** 한정.
+> 근거: `reports/cycle6_c6a_lifecycle_audit.md`, `reports/cycle7_c7b_killswitch.md`, `reports/cycle7_c7c_shiller.md`.
 
 **정책 함수:** `src/toss_trader/policy_lifecycle.py`
 (`lifecycle_target` / `allocation_for_exposure` / `deposit_plan`). 연구 재현·근거는
