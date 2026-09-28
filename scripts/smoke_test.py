@@ -57,6 +57,8 @@ def main() -> int:
     show("현재가 AAPL,MSFT", lambda: client.get_prices(["AAPL", "MSFT"]))
     show("일봉 AAPL (5)", lambda: client.get_candles("AAPL", interval="1d", count=5))
     show("종목정보 AAPL,MSFT", lambda: client.get_stocks(["AAPL", "MSFT"]))
+    # 라이프사이클 슬리브(옵트인)용 QLD 거래가능성 읽기전용 확인 — 주문 없음, 자격증명 없으면 스킵.
+    show("종목정보 QLD (라이프사이클 슬리브 거래가능성)", lambda: client.get_stocks(["QLD"]))
 
     # --- 계좌 목록 → accountSeq 자동 추출 ---
     accounts = show("계좌 목록", client.get_accounts)

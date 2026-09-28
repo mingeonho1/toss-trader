@@ -33,6 +33,44 @@ python scripts/run_dca.py              # 실계좌 적립 매수 플랜(dry-run,
 ```
 근거·수치는 `reports/strategy_gate_2026-06-28.md`, `reports/improvement_roadmap_2026-06-28.md`.
 
+## 라이프사이클 레버리지 슬리브 (옵트인 · 기본 비활성)
+Ayres–Nalebuff *Lifecycle Investing* 의 생애주기 글라이드 노출을 **계좌의 소액 슬리브**에만
+적용하는 **선택형** 정책이다. QQQ(1x)+QLD(2x) 혼합으로 목표노출 E=clip(0.8·(W+PV)/W, 1, 2)를
+구현한다(W=이미 투자된 슬리브 자산, PV=남은 적립의 현재가치). 젊을수록(W 작음) ~2x 로 시작해
+자산이 커지며 1x 로 글라이드한다.
+
+> 🔴 **채택 여부는 아직 결정되지 않았다.** 별도 감사(audit)가 병행 중이며, 이 정책은 **항상
+> dry-run 이 기본**이고 **자동으로 켜지지 않는다**. 실계좌 적용 전 아래 리스크를 반드시 읽을 것.
+
+**정책 함수:** `src/toss_trader/policy_lifecycle.py`
+(`lifecycle_target` / `allocation_for_exposure` / `deposit_plan`). 연구 재현·근거는
+`experiments/c5a_lifecycle.py`, `reports/cycle5_c5a_lifecycle.md`.
+
+**설정(.env / 환경변수):**
+| 키 | 기본값 | 의미 |
+|---|---|---|
+| `POLICY` | `dca` | `dca`(기본) 또는 `lifecycle`. lifecycle 이라도 슬리브 0 이면 DCA 로 폴백. |
+| `LIFECYCLE_SLEEVE` | `0` | 라이프사이클로 운용할 계좌 비율(0 → **off**). 예: `0.3`. |
+| `LIFECYCLE_PLAN_YEARS` | `25` | 생애 적립 계획(년) — PV 산정용. |
+| `LIFECYCLE_EMAX` | `2.0` | 슬리브 목표노출 상한(2.0 = 2x). |
+
+```bash
+PYTHONPATH=src python scripts/run_dca.py --policy lifecycle            # 슬리브+기본배분 플랜(dry-run)
+PYTHONPATH=src python scripts/forward_lifecycle_paper.py --reset       # 페이퍼 슬리브 vs DCA-QQQ 누적
+# TRADING_MODE=live PYTHONPATH=src python scripts/run_dca.py --policy lifecycle --execute  # 실매수(정규장)
+```
+실행기는 **매수만** 접수한다(분할·멱등 재사용). 밴드 초과 시 나오는 **디레버리지 매도는 자동
+실행하지 않고 경고만** 한다(레버리지 축소는 수동 검토). 실주문 전 QLD 거래가능성을 stocks
+엔드포인트로 읽기전용 확인한다(`scripts/smoke_test.py` 스모크 경로에도 포함).
+
+> ⚠️ **리스크(반드시 병기 — 알파가 아니라 베타/위험선호):**
+> - **최악 단위자본 낙폭 ≈ −99%** (닷컴 시작 코호트, 20년 지평). 레버리지 ETF 는 하락장에서
+>   원금 대부분을 잃을 수 있다.
+> - **10년 지평은 사전등록 채택 규칙을 통과하지 못했다**(짧은 지평은 초기 레버리지 손실을 상각할
+>   시간이 부족). 20년 지평 glide 만 설계·홀드아웃 양쪽 통과.
+> - 표준(절대낙폭) 게이트로는 **레버리지 자체가 FAIL** 이다. 따라서 **소액 슬리브 한정 + 포워드
+>   페이퍼 점증** 후에만 고려한다. 합성 2x 백테스트는 배당을 2배로 태워 **낙관 방향**이다.
+
 ## 포워드 페이퍼 비교 (실현재가 기반, 실주문 없음)
 `scripts/run_dca.py --auto`는 한 번 실행해 현재 계좌 현금 기준 DCA 매수 플랜만 기록하고 끝난다.
 하루 동안 실제 현재가로 "지금 샀다면/팔았다면"을 비교하려면 별도 페이퍼 장부를 쓴다.

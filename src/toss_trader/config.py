@@ -32,10 +32,20 @@ class Settings:
     base_url: str
     trading_mode: str         # "paper" | "live"
     gemini_api_key: str       # 비어있으면 LLM 보조 비활성
+    # ── 옵트인 라이프사이클(레버리지) DCA 정책 — 기본은 항상 비활성 ──────────────
+    policy: str = "dca"               # "dca"(기본) | "lifecycle"
+    lifecycle_sleeve: float = 0.0     # 라이프사이클로 운용할 계좌 비율(0.0 → off; 예 0.3)
+    lifecycle_plan_years: int = 25    # 생애 적립 계획(년) — PV 산정용
+    lifecycle_emax: float = 2.0       # 슬리브 목표노출 상한(2.0 = 2x)
 
     @property
     def is_live(self) -> bool:
         return self.trading_mode.lower() == "live"
+
+    @property
+    def lifecycle_enabled(self) -> bool:
+        """라이프사이클 슬리브가 실제로 켜져 있는가(정책=lifecycle AND 슬리브>0)."""
+        return self.policy.lower() == "lifecycle" and self.lifecycle_sleeve > 0.0
 
     @property
     def has_account(self) -> bool:
@@ -79,6 +89,22 @@ def get_settings(env_path: str | os.PathLike = ".env") -> Settings:
                 return v.strip()
         return default
 
+    def _num(name: str, default: float) -> float:
+        raw = _env(name)
+        if not raw:
+            return default
+        try:
+            return float(raw)
+        except ValueError:
+            raise RuntimeError(f"{name}는 숫자여야 합니다 (현재: {raw!r}).")
+
+    policy = _env("POLICY", default="dca").lower()
+    if policy not in ("dca", "lifecycle"):
+        raise RuntimeError(f"POLICY는 dca 또는 lifecycle여야 합니다 (현재: {policy!r}).")
+    lifecycle_sleeve = min(1.0, max(0.0, _num("LIFECYCLE_SLEEVE", 0.0)))
+    lifecycle_plan_years = max(1, int(_num("LIFECYCLE_PLAN_YEARS", 25)))
+    lifecycle_emax = min(2.0, max(1.0, _num("LIFECYCLE_EMAX", 2.0)))
+
     return Settings(
         client_id=_env("TOSS_CLIENT_ID", "API_KEY"),
         client_secret=_env("TOSS_CLIENT_SECRET", "SECRET_KEY"),
@@ -86,4 +112,8 @@ def get_settings(env_path: str | os.PathLike = ".env") -> Settings:
         base_url=_env("TOSS_BASE_URL", default=DEFAULT_BASE_URL).rstrip("/"),
         trading_mode=mode,
         gemini_api_key=_env("GEMINI_API_KEY"),
+        policy=policy,
+        lifecycle_sleeve=lifecycle_sleeve,
+        lifecycle_plan_years=lifecycle_plan_years,
+        lifecycle_emax=lifecycle_emax,
     )
