@@ -29,6 +29,7 @@ _HINTS: dict[str, str] = {
     "stock-not-found": "존재하지 않는 종목입니다.",
     "login-user-not-found": "로그인 사용자를 찾을 수 없습니다.",
     # 인증/토큰
+    "access_denied": "토스 OpenAPI 콘솔(PC 웹)에서 현재 공인 IP를 허용 IP로 등록하세요.",
     "invalid-token": "토큰이 유효하지 않습니다. 토큰을 재발급합니다(자동 재시도).",
     "expired-token": "토큰이 만료됐습니다. 재발급 후 재시도합니다(자동).",
     "token-revoked": "토큰이 폐기됐습니다(새 토큰 발급 시 이전 토큰 무효화). 캐시를 재확인 후 재발급합니다.",

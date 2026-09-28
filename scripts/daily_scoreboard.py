@@ -115,8 +115,26 @@ def _f(v: Any, default: float = 0.0) -> float:
         return default
 
 
+def api_usable(timeout: float = 20.0) -> tuple[bool, str]:
+    """토스 API 토큰 발급/재사용이 되는지 1회 확인(읽기 전용). 실패 사유를 짧게 돌려준다."""
+    try:
+        sys.path.insert(0, str(ROOT / "src"))
+        from toss_trader.client import TossClient  # noqa: PLC0415  지연 import(오프라인 경로 보호)
+        TossClient()._ensure_token()
+        return True, ""
+    except Exception as e:  # noqa: BLE001
+        msg = str(e)
+        if "IP address not allowed" in msg or "access_denied" in msg:
+            return False, "허용 IP 미등록"
+        return False, f"{type(e).__name__}: {msg[:80]}"
+
+
 def has_credentials(env: dict[str, str] | None = None) -> bool:
-    """토스 자격증명(client id/secret)이 환경변수 또는 .env 에 있는지."""
+    """토스 자격증명(client id/secret)이 환경변수 또는 .env 에 있는지.
+
+    env 를 명시하면 그 dict 만 본다(.env 폴백 없음 — 테스트 격리). None 이면 os.environ + .env.
+    """
+    explicit = env is not None
     env = os.environ if env is None else env
     pairs = [("TOSS_CLIENT_ID", "API_KEY"), ("TOSS_CLIENT_SECRET", "SECRET_KEY")]
     got = {}
@@ -126,7 +144,7 @@ def has_credentials(env: dict[str, str] | None = None) -> bool:
         return True
     # .env 파일 폴백(단순 KEY=VALUE 파서)
     dotenv = ROOT / ".env"
-    if not dotenv.exists():
+    if explicit or not dotenv.exists():
         return False
     vals: dict[str, str] = {}
     try:
@@ -788,8 +806,18 @@ def run_scoreboard(*, offline: bool = False, now_utc: datetime | None = None,
                    creds: bool | None = None) -> dict[str, Any]:
     now_utc = now_utc or _now_utc()
     et_now = _et(now_utc)
-    creds = has_credentials() if creds is None else creds
+    api_note = ""
+    if creds is None:
+        creds = has_credentials()
+        # 키가 있어도 API가 실제로 막혀 있으면(예: 토스 OpenAPI 허용 IP 미등록 → 403) 키 없는
+        # 캐시 모드로 폴백해야 장부가 멈추지 않는다. 명시적으로 creds 를 넘긴 경우(테스트)는 생략.
+        if creds and not offline:
+            ok, why = api_usable()
+            if not ok:
+                creds, api_note = False, f"토스 API 사용 불가 → 캐시 모드 폴백 ({why})"
     mode = "live(실시세)" if (creds and not offline) else "offline(캐시)"
+    if api_note:
+        mode += f" · {api_note}"
     source = "live" if (creds and not offline) else "cached"
 
     # 오프라인 포워드 페이퍼가 캐시로 돌 수 있도록 일봉 캐시 시딩(멱등).
@@ -884,6 +912,12 @@ def main(argv: list[str] | None = None) -> int:
     print(json.dumps({k: v for k, v in res.items() if k != "report_text"},
                      ensure_ascii=False))
     print(f"→ {res['report']}")
+    # 기록은 맥에 쌓지 않고 GitHub paper-log 브랜치로(허용 목록만·비밀 검사). 실패해도 스코어보드는 성공.
+    if not args.offline:
+        pub = execute_step(Step("publish_records", [sys.executable or "python3",
+                                                    str(SCRIPTS / "publish_records.py")],
+                                timeout=180.0))
+        print(f"publish_records: {pub.status} {pub.stdout.strip()[-200:]}")
     return 0
 
 
