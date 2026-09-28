@@ -39,8 +39,12 @@ Ayres–Nalebuff *Lifecycle Investing* 의 생애주기 글라이드 노출을 *
 구현한다(W=이미 투자된 슬리브 자산, PV=남은 적립의 현재가치). 젊을수록(W 작음) ~2x 로 시작해
 자산이 커지며 1x 로 글라이드한다.
 
-> 🔴 **채택 여부는 아직 결정되지 않았다.** 별도 감사(audit)가 병행 중이며, 이 정책은 **항상
-> dry-run 이 기본**이고 **자동으로 켜지지 않는다**. 실계좌 적용 전 아래 리스크를 반드시 읽을 것.
+> 🔴 **채택 보류(기본 OFF 유지).** 이 정책은 **항상 dry-run 이 기본**이고 **자동으로 켜지지 않는다**.
+> 검증 경과: NDX 1986–2026 20y 사전등록 규칙 PASS(1.36×/1.24×), NASDAQCOM 1971–85 OOS PASS →
+> 적대적 감사 **WEAKENED**(유효표본≈2, 닛케이 FAIL) → **Shiller 1871–2026 심층 OOS에서 20y 우위
+> 대부분 소멸(pre-1986 시작 median 1.04× → FAIL)**, 30년 지평만 PASS(1.30×).
+> 즉 성과는 1986–2026 NDX 레짐 의존적이다. 쓴다면 **30년 이상 지평·소액 슬리브(≤10–15%)** 한정.
+> 근거: `reports/cycle6_c6a_lifecycle_audit.md`, `reports/cycle7_c7b_killswitch.md`, `reports/cycle7_c7c_shiller.md`.
 
 **정책 함수:** `src/toss_trader/policy_lifecycle.py`
 (`lifecycle_target` / `allocation_for_exposure` / `deposit_plan`). 연구 재현·근거는
@@ -156,6 +160,41 @@ PYTHONPATH=src python scripts/collect_intraday.py --symbols NVDA,TSLA --regular-
 (**설치 안 됨** — 경로 치환 후 수동 `launchctl load`). KST 09:10·10:10 트리거로 미 확장장
 마감(20:00 ET, EDT/EST 양쪽)을 커버하고, 수집기는 병합-누적이라 이중 실행이 무해하다.
 오프라인 테스트: `PYTHONPATH=src python -m unittest tests.test_intraday_sources`.
+
+## 매일 자동 스코어보드 (선택)
+세션이 끝난 뒤에도 "루프"가 **정직한 포워드 증거**를 계속 쌓게 하는 단일 작업이다.
+`scripts/daily_scoreboard.py` 는 **읽기 전용·멱등**(아무 때나 여러 번 돌려도 안전)이며 **주문을
+절대 내지 않는다.** 하위 단계를 각각 격리해(한 단계가 실패해도 나머지는 계속) 타임아웃과 함께 돌린다:
+(a) ET 16:05 이후면 인트라데이 수집기 → 레인3 섀도, (b) 포워드 페이퍼 장부(Lump-sum ETF 기준선 +
+액티브 후보 + 라이프사이클 슬리브 vs DCA-QQQ)를 **자격증명 있으면 실 토스 시세, 없으면 캐시(Nasdaq
+종가)** 로 갱신, (c) DCA dry-run 플랜(분할·FX 경고 포함, 자격증명 있을 때) + 양도세 리포트,
+(d) `reports/scoreboard_latest.md`(대시보드) + `data/scoreboard_history.jsonl`(변경 이력) 기록.
+
+```bash
+# 1회 실행: 자격증명 유무·ET 시각을 자동 판정
+PYTHONPATH=src python scripts/daily_scoreboard.py
+# 네트워크·API 없이 캐시만으로(로컬 검증/CI)
+PYTHONPATH=src python scripts/daily_scoreboard.py --offline
+# 최신 대시보드만 출력
+PYTHONPATH=src python scripts/daily_scoreboard.py --status
+```
+
+대시보드에는 장부별 지분·최대낙폭(시작 이후), 규칙별 인트라데이 섀도(n·평균 net bps·t·상태),
+오늘의 DCA 플랜, 양도세 YTD, 변경 이력 한 줄이 담긴다.
+
+**자동화(선택, 원커맨드 — 자동 설치 안 됨):** macOS `launchd` 로 매일 **06:30 KST**(미 정규장
+마감 이후, EDT/EST 양쪽) 1회 + `RunAtLoad`(전원 켜지면 즉시 보충) 실행.
+```bash
+bash scripts/install_scoreboard.sh            # 설치(자격증명 있으면 실시세, 없으면 캐시)
+bash scripts/install_scoreboard.sh --offline   # 캐시 전용으로 설치
+bash scripts/install_scoreboard.sh --status    # 상태 + 최신 대시보드 + 로그
+bash scripts/install_scoreboard.sh --uninstall # 제거
+```
+참조용 LaunchAgent 템플릿은 `automation/com.tosstrader.scoreboard.plist`(경로 치환 후 수동 로드도 가능),
+GitHub Actions 초안(비활성)은 `docs/github-actions/scoreboard.yml`. 오프라인 테스트:
+`PYTHONPATH=src python -m pytest -q tests/test_scoreboard.py`.
+> ⚠️ macOS TCC: repo 가 `~/Desktop`(또는 Documents/Downloads) 아래면 launchd 접근 거부 —
+> 보호되지 않는 경로(예: `~/github/toss-trader`)에 두거나 해당 python 에 전체 디스크 접근을 부여한다.
 
 ## 자동화 (항상 dry-run) & 실거래 전환
 **입금**은 API로 불가 → 은행 자동이체/토스 앱으로 설정(예: 매주 일요일 ₩50,000). 봇은 들어온 현금만 매수.

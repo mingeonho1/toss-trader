@@ -29,6 +29,7 @@ from toss_trader.client import TossClient              # noqa: E402
 from toss_trader.config import get_settings            # noqa: E402
 from toss_trader.costs import CostModel                # noqa: E402
 from toss_trader.fees import TossFeeSchedule           # noqa: E402
+from toss_trader import fx as fxmod                     # noqa: E402
 from toss_trader.marketdata import TossMarketData      # noqa: E402
 from toss_trader.models import Candle                  # noqa: E402
 
@@ -200,6 +201,54 @@ def _execute_buys(client, plan, session_date, skip, done, log, *,
     return ok
 
 
+# ── FX(환전) 시간대 프리플라이트 ──────────────────────────────────────────
+# DCA 는 미 정규장(야간 KST)에 돈다. 계좌가 KRW면 주문 시 자동환전이 야간 요율(≈0.5%)로 붙어
+# FX 가 최대 비용이 될 수 있다(검증·공식: 평일 09:00–15:30 KST 95% 우대=0.05%, 그 외 50%=0.5%).
+# USD 매수가능금액을 조회해 '플랜 중 KRW 자동환전이 필요한 부분(shortfall)'을 계산하고, 지금이
+# 우대창 밖이면 초과 FX 비용을 경고한다(+--require-usd면 매수 보류). ⚠️ 자동환전 발생·요율은
+# 스펙 미노출(공식/언론 기반 가정) — API엔 환전 엔드포인트가 없어 시각 제어 불가(앱에서 수동 환전).
+FX_MODEL = fxmod.FxCostModel()
+
+
+def fx_window_preflight(client, plan_total_usd: float, fx_rate: float, log, *,
+                        require_usd: bool = False, now=None,
+                        model: "fxmod.FxCostModel | None" = None) -> tuple[bool, float]:
+    """플랜이 KRW 자동환전을 요구하고 지금이 환전 우대창 밖이면 경고(+선택 보류).
+
+    반환 (proceed, shortfall_usd): proceed=False면 --require-usd로 이번 매수를 미룬다.
+    USD 매수가능금액을 조회해 플랜 총액 중 USD로 못 대는 부분(shortfall)을 계산하고,
+    shortfall>0(=KRW 자동환전 필요) & 우대창 밖 → 야간 환전비·주간창 대비 초과분을 경고한다.
+    조회 실패 시 (True, 0.0)로 보수적 통과(경고만 생략).
+    """
+    model = model or FX_MODEL
+    now = now or datetime.now(fxmod.KST)
+    try:
+        usd_bp = float(client.get_buying_power("USD").get("cashBuyingPower", 0) or 0)
+    except Exception as e:  # noqa: BLE001
+        log(f"  (USD 매수가능 조회 실패 → FX 프리플라이트 생략: {e})")
+        return True, 0.0
+    shortfall = max(0.0, plan_total_usd - usd_bp)
+    if shortfall <= 1e-9:
+        log(f"  FX: 플랜 ${plan_total_usd:.2f} ≤ USD 매수가능 ${usd_bp:.2f} → 자동환전 불필요(추가 FX 없음).")
+        return True, 0.0
+    shortfall_krw = shortfall * fx_rate if fx_rate else 0.0
+    if model.window.contains(now):
+        log(f"  FX: USD 부족 ${shortfall:.2f}(≈₩{shortfall_krw:,.0f})는 KRW 자동환전 대상이나 "
+            f"지금은 환전 우대창 내 → 우대 요율(≈{model.in_window_bps:.0f}bps) 기대.")
+        return True, shortfall
+    out_fee_krw = shortfall_krw * model.out_window_bps * 1e-4
+    extra_krw = model.extra_cost_krw(shortfall_krw, now)
+    nxt = model.window.next_open(now)
+    log("  ⚠️ FX 경고: 지금은 환전 우대창(평일 09:00–15:30 KST) 밖. "
+        f"USD 부족분 ${shortfall:.2f}(≈₩{shortfall_krw:,.0f})가 KRW 자동환전되면 야간 요율"
+        f"(≈{model.out_window_bps:.0f}bps)로 ≈₩{out_fee_krw:,.0f} 환전비 — 주간창 대비 초과 ≈₩{extra_krw:,.0f}. "
+        f"다음 우대창: {nxt:%Y-%m-%d %H:%M} KST. (자동환전 여부·요율은 가정 — scripts/fx_advice.py)")
+    if require_usd:
+        log("  ⏸ --require-usd: USD 매수가능 확보 전까지 이번 매수 보류(앱에서 우대창에 KRW→USD 환전 후 재실행).")
+        return False, shortfall
+    return True, shortfall
+
+
 ALLOC_CANDIDATES = {
     "QQQ 100%": {"QQQ": 1.0},
     "QQQ60/SCHD25/GLD15 (기본)": {"QQQ": 0.60, "SCHD": 0.25, "GLD": 0.15},
@@ -274,7 +323,8 @@ def _mark_session_complete(session_date: str, done: set[str] | None = None) -> N
     _save_state(st)
 
 
-def live_plan(execute: bool, auto: bool = False, split: bool = True) -> int:
+def live_plan(execute: bool, auto: bool = False, split: bool = True,
+              require_usd: bool = False) -> int:
     log = _log if auto else (lambda m: print(m))
     s = get_settings()
     s.require_credentials()
@@ -342,6 +392,13 @@ def live_plan(execute: bool, auto: bool = False, split: bool = True) -> int:
             log("  ↳ 분할매수(≤$10 무료 활용): "
                 + ", ".join(f"{s}×{len(c)}" for s, c in preview.items() if len(c) > 1)
                 + "  (--no-split-small-orders로 끔; 정책 리스크 유의)")
+
+    # FX 시간대 프리플라이트: KRW 자동환전이 필요하고 우대창 밖이면 경고(+--require-usd면 보류).
+    plan_total_usd = sum(a for _, a in plan)
+    proceed, _short = fx_window_preflight(client, plan_total_usd, fx, log,
+                                          require_usd=require_usd)
+    if execute and require_usd and not proceed:
+        return 0                                # 세션 미완료로 남겨 다음 트리거/우대창에서 재개
 
     if not execute:
         log("ℹ️ dry-run(플랜만). 실주문은 --execute (+TRADING_MODE=live, 정규장·접수시간창).")
@@ -448,7 +505,8 @@ def _base_buys(base_alloc: dict, base_held: dict, base_cash: float) -> dict:
     return buys
 
 
-def lifecycle_plan(execute: bool, auto: bool = False, split: bool = True) -> int:
+def lifecycle_plan(execute: bool, auto: bool = False, split: bool = True,
+                   require_usd: bool = False) -> int:
     """라이프사이클 슬리브 + 기본배분 적립 플랜. dry-run이 기본이며 주문을 내지 않는다.
 
     슬리브 = 계좌의 LIFECYCLE_SLEEVE 비율(QQQ/QLD 글라이드 노출), 나머지 = 기본배분.
@@ -557,6 +615,13 @@ def lifecycle_plan(execute: bool, auto: bool = False, split: bool = True) -> int
             log("  ↳ 분할매수(≤$10 무료 활용): "
                 + ", ".join(f"{s_}×{len(c)}" for s_, c in preview.items() if len(c) > 1))
 
+    # FX 시간대 프리플라이트: KRW 자동환전이 필요하고 우대창 밖이면 경고(+--require-usd면 보류).
+    plan_total_usd = sum(a for _, a in plan)
+    proceed, _short = fx_window_preflight(client, plan_total_usd, fx, log,
+                                          require_usd=require_usd)
+    if execute and require_usd and not proceed:
+        return 0                                # 세션 미완료로 남겨 다음 트리거/우대창에서 재개
+
     if not execute:
         log("ℹ️ dry-run(플랜만). 실주문은 --policy lifecycle --execute "
             "(+TRADING_MODE=live, 정규장·접수시간창).")
@@ -597,6 +662,10 @@ def main() -> int:
     ap.add_argument("--split-small-orders", action=argparse.BooleanOptionalAction, default=True,
                     help="DCA 매수를 건당 ≤$10 무료 청크로 분할해 수수료 절감(기본 ON). "
                          "정책 리스크가 있으면 --no-split-small-orders로 끈다.")
+    ap.add_argument("--require-usd", action="store_true",
+                    help="USD 매수가능금액이 부족해 KRW 자동환전(야간 ≈0.5%%)이 필요하고 지금이 "
+                         "환전 우대창(평일 09:00-15:30 KST) 밖이면 매수를 보류(기본 OFF). "
+                         "우대창에 앱에서 KRW→USD 환전 후 재실행하면 재개.")
     args = ap.parse_args()
     if args.tax_report:
         return tax_report_mode()
@@ -604,8 +673,10 @@ def main() -> int:
         return backtest_mode()
     policy = args.policy or get_settings().policy
     if policy == "lifecycle":
-        return lifecycle_plan(args.execute, auto=args.auto, split=args.split_small_orders)
-    return live_plan(args.execute, auto=args.auto, split=args.split_small_orders)
+        return lifecycle_plan(args.execute, auto=args.auto, split=args.split_small_orders,
+                              require_usd=args.require_usd)
+    return live_plan(args.execute, auto=args.auto, split=args.split_small_orders,
+                     require_usd=args.require_usd)
 
 
 if __name__ == "__main__":

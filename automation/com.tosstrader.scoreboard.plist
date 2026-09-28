@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  매일 자동 스코어보드 LaunchAgent — 참조용 템플릿(설치 안 됨).
+  주문/체결 없음(읽기 전용·멱등). scripts/daily_scoreboard.py 를 하루 1회 돌려
+  포워드 페이퍼 장부·인트라데이 섀도·DCA 플랜·양도세를 갱신하고
+  reports/scoreboard_latest.md + data/scoreboard_history.jsonl 을 쓴다.
+
+  설치(수동):
+    cp automation/com.tosstrader.scoreboard.plist ~/Library/LaunchAgents/
+    # 아래 <PROJECT>/<PYTHON> 를 이 머신에 맞게 치환한 뒤:
+    launchctl load  ~/Library/LaunchAgents/com.tosstrader.scoreboard.plist   # 등록
+    launchctl unload ~/Library/LaunchAgents/com.tosstrader.scoreboard.plist  # 해제
+  또는 원커맨드(권장):
+    bash scripts/install_scoreboard.sh            # 설치
+    bash scripts/install_scoreboard.sh --status    # 상태/최근 로그
+    bash scripts/install_scoreboard.sh --uninstall # 제거
+  경로 치환:
+    <PYTHON>  = 이 repo .venv 파이썬 실제 경로 (예: /Users/mingh/github/toss-trader/.venv/bin/python3.13)
+    <PROJECT> = /Users/mingh/github/toss-trader
+
+  스케줄(KST): 매일 06:30. 미국 정규장 마감(16:00 ET)은 KST 05:00(EDT)/06:00(EST) →
+  06:30 KST 는 서머타임/표준시 양쪽에서 마감 이후다. 스코어보드는 ET 16:05 게이트로
+  '오늘 세션'이 끝났을 때만 수집기를 돌리고, 그 외엔 캐시로 장부만 갱신한다(멱등).
+  RunAtLoad=true: 잠자다 깨거나 전원이 켜지면 즉시 1회 실행(놓친 날 보충).
+
+  자격증명(.env TOSS_CLIENT_ID/SECRET) 이 있으면 실 토스 시세로, 없으면 캐시(Nasdaq 종가)로
+  돈다. 어느 쪽이든 실주문은 만들지 않는다.
+
+  ⚠️ macOS TCC: repo 가 ~/Desktop·Documents·Downloads 아래면 launchd 접근 거부.
+     보호되지 않는 경로(예: ~/github/toss-trader)에 두거나 <PYTHON>에 전체 디스크 접근 부여.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.tosstrader.scoreboard</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/mingh/github/toss-trader/.venv/bin/python3.13</string>
+    <string>/Users/mingh/github/toss-trader/scripts/daily_scoreboard.py</string>
+    <!-- 자격증명 없이 캐시만으로 돌리려면 아래 주석을 해제: -->
+    <!-- <string>&#45;&#45;offline</string> -->
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict><key>PYTHONPATH</key><string>/Users/mingh/github/toss-trader/src</string></dict>
+  <key>RunAtLoad</key><true/>
+  <key>StartCalendarInterval</key>
+  <dict><key>Hour</key><integer>6</integer><key>Minute</key><integer>30</integer></dict>
+  <key>StandardOutPath</key><string>/Users/mingh/github/toss-trader/data/scoreboard.launchd.out.log</string>
+  <key>StandardErrorPath</key><string>/Users/mingh/github/toss-trader/data/scoreboard.launchd.err.log</string>
+  <key>WorkingDirectory</key><string>/Users/mingh/github/toss-trader</string>
+  <key>ProcessType</key><string>Background</string>
+</dict>
+</plist>
