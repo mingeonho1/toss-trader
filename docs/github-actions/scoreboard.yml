@@ -1,0 +1,72 @@
+name: scoreboard
+
+# 매일 자동 스코어보드(읽기 전용·멱등·주문 없음)의 초안 — 아직 활성화 안 됨.
+# 쓰려면 이 파일을 .github/workflows/ 로 복사하고 secrets/러너를 구성한다.
+# reports/scoreboard_latest.md 만 커밋백한다. data/(장부 상태·이력)는 gitignore →
+# 러너 디스크에 누적되므로 상태 연속성을 위해 러너/체크아웃을 보존해야 한다.
+#
+# ⚠️ 토큰 공유 주의(중요):
+#   토스 OpenAPI 토큰은 발급 시 직전 토큰을 무효화한다. 여러 워크플로(dca / forward-paper /
+#   scoreboard)나 여러 러너가 각자 토큰을 새로 발급하면 서로의 토큰을 깬다.
+#   → (A) 단일 self-hosted 러너에서 이 잡들을 '직렬'로 돌리거나,
+#     (B) 토큰 캐시 파일을 공유(같은 작업 디렉터리/볼륨)해 재사용하라.
+#   본 초안은 (A) 가정: forward-paper 와 같은 러너·같은 concurrency 그룹으로 순차 실행.
+#   토스 API 는 IP 화이트리스트를 요구하므로 self-hosted 러너 필수.
+#   자격증명이 없으면 스코어보드는 --offline(캐시) 로 폴백해도 동작한다(주문 없음).
+
+on:
+  schedule:
+    # 21:30 UTC = 06:30 KST 익일. 미 정규장 마감(20:00 UTC EDT / 21:00 UTC EST) 직후를 연중 커버.
+    - cron: "30 21 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      offline:
+        description: "캐시 전용(--offline)으로 실행 — 토스 API/토큰 미사용"
+        type: boolean
+        default: false
+
+concurrency:
+  # forward-paper 와 동일 그룹으로 묶어 토큰 발급이 겹치지 않게 직렬화(토큰 상호 무효화 방지).
+  group: toss-forward-token
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  scoreboard:
+    runs-on: self-hosted
+    timeout-minutes: 25
+    env:
+      TOSS_CLIENT_ID: ${{ secrets.TOSS_CLIENT_ID }}
+      TOSS_CLIENT_SECRET: ${{ secrets.TOSS_CLIENT_SECRET }}
+      TOSS_ACCOUNT_SEQ: ${{ secrets.TOSS_ACCOUNT_SEQ }}
+      TRADING_MODE: paper          # 스코어보드는 읽기 전용이라 paper 로 충분(주문 없음)
+      PYTHONPATH: src
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          clean: false             # data/ 의 장부 상태·이력·캐시를 러너 디스크에 보존
+
+      - name: 스코어보드 실행
+        run: |
+          if [ "${{ inputs.offline }}" = "true" ]; then
+            python3 scripts/daily_scoreboard.py --offline
+          else
+            python3 scripts/daily_scoreboard.py
+          fi
+
+      - name: 리포트 커밋백
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add reports/scoreboard_latest.md
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: daily scoreboard [skip ci]"
+            git pull --rebase origin "${GITHUB_REF_NAME:-main}"
+            git push
+          fi
+
+      - name: 대시보드 꼬리 출력
+        if: always()
+        run: tail -n 30 reports/scoreboard_latest.md 2>/dev/null || true

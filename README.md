@@ -161,6 +161,41 @@ PYTHONPATH=src python scripts/collect_intraday.py --symbols NVDA,TSLA --regular-
 마감(20:00 ET, EDT/EST 양쪽)을 커버하고, 수집기는 병합-누적이라 이중 실행이 무해하다.
 오프라인 테스트: `PYTHONPATH=src python -m unittest tests.test_intraday_sources`.
 
+## 매일 자동 스코어보드 (선택)
+세션이 끝난 뒤에도 "루프"가 **정직한 포워드 증거**를 계속 쌓게 하는 단일 작업이다.
+`scripts/daily_scoreboard.py` 는 **읽기 전용·멱등**(아무 때나 여러 번 돌려도 안전)이며 **주문을
+절대 내지 않는다.** 하위 단계를 각각 격리해(한 단계가 실패해도 나머지는 계속) 타임아웃과 함께 돌린다:
+(a) ET 16:05 이후면 인트라데이 수집기 → 레인3 섀도, (b) 포워드 페이퍼 장부(Lump-sum ETF 기준선 +
+액티브 후보 + 라이프사이클 슬리브 vs DCA-QQQ)를 **자격증명 있으면 실 토스 시세, 없으면 캐시(Nasdaq
+종가)** 로 갱신, (c) DCA dry-run 플랜(분할·FX 경고 포함, 자격증명 있을 때) + 양도세 리포트,
+(d) `reports/scoreboard_latest.md`(대시보드) + `data/scoreboard_history.jsonl`(변경 이력) 기록.
+
+```bash
+# 1회 실행: 자격증명 유무·ET 시각을 자동 판정
+PYTHONPATH=src python scripts/daily_scoreboard.py
+# 네트워크·API 없이 캐시만으로(로컬 검증/CI)
+PYTHONPATH=src python scripts/daily_scoreboard.py --offline
+# 최신 대시보드만 출력
+PYTHONPATH=src python scripts/daily_scoreboard.py --status
+```
+
+대시보드에는 장부별 지분·최대낙폭(시작 이후), 규칙별 인트라데이 섀도(n·평균 net bps·t·상태),
+오늘의 DCA 플랜, 양도세 YTD, 변경 이력 한 줄이 담긴다.
+
+**자동화(선택, 원커맨드 — 자동 설치 안 됨):** macOS `launchd` 로 매일 **06:30 KST**(미 정규장
+마감 이후, EDT/EST 양쪽) 1회 + `RunAtLoad`(전원 켜지면 즉시 보충) 실행.
+```bash
+bash scripts/install_scoreboard.sh            # 설치(자격증명 있으면 실시세, 없으면 캐시)
+bash scripts/install_scoreboard.sh --offline   # 캐시 전용으로 설치
+bash scripts/install_scoreboard.sh --status    # 상태 + 최신 대시보드 + 로그
+bash scripts/install_scoreboard.sh --uninstall # 제거
+```
+참조용 LaunchAgent 템플릿은 `automation/com.tosstrader.scoreboard.plist`(경로 치환 후 수동 로드도 가능),
+GitHub Actions 초안(비활성)은 `docs/github-actions/scoreboard.yml`. 오프라인 테스트:
+`PYTHONPATH=src python -m pytest -q tests/test_scoreboard.py`.
+> ⚠️ macOS TCC: repo 가 `~/Desktop`(또는 Documents/Downloads) 아래면 launchd 접근 거부 —
+> 보호되지 않는 경로(예: `~/github/toss-trader`)에 두거나 해당 python 에 전체 디스크 접근을 부여한다.
+
 ## 자동화 (항상 dry-run) & 실거래 전환
 **입금**은 API로 불가 → 은행 자동이체/토스 앱으로 설정(예: 매주 일요일 ₩50,000). 봇은 들어온 현금만 매수.
 
