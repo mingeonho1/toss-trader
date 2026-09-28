@@ -116,7 +116,11 @@ def _f(v: Any, default: float = 0.0) -> float:
 
 
 def has_credentials(env: dict[str, str] | None = None) -> bool:
-    """토스 자격증명(client id/secret)이 환경변수 또는 .env 에 있는지."""
+    """토스 자격증명(client id/secret)이 환경변수 또는 .env 에 있는지.
+
+    env 를 명시하면 그 dict 만 본다(.env 폴백 없음 — 테스트 격리). None 이면 os.environ + .env.
+    """
+    explicit = env is not None
     env = os.environ if env is None else env
     pairs = [("TOSS_CLIENT_ID", "API_KEY"), ("TOSS_CLIENT_SECRET", "SECRET_KEY")]
     got = {}
@@ -126,7 +130,7 @@ def has_credentials(env: dict[str, str] | None = None) -> bool:
         return True
     # .env 파일 폴백(단순 KEY=VALUE 파서)
     dotenv = ROOT / ".env"
-    if not dotenv.exists():
+    if explicit or not dotenv.exists():
         return False
     vals: dict[str, str] = {}
     try:
