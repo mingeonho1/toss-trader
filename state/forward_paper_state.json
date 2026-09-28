@@ -2,7 +2,10 @@
   "version": 2,
   "created_at": "2026-09-28T03:10:07.126286+00:00",
   "session_date": "2026-09-28",
-  "regular_market": null,
+  "regular_market": {
+    "startTime": "2026-09-28T22:30:00.000+09:00",
+    "endTime": "2026-09-29T05:00:00.000+09:00"
+  },
   "seed_usd": 100.0,
   "seed_krw": 0.0,
   "fx": 0.0,
@@ -242,6 +245,73 @@
         "sma_cross": {
           "equity": 98.87937365662552,
           "money_return": -0.011206263433744867,
+          "cash": 0.0,
+          "weights": {
+            "GLD": 0.3333333333333333,
+            "SPY": 0.3333333333333333,
+            "QQQ": 0.3333333333333333
+          },
+          "total_contributed": 100.0
+        }
+      }
+    },
+    {
+      "ts": "2026-09-28T10:03:58.688312+00:00",
+      "session_date": "2026-09-28",
+      "regular_market": {
+        "startTime": "2026-09-28T22:30:00.000+09:00",
+        "endTime": "2026-09-29T05:00:00.000+09:00"
+      },
+      "prices": {
+        "BIL": 91.6274,
+        "EFA": 105.3095,
+        "GLD": 381.09,
+        "IEF": 89.56,
+        "IWM": 280.25,
+        "QQQ": 737.68,
+        "SCHD": 33.26,
+        "SPY": 767.651
+      },
+      "stale_symbols": [],
+      "flows": {
+        "lumpsum_etf": 0.0,
+        "dual_momentum": 0.0,
+        "regime_200d": 0.0,
+        "sma_cross": 0.0
+      },
+      "strategies": {
+        "lumpsum_etf": {
+          "equity": 97.80518999288273,
+          "money_return": -0.02194810007117265,
+          "cash": 0.0,
+          "weights": {
+            "QQQ": 0.6,
+            "SCHD": 0.25,
+            "GLD": 0.15
+          },
+          "total_contributed": 100.0
+        },
+        "dual_momentum": {
+          "equity": 98.34720603765936,
+          "money_return": -0.016527939623406374,
+          "cash": 0.0,
+          "weights": {
+            "QQQ": 1.0
+          },
+          "total_contributed": 100.0
+        },
+        "regime_200d": {
+          "equity": 98.34720603765936,
+          "money_return": -0.016527939623406374,
+          "cash": 0.0,
+          "weights": {
+            "QQQ": 1.0
+          },
+          "total_contributed": 100.0
+        },
+        "sma_cross": {
+          "equity": 97.39451468871346,
+          "money_return": -0.026054853112865484,
           "cash": 0.0,
           "weights": {
             "GLD": 0.3333333333333333,
