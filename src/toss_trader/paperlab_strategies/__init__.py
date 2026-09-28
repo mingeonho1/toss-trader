@@ -14,10 +14,12 @@ from typing import Callable, Sequence
 
 from ..paperlab import Strategy
 from .benchmarks import QqqBH, TqqqBH
+from .ep_gap_swing import EpGapSwing
 from .hot_rvol_swing import HotRvolSwing
 from .lrr_tqqq import LrrTqqq
 from .lrr_tqqq_sqqq import LrrTqqqSqqq
 from .mom_top5_ndx import MomTop5Ndx
+from .overnight import OvernightQqq, OvernightTqqq
 from .rsi2_tqqq import Rsi2Tqqq
 from .voltarget_3x import Voltarget3x
 
@@ -33,6 +35,10 @@ ROSTER_FACTORIES: dict[str, Callable[..., Strategy]] = {
     "hot_rvol_swing": HotRvolSwing,
     "qqq_bh": QqqBH,
     "tqqq_bh": TqqqBH,
+    # 2026-09-28 신규 사전등록(docs/intraday_shadow_rules.md §6.3)
+    "overnight_tqqq": OvernightTqqq,
+    "overnight_qqq": OvernightQqq,
+    "ep_gap_swing": EpGapSwing,
 }
 
 
@@ -52,8 +58,8 @@ def build_roster(*, swing_universe: Sequence[str] | None = None,
     for name, factory in ROSTER_FACTORIES.items():
         if name == "hot_rvol_swing":
             roster.append(factory(swing_universe))
-        elif name == "mom_top5_ndx":
-            roster.append(factory(mom_universe))
+        elif name in ("mom_top5_ndx", "ep_gap_swing"):
+            roster.append(factory(mom_universe))     # 대형주 캐시 유니버스(NDX100 ∩ 캐시)
         else:
             roster.append(factory())
     return roster

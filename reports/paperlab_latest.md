@@ -1,6 +1,6 @@
 # Aggressive Forward Paper Lab — Leaderboard
 
-- Generated: `2026-09-28T04:45:13+00:00`
+- Generated: `2026-09-28T07:08:53+00:00`
 - **PAPER (forward, live prices going forward). Real orders: none, ever.** Signal at close t → fill at t+1 (close, or open where noted). Cash earns 0%.
 - Two books per strategy: **unit $1,000** (clean performance) and **real $36** (true small-scale Toss fees). Leaderboard ranks by the unit book's total return.
 - Fees: Toss exact — buys ≤$10 free, sells 0.1% + SEC/TAF minimums.
@@ -20,6 +20,9 @@
 | `hot_rvol_swing` | open | 2026-09-28 | 0 | n/a | n/a | n/a | +0.00% | 0 | $0.000 | n/a | $0.000 | n/a | n/a |
 | `qqq_bh` | close | 2026-09-28 | 0 | n/a | n/a | n/a | +0.00% | 0 | $0.000 | n/a | $0.000 | n/a | n/a |
 | `tqqq_bh` | close | 2026-09-28 | 0 | n/a | n/a | n/a | +0.00% | 0 | $0.000 | n/a | $0.000 | n/a | n/a |
+| `overnight_tqqq` | open | 2026-09-28 | 0 | n/a | n/a | n/a | +0.00% | 0 | $0.000 | n/a | $0.000 | n/a | n/a |
+| `overnight_qqq` | open | 2026-09-28 | 0 | n/a | n/a | n/a | +0.00% | 0 | $0.000 | n/a | $0.000 | n/a | n/a |
+| `ep_gap_swing` | open | 2026-09-28 | 0 | n/a | n/a | n/a | +0.00% | 0 | $0.000 | n/a | $0.000 | n/a | n/a |
 
 ## Daily returns (last 10 sessions)
 

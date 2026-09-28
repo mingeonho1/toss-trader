@@ -53,6 +53,7 @@ class Strategy:
     name: str = "base"
     fill_on: str = "close"
     intraday: Callable[..., Any] | None = None
+    overnight: bool = False    # True면 엔진이 종가매수→익일시가매도 전용 경로로 실행(G1)
 
     def universe(self) -> list[str]:  # pragma: no cover - 추상
         raise NotImplementedError
@@ -297,6 +298,8 @@ class PaperLab:
 
         멱등: ``state['last_date']`` 이하 날짜는 건너뛴다. 같은 캐시로 재실행하면 결과 동일.
         """
+        if getattr(self.strategy, "overnight", False):
+            return self._run_overnight(state, master_dates, by_date)
         strat = self.strategy
         uni = strat.universe()
         fill_on = state.get("fill_on", strat.fill_on)
@@ -379,6 +382,105 @@ class PaperLab:
         state["real"] = real.to_dict()
         state["equity"] = equity
         return state
+
+    # ── 오버나이트 전진(G1: 종가 매수 → 익일 시가 매도) ----------------------
+    def _run_overnight(self, state: dict[str, Any], master_dates: Sequence[date],
+                       by_date: Mapping[str, Mapping[date, Candle]]) -> dict[str, Any]:
+        """close(t) 매수 → open(t+1) 매도만 보유(장중 현금). 매수는 ≤$10 분할 무료.
+
+        보유 포지션은 각 종가 시점에 장부에 남아 있고(그날 밤 보유분), 다음 거래일 **시가**에
+        매도한다. 시가 없으면 종가로 폴백. 멱등: ``last_date`` 이하는 건너뛴다.
+        """
+        strat = self.strategy
+        uni = strat.universe()
+        start_date = date.fromisoformat(state["start_date"])
+        last = date.fromisoformat(state["last_date"]) if state.get("last_date") else None
+        unit = PaperBook.from_dict(state["unit"], self.fees, min_trade_usd=self.min_trade_usd)
+        real = PaperBook.from_dict(state["real"], self.fees, min_trade_usd=self.min_trade_usd)
+        sstate = state.get("strategy_state") or {}
+        equity: list[list[Any]] = list(state.get("equity") or [])
+
+        visible: dict[str, list[Candle]] = {s: [] for s in uni}
+        last_price: dict[str, float] = {}
+        for d in master_dates:                      # 재개: 처리한 날 히스토리 복원
+            if last is not None and d <= last:
+                for s in uni:
+                    c = by_date.get(s, {}).get(d)
+                    if c is not None:
+                        visible[s].append(c)
+                        if c.close > 0:
+                            last_price[s] = c.close
+            else:
+                break
+
+        for d in master_dates:
+            if last is not None and d <= last:
+                continue
+            cand: dict[str, Candle] = {}
+            for s in uni:
+                c = by_date.get(s, {}).get(d)
+                if c is not None:
+                    visible[s].append(c)
+                    cand[s] = c
+                    if c.close > 0:
+                        last_price[s] = c.close
+            if d < start_date:
+                continue
+
+            # 1) 어젯밤 보유분을 오늘 **시가**에 매도(익일 시가 청산).
+            for book in (unit, real):
+                for sym in list(book.positions):
+                    c = cand.get(sym)
+                    if c is None or book.positions[sym]["qty"] <= _EPS:
+                        continue
+                    px = c.open if c.open > 0 else c.close
+                    if px > 0:
+                        book.sell(sym, book.positions[sym]["qty"], px, d)
+
+            # 2) 오늘 종가까지의 데이터로 오늘 밤 보유 목표 결정.
+            tw = strat.decide(visible, sstate) or {}
+            target = {s: float(w) for s, w in tw.items()
+                      if float(w) > 0 and s in cand and cand[s].close > 0}
+
+            # 3) 오늘 **종가**에 매수(≤$10 분할 무료 반영).
+            for book in (unit, real):
+                for sym, w in target.items():
+                    self._overnight_buy(book, sym, w * book.cash, cand[sym].close, d)
+
+            # 4) 오늘 종가 마크(매수 직후 → 야간 수익은 다음날 시가 매도에 반영).
+            mark = dict(last_price)
+            mark.update({s: c.close for s, c in cand.items() if c.close > 0})
+            equity.append([d.isoformat(), unit.equity(mark), real.equity(mark)])
+            last = d
+
+        state["last_date"] = last.isoformat() if last else None
+        state["pending"] = None
+        state["last_applied"] = None
+        state["strategy_state"] = sstate
+        state["unit"] = unit.to_dict()
+        state["real"] = real.to_dict()
+        state["equity"] = equity
+        return state
+
+    def _overnight_buy(self, book: PaperBook, sym: str, budget: float, price: float,
+                       dt: date) -> None:
+        """종가 매수(분할 최소수수료: ≤$10 청크 무료). budget=현금에서 나갈 총액."""
+        if budget <= 0 or price <= 0:
+            return
+        budget = min(budget, book.cash)
+        est_fee = book.fees.plan_split("BUY", budget, price).total_fee
+        notional = budget - est_fee
+        if notional < book.min_trade or notional <= 0:
+            return
+        fee = book.fees.plan_split("BUY", notional, price).total_fee
+        shares = notional / price
+        book.cash -= (notional + fee)
+        pos = book.positions.setdefault(sym, {"qty": 0.0, "avg": 0.0})
+        new_qty = pos["qty"] + shares
+        pos["avg"] = (pos["avg"] * pos["qty"] + notional) / new_qty if new_qty > 0 else price
+        pos["qty"] = new_qty
+        book.fills.append({"dt": dt.isoformat(), "symbol": sym, "side": "BUY",
+                           "qty": shares, "price": price, "fee": fee, "realized": 0.0})
 
     # ── 요약 ----------------------------------------------------------------
     def summarize(self, state: dict[str, Any]) -> dict[str, Any]:
