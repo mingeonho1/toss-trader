@@ -125,6 +125,85 @@ def test_execute_buys_run_order_budget_caps_total_orders():
     assert "GLD" not in done
 
 
+# ── 🔴 Finding 1: 같은 세션 재개 시 성공 청크 cid 재사용 금지(중복 매수 방지) ──────
+def test_execute_buys_resume_does_not_reuse_successful_chunk_cids():
+    """부분 실패 후 같은 세션 재트리거가 성공했던 청크 cid(-0,-1)를 재사용하면 중복 매수.
+
+    수정: 접수 성공분을 chunks_done에 누적하고, 재실행 시 그 개수에서 청크 번호를 이어 매김.
+    """
+    cd: dict = {}
+    # 트리거1: 3번째 청크(index 2)에서 실패 → -0,-1 접수 성공, -2 실패.
+    fc1 = FakeOrderClient(fail_on=2)
+    done1: set[str] = set()
+    ok1 = run_dca._execute_buys(fc1, [("QQQ", 35.0)], "2026-09-23", set(), done1,
+                                _noop_log, split=True, chunks_done=cd)
+    assert ok1 is False
+    assert [c["cid"] for c in fc1.calls][:2] == [
+        "dca-2026-09-23-QQQ-0", "dca-2026-09-23-QQQ-1"]
+    assert [e["cid"] for e in cd["QQQ"]] == [
+        "dca-2026-09-23-QQQ-0", "dca-2026-09-23-QQQ-1"]   # 성공 2건만 누적
+    assert "QQQ" not in done1
+
+    # 트리거2(같은 세션, cid dedup 만료 후): 재플랜 잔여 $15 → 청크는 -2,-3 으로 이어 매김.
+    fc2 = FakeOrderClient()
+    done2: set[str] = set()
+    ok2 = run_dca._execute_buys(fc2, [("QQQ", 15.0)], "2026-09-23", set(), done2,
+                                _noop_log, split=True, chunks_done=cd)
+    assert ok2 is True
+    new_cids = [c["cid"] for c in fc2.calls]
+    assert new_cids == ["dca-2026-09-23-QQQ-2", "dca-2026-09-23-QQQ-3"]
+    # 트리거1에서 성공한 cid(-0,-1)는 절대 재사용되지 않는다(중복 매수 방지).
+    assert not ({"dca-2026-09-23-QQQ-0", "dca-2026-09-23-QQQ-1"} & set(new_cids))
+    assert "QQQ" in done2
+
+
+def test_execute_buys_caps_by_remaining_buying_power():
+    """재플랜/청크 합이 실제 매수가능금액을 넘지 않도록 제한(과매수 방지)."""
+    fc = FakeOrderClient()
+    done: set[str] = set()
+    cd: dict = {}
+    # 잔여 매수가능금액 $12 → $35 플랜에서 첫 $10 청크만 접수, 이후 보류.
+    ok = run_dca._execute_buys(fc, [("QQQ", 35.0)], "2026-09-23", set(), done,
+                               _noop_log, split=True, chunks_done=cd, remaining_bp=12.0)
+    total = sum(float(c["order_amount"]) for c in fc.calls)
+    assert total <= 12.0 + 1e-9
+    assert [c["order_amount"] for c in fc.calls] == ["10.00"]
+    assert "QQQ" not in done        # 미완료(보류) → done 아님 → 다음 트리거 재개
+    assert ok is True               # 보류는 오류 아님(deferral)
+
+
+# ── 🟢 Finding 5: 무관한 사용자 주문/과거 주문은 세션 스킵 대상 아님 ──────────────
+class _FakeListOrdersClient:
+    def __init__(self, orders):
+        self._orders = orders
+
+    def list_orders(self, status, **kw):
+        return {"orders": self._orders if str(status).upper() == "OPEN" else []}
+
+
+def test_session_skip_ignores_user_limit_and_pre_session_orders():
+    from datetime import datetime, timedelta, timezone
+    KST = timezone(timedelta(hours=9))
+    session_start = datetime(2026, 9, 23, 22, 30, tzinfo=KST)
+    orders = [
+        # 이번 세션에 이 봇이 낸 MARKET 금액매수 → 스킵 대상.
+        {"symbol": "QQQ", "side": "BUY", "orderType": "MARKET", "orderAmount": "10.00",
+         "orderedAt": "2026-09-23T22:35:00+09:00"},
+        # 사용자 지정가(LIMIT) 매수 → 무시(오스킵=미매수 방지).
+        {"symbol": "SCHD", "side": "BUY", "orderType": "LIMIT", "price": "50.00",
+         "orderedAt": "2026-09-23T22:40:00+09:00"},
+        # MARKET 이지만 세션 시작 이전(과거) → 무시.
+        {"symbol": "GLD", "side": "BUY", "orderType": "MARKET", "orderAmount": "5.00",
+         "orderedAt": "2026-09-23T09:00:00+09:00"},
+        # 매도 → 무시.
+        {"symbol": "AAPL", "side": "SELL", "orderType": "MARKET",
+         "orderedAt": "2026-09-23T22:50:00+09:00"},
+    ]
+    skip = run_dca._session_skip_symbols(_FakeListOrdersClient(orders), "2026-09-23",
+                                         _noop_log, session_start=session_start)
+    assert skip == {"QQQ"}
+
+
 # ── LiveBroker 분할 매수 ─────────────────────────────────────────────────────
 class _FakeSettings:
     is_live = True
@@ -192,3 +271,71 @@ def test_live_broker_split_off_places_single_amount_order():
     lb.submit_market_order("QQQ", "BUY", amount=35.0, ref_price=100.0,
                            dt=date(2026, 9, 23))
     assert [c["order_amount"] for c in fc.created] == ["35.00"]  # 분할 안 함
+
+
+# ── 🟡 Finding 2: 분할 매수 중 예외 → sync 후 부분체결을 예외로 노출 ──────────────
+class FakeSplitFailClient:
+    """분할 매수 도중(fail_on 청크 인덱스) create_order가 예외를 던지는 fake.
+
+    앞선 청크는 실제 체결되어 내부 보유수량/현금을 갱신 → sync()가 그 상태를 집어야 한다.
+    """
+
+    def __init__(self, fail_on: int):
+        self.s = _FakeSettings()
+        self.created: list[dict] = []
+        self._orders: dict[str, dict] = {}
+        self._filled_qty = 0.0
+        self._cash = 1000.0
+        self.fail_on = fail_on
+
+    def get_buying_power(self, currency="USD"):
+        return {"currency": "USD", "cashBuyingPower": str(self._cash)}
+
+    def get_holdings(self, symbol=None):
+        items = []
+        if self._filled_qty > 1e-12:
+            items.append({"symbol": "QQQ", "quantity": str(self._filled_qty),
+                          "averagePurchasePrice": "100", "marketCountry": "US"})
+        return {"items": items}
+
+    def create_order(self, symbol, side, *, order_type="MARKET", quantity=None,
+                     order_amount=None, price=None, time_in_force=None,
+                     client_order_id=None, confirm_high_value=False):
+        idx = len(self.created)
+        self.created.append({"order_amount": order_amount, "cid": client_order_id})
+        if idx == self.fail_on:
+            raise RuntimeError("boom mid-split")
+        oid = f"o{idx}"
+        amt = float(order_amount)
+        qty = amt / 100.0
+        self._filled_qty += qty
+        self._cash -= amt
+        self._orders[oid] = {"orderId": oid, "status": "FILLED", "execution": {
+            "filledQuantity": str(qty), "averageFilledPrice": "100.0",
+            "filledAmount": str(amt), "commission": "0", "tax": None}}
+        return {"orderId": oid, "clientOrderId": client_order_id}
+
+    def get_order(self, order_id):
+        return self._orders[order_id]
+
+
+def test_split_buy_syncs_and_surfaces_partial_fill_on_midsplit_error():
+    from toss_trader.broker import LiveBroker, PartialSplitFillError
+
+    fc = FakeSplitFailClient(fail_on=1)             # 2번째 청크에서 실패(1번째는 체결)
+    lb = LiveBroker(fc, require_live=False, poll_interval=0.0, split_small_orders=True)
+    assert lb.position("QQQ").quantity == 0.0       # 초기 sync: 보유 없음
+    assert lb.cash == pytest.approx(1000.0)
+
+    with pytest.raises(PartialSplitFillError) as ei:
+        lb.submit_market_order("QQQ", "BUY", amount=35.0, ref_price=100.0,
+                               dt=date(2026, 9, 23))
+    err = ei.value
+    # 부분체결(첫 $10 청크 = 0.10주)이 예외에 실려 노출된다.
+    assert err.symbol == "QQQ"
+    assert err.partial_fill is not None
+    assert err.partial_fill.quantity == pytest.approx(0.10)
+    assert isinstance(err.cause, RuntimeError)
+    # 예외 전에 sync() → 브로커 상태가 체결분을 반영(부분체결 유실 방지).
+    assert lb.position("QQQ").quantity == pytest.approx(0.10)
+    assert lb.cash == pytest.approx(990.0)

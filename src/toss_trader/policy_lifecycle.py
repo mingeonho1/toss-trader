@@ -97,15 +97,21 @@ class DepositPlan:
 
 
 def deposit_plan(holdings_value_by_sym: dict[str, float], cash_usd: float,
-                 E_target: float, band: float = 0.3) -> DepositPlan:
-    """신규현금을 목표비중으로 **매수만** 배치. 초과 레버리지일 때만 매도 리스트를 낸다.
+                 E_target: float, band: float = 0.3, *,
+                 sells_executed: bool = True) -> DepositPlan:
+    """신규현금을 목표비중으로 배치. 초과 레버리지일 때만 매도 리스트를 낸다.
 
     규약(experiments/c5a_lifecycle.py 의 월별 결정과 동일한 취지):
     - E_actual = (2·QLD + 1·QQQ) / (QQQ+QLD)  ← **투자된 자산만**의 실효 노출(현금 제외).
     - E_actual ≤ E_target + band: **매수전용**. equity_ref = 보유+현금 기준 목표까지 미달분을
       큰 쪽부터 가용현금으로 매수(매도 없음 → 저회전).
-    - E_actual > E_target + band: 초과 레버리지 → 목표비중으로 리밸런싱(과매수분 매도 + 미달분
-      매수). 매도 대금 + 신규현금으로 미달분을 채운다.
+    - E_actual > E_target + band: 초과 레버리지 → 과매수분 매도 신호(sells)를 낸다.
+
+    ⚠️ `sells_executed`: 이 매도 신호가 **실제로 집행되는가**에 따라 매수 자금이 달라진다.
+    - True(기본, 예: forward_lifecycle_paper 페이퍼): 매도 대금이 실현되므로 목표비중까지
+      **완전 리밸런싱**(미달분 전액 매수). 기존 동작 보존.
+    - False(예: run_dca 실계좌 — 매도는 경고만, 자동 집행 안 함): 매도 대금이 없으므로 매수는
+      매수전용과 동일하게 **가용현금으로만** 집행(현금 초과 매수 → insufficient-buying-power·과매수 방지).
 
     QQQ/QLD 외 심볼은 무시한다(슬리브는 QQQ/QLD 전용).
     """
@@ -126,15 +132,19 @@ def deposit_plan(holdings_value_by_sym: dict[str, float], cash_usd: float,
     sells: dict[str, float] = {}
 
     if sell_triggered:
-        # 초과 레버리지 → 목표비중으로 완전 리밸런싱(매도 + 매수).
+        for sym in (QQQ, QLD):
+            d = targets[sym] - cur[sym]
+            if d < -1e-9:
+                sells[sym] = -d
+
+    if sell_triggered and sells_executed:
+        # 매도 대금 실현 가정 → 목표비중까지 완전 매수(과매수분 매도 + 미달분 전액 매수).
         for sym in (QQQ, QLD):
             d = targets[sym] - cur[sym]
             if d > 1e-9:
                 buys[sym] = d
-            elif d < -1e-9:
-                sells[sym] = -d
     else:
-        # 매수전용: 가용현금으로 미달분 큰 자산부터 목표까지 매수(매도 없음).
+        # (밴드 내 매수전용) 또는 (매도 미집행): 가용현금으로만 미달분 큰 자산부터 목표까지 매수.
         needs = {sym: max(0.0, targets[sym] - cur[sym]) for sym in (QQQ, QLD)}
         remaining = cash
         for sym in sorted(needs, key=lambda s: needs[s], reverse=True):

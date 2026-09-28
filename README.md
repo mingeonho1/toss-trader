@@ -20,11 +20,18 @@ PYTHONPATH=src python scripts/selftest.py     # 결정론 자가검증 (키 불�
 - `X-RateLimit-*` 헤더 적응 throttle. SSL CA 번들 자동 탐색(검증은 항상 유지).
 - `LiveBroker`는 `require_live` 가드로 paper 모드에서 실주문을 막는다.
 
-## 현재 상태 (2026-06-28)
-- ✅ Phase 1: `TossClient` — 공식 OpenAPI v1.1.5 정합화 + 실 API 스모크 통과
-- ✅ Phase 2·3·5: 비용모델(실 0.1%) · PaperBroker/백테스터/지표 · 리스크/엔진/일지 · LiveBroker
-- ✅ Phase 4: 실데이터 멀티레짐 9년 게이트 검증 → **액티브는 B&H 못 이김**
-- ✅ **기본 운용 확정 = 적립식(DCA) + 분산 바이앤홀드** (QQQ60/SCHD25/GLD15)
+## 현재 상태 (2026-09-28)
+> 👉 **먼저 읽을 것: [docs/final_recommendation.md](./docs/final_recommendation.md)** — 10사이클 루프 엔지니어링 결론.
+
+- ✅ `TossClient` — 공식 OpenAPI **v1.2.17** 정합화(DST 주문창, 409/멱등, 토큰 공유캐시, 조건주문 래퍼)
+- ✅ 비용: 표준 수수료 **0.1%**, 주문당 **$10 이하 무료** → DCA 매수 자동 분할(`fees.py`).
+  **환전이 최대 비용**: 평일 09:00–15:30 KST 0.05% vs 그 외 0.5% → 앱에서 주간에 미리 환전(`scripts/fx_advice.py`).
+- ✅ 검증 인프라: Gate v2(DSR·RC·SPA·peek-once 원장), 키 없는 장기 데이터(FRED 1971~, Shiller 1871~), 리서치 백테스터
+- ✅ 99개 아이디어·579 시도 → **알파 전략 채택 0건**(타이밍·평균회귀·캘린더·단일종목·레버리지 모두 게이트 FAIL)
+- ✅ 확정 이득: 양도세 250만원 공제 하베스팅(`scripts/tax_report.py`), 배당세 효율 배분(세후 연구 `reports/cycle8_c8b_allocation_tax.md`)
+- 🟡 조건부: 생애주기 레버리지 슬리브(옵트인·기본 OFF, 30년+ 지평 한정) — 아래 섹션
+- ⏳ 포워드 증거 수집: 초단타 섀도(ORB·장중모멘텀·갭앤고), 매일 스코어보드(설치는 선택)
+- 기본 운용 = **적립식(DCA) + 분산 바이앤홀드** (QQQ60/SCHD25/GLD15, 변경은 위험선호 결정 — 권고 메모 §4)
 
 ```bash
 python scripts/run_dca.py --backtest   # 분산안 과거 검증

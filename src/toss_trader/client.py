@@ -24,6 +24,7 @@ import logging
 import os
 import ssl
 import time
+from datetime import datetime, timezone
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -705,8 +706,13 @@ class TossClient:
                                  body=body, with_account=True)
         except IdempotencyConflictError:
             # 동일 cid로 다른 본문을 재요청 → 이미 접수된 주문이 존재. 기존 주문을 조회해 재사용.
-            logger.warning("idempotency-key-conflict(cid=%s) → 기존 주문 조회로 재사용", cid)
-            found = self.find_order_by_client_id(cid, symbol=symbol, side=side)
+            # ⚠️ Order 스키마엔 clientOrderId가 없어 symbol+side만으론 무관한 과거 주문을 오매칭할
+            # 수 있다 → 최근(≤10분) + 금액/수량 근사일치인 주문만 채택하고, 아니면 재-raise해
+            # 상위가 청크를 done 처리하지 못하게 한다(오매칭으로 인한 미접수/과매수 방지).
+            logger.warning("idempotency-key-conflict(cid=%s) → 최근·금액일치 기존 주문만 재사용", cid)
+            found = self.find_order_by_client_id(
+                cid, symbol=symbol, side=side,
+                order_amount=order_amount, quantity=quantity, within_minutes=10)
             if found:
                 return found
             raise
@@ -768,15 +774,27 @@ class TossClient:
     def find_order_by_client_id(self, client_order_id: str, *,
                                 symbol: str | None = None,
                                 side: str | None = None,
+                                order_amount: str | float | None = None,
+                                quantity: str | float | None = None,
+                                within_minutes: float | None = 10,
+                                now: datetime | None = None,
                                 statuses: tuple[str, ...] = ("OPEN", "CLOSED")) -> Any:
-        """clientOrderId로 접수된 기존 주문을 찾는다(best-effort).
+        """clientOrderId로 접수된 기존 주문을 찾는다(best-effort, 안전 게이트 포함).
 
         ⚠️ v1.2.17 Order/PaginatedOrderResponse 스키마는 clientOrderId를 응답하지 않으므로
-        정확한 cid 매칭이 불가하다. 대신 symbol(+side)로 OPEN→CLOSED를 훑어 가장 최근(orderedAt
-        기준) 주문을 반환한다. **진짜 멱등 보장은 서버측 clientOrderId dedup**(동일 cid 재요청=원주문
-        반환, 10분 유효)이며, 이 조회는 idempotency-key-conflict(다른 본문 재요청)나 사전 중복확인의
-        보조 수단이다.
+        정확한 cid 매칭이 불가하다. symbol(+side)로 OPEN→CLOSED를 훑되, 무관한 과거·타 주문을
+        오매칭하지 않도록 **다음을 모두 만족하는 가장 최근 주문만** 반환한다:
+
+        - orderedAt이 now(기본=현재 UTC)로부터 `within_minutes`(기본 10분) 이내. (None이면 시간 무시)
+        - order_amount/quantity가 주어지면 주문의 금액/수량이 근사 일치.
+
+        하나도 만족하지 않으면 None → 호출자(create_order)가 IdempotencyConflict를 재-raise해
+        청크를 done 처리하지 않는다(오매칭으로 인한 미접수·과매수 방지). **진짜 멱등 보장은
+        서버측 clientOrderId dedup**(동일 cid=원주문 반환, 10분)이며, 이 조회는 그 보조 수단이다.
         """
+        now = now or datetime.now(timezone.utc)
+        req_amt = _to_float(order_amount)
+        req_qty = _to_float(quantity)
         best: Any = None
         for status in statuses:
             try:
@@ -786,6 +804,10 @@ class TossClient:
             orders = resp.get("orders") if isinstance(resp, dict) else None
             for o in (orders or []):
                 if side and str(o.get("side", "")).upper() != side.upper():
+                    continue
+                if not _order_within(o, now, within_minutes):
+                    continue
+                if not _order_value_matches(o, req_amt, req_qty):
                     continue
                 if best is None or str(o.get("orderedAt", "")) > str(best.get("orderedAt", "")):
                     best = o
@@ -880,3 +902,73 @@ class TossClient:
         return self._request("POST",
                              f"/api/v1/conditional-orders/{conditional_order_id}/modify",
                              group="CONDITIONAL_ORDER", body=body, with_account=True)
+
+
+# ── find_order_by_client_id 보조: 시간·금액/수량 근사일치 게이트 ─────────────────
+def _to_float(v: Any) -> float | None:
+    """decimal 문자열/None을 float로. 파싱 불가·빈값이면 None."""
+    if v is None or v == "":
+        return None
+    try:
+        return float(str(v).replace(",", ""))
+    except (TypeError, ValueError):
+        return None
+
+
+def _parse_ordered_at(v: Any) -> datetime | None:
+    """orderedAt(ISO8601)을 aware datetime으로. tz 없으면 UTC로 간주. 실패 시 None."""
+    if not v:
+        return None
+    try:
+        dt = datetime.fromisoformat(str(v))
+    except (TypeError, ValueError):
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
+def _order_within(order: dict, now: datetime, within_minutes: float | None) -> bool:
+    """order.orderedAt이 now로부터 within_minutes 이내인가.
+
+    within_minutes=None이면 시간 제약 없음(True). orderedAt이 없거나 파싱 실패면
+    (시간 확인 불가 → 오매칭 방지 위해 보수적으로) False.
+    """
+    if within_minutes is None:
+        return True
+    oa = _parse_ordered_at(order.get("orderedAt"))
+    if oa is None:
+        return False
+    return abs((now - oa).total_seconds()) <= float(within_minutes) * 60.0
+
+
+def _approx_any(target: float, candidates: list[Any]) -> bool:
+    """candidates 중 하나라도 target과 근사(abs diff ≤ max($0.01, 1%))하면 True."""
+    for c in candidates:
+        cv = _to_float(c)
+        if cv is None:
+            continue
+        if abs(cv - target) <= max(0.01, 0.01 * max(abs(cv), abs(target))):
+            return True
+    return False
+
+
+def _order_value_matches(order: dict, req_amt: float | None,
+                         req_qty: float | None) -> bool:
+    """요청 금액/수량이 주문 값과 근사 일치하는가.
+
+    요청값이 둘 다 없으면 True(값 제약 없음). 요청값이 있는데 주문에서 대응 값을 못 찾거나
+    불일치면 False(보수적 — 무관한 주문을 done 처리하지 않음).
+    """
+    if req_amt is None and req_qty is None:
+        return True
+    exe = order.get("execution") if isinstance(order.get("execution"), dict) else {}
+    if req_amt is not None and _approx_any(
+            req_amt, [order.get("orderAmount"), order.get("amount"),
+                      exe.get("filledAmount")]):
+        return True
+    if req_qty is not None and _approx_any(
+            req_qty, [order.get("quantity"), order.get("orderQuantity"),
+                      exe.get("filledQuantity")]):
+        return True
+    return False

@@ -23,6 +23,23 @@ _TERMINAL_STATUS = {"FILLED", "CANCELED", "REJECTED", "REPLACED",
                     "CANCEL_REJECTED", "REPLACE_REJECTED"}
 
 
+class PartialSplitFillError(Exception):
+    """분할 매수 도중 예외로 중단됐을 때, 이미 체결된 청크를 상위에 노출하는 예외.
+
+    - symbol: 대상 종목
+    - partial_fill: 중단 전까지 합산 체결분(Fill) 또는 None(아무것도 안 체결)
+    - cause: 원인 예외(접수 실패)
+    브로커 상태는 raise 전에 반드시 sync()되어(부분체결 유실 방지) 이후 조회와 일관된다.
+    """
+
+    def __init__(self, symbol: str, partial_fill: "Fill | None", cause: Exception) -> None:
+        self.symbol = symbol
+        self.partial_fill = partial_fill
+        self.cause = cause
+        qty = getattr(partial_fill, "quantity", 0.0) if partial_fill else 0.0
+        super().__init__(f"분할 매수 중단 {symbol}: 부분체결 {qty} 후 실패 — {cause}")
+
+
 class Broker(ABC):
     @abstractmethod
     def submit_market_order(self, symbol: str, side: str, *,
@@ -257,7 +274,15 @@ class LiveBroker(Broker):
             except Exception as e:  # noqa: BLE001 — 접수 오류는 즉시 중단(부분 체결 연쇄 방지)
                 logger.warning("분할 매수 실패 %s $%.2f [%d/%d]: %s",
                                symbol, chunk, k + 1, len(chunks), e)
-                raise
+                # ⚠️ 이미 접수·체결된 앞선 청크가 있으면 브로커 상태에 반드시 반영(sync)한 뒤
+                # 부분체결을 예외에 실어 올린다(부분체결 유실 → 이중매수/장부 불일치 방지).
+                self.sync()
+                partial = None
+                if filled_any:
+                    avg = (tot_notional / tot_qty) if tot_qty > 0 else last_price
+                    partial = Fill(symbol, "BUY", tot_qty, avg, tot_cost, dt)
+                    self.fills.append(partial)
+                raise PartialSplitFillError(symbol, partial, e) from e
             oid = resp.get("orderId") if isinstance(resp, dict) else None
             if not oid:
                 continue
