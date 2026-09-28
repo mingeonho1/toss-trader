@@ -884,6 +884,12 @@ def main(argv: list[str] | None = None) -> int:
     print(json.dumps({k: v for k, v in res.items() if k != "report_text"},
                      ensure_ascii=False))
     print(f"→ {res['report']}")
+    # 기록은 맥에 쌓지 않고 GitHub paper-log 브랜치로(허용 목록만·비밀 검사). 실패해도 스코어보드는 성공.
+    if not args.offline:
+        pub = execute_step(Step("publish_records", [sys.executable or "python3",
+                                                    str(SCRIPTS / "publish_records.py")],
+                                timeout=180.0))
+        print(f"publish_records: {pub.status} {pub.stdout.strip()[-200:]}")
     return 0
 
 
