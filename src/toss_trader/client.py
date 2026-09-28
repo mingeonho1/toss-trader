@@ -19,11 +19,13 @@ source of truth: https://openapi.tossinvest.com/openapi-docs/latest/openapi.json
 """
 from __future__ import annotations
 
+import gzip
 import json
 import logging
 import os
 import ssl
 import time
+import zlib
 from datetime import datetime, timezone
 import urllib.error
 import urllib.parse
@@ -182,11 +184,11 @@ class TossClient:
         )
         try:
             with self._urlopen(req) as resp:
-                payload = json.loads(resp.read().decode())
+                payload = json.loads(self._body_text(resp))
         except urllib.error.HTTPError as e:
             # /oauth2/token은 BFF envelope이 아닌 OAuth2 표준 에러 포맷
             # {error, error_description, error_uri}을 사용한다(`error`로 식별).
-            raw = e.read().decode(errors="replace")
+            raw = self._body_text(e, errors="replace")
             code, desc = "token-issue-failed", raw[:300]
             try:
                 ej = json.loads(raw)
@@ -351,11 +353,11 @@ class TossClient:
             req = urllib.request.Request(url, data=data, method=method, headers=headers)
             try:
                 with self._urlopen(req) as resp:
-                    raw = resp.read().decode()
+                    raw = self._body_text(resp)
                     self._note_rate_limit(group, dict(resp.headers or {}))
                 return self._unwrap(raw)
             except urllib.error.HTTPError as e:
-                raw = e.read().decode(errors="replace")
+                raw = self._body_text(e, errors="replace")
                 err = self._parse_error(e.code, raw, dict(e.headers or {}))
 
                 # 401: 캐시 재확인 후 1회 재발급
@@ -432,6 +434,32 @@ class TossClient:
                     self._sleep(wait)
         except (ValueError, TypeError):
             pass
+
+    @staticmethod
+    def _body_text(resp: Any, *, errors: str = "strict") -> str:
+        """응답 바디를 텍스트로 읽는다.
+
+        토스 OpenAPI 게이트웨이는 클라이언트가 Accept-Encoding을 보내지 않아도
+        일부 응답(특히 에러 바디, 예: 403 OAuth access_denied)을 gzip으로 압축해 준다.
+        gzip 매직바이트(\\x1f\\x8b) 또는 Content-Encoding: gzip이면 해제 후 디코드해
+        로그·예외에 바이너리 쓰레기 대신 실제 본문이 남게 한다.
+        """
+        data = resp.read()
+        if not isinstance(data, (bytes, bytearray)):
+            return str(data)
+        enc = ""
+        try:
+            headers = getattr(resp, "headers", None)
+            if headers is not None:
+                enc = (headers.get("Content-Encoding") or "").lower()
+        except Exception:  # noqa: BLE001
+            enc = ""
+        if data[:2] == b"\x1f\x8b" or "gzip" in enc:
+            try:
+                data = gzip.decompress(bytes(data))
+            except (OSError, EOFError, zlib.error):
+                pass  # 압축 해제 실패 시 원본 바이트로 폴백(부분 손상 등)
+        return bytes(data).decode(errors=errors)
 
     @staticmethod
     def _unwrap(raw: str) -> Any:
