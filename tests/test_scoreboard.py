@@ -12,7 +12,7 @@ import json
 import sys
 import tempfile
 import unittest
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
@@ -235,6 +235,133 @@ class StdoutParsingTest(unittest.TestCase):
         out = "═══ 리포트 ═══\n실현손익(YTD, 통산) : ₩1,000 → 예상세액 ₩0\n남은 기본공제 : ₩2,490,000\n"
         lines = sb.parse_tax(out)
         self.assertTrue(any("실현손익" in ln for ln in lines))
+
+
+class RefreshDailyClosesTest(unittest.TestCase):
+    """refresh_closes: 캐시 병합(멱등), candle 재생성, 정중한 중단(429/오류) 회귀."""
+
+    @staticmethod
+    def _hist(d: Path, sym: str, rows: list[dict]) -> None:
+        (d / f"{sym}.json").write_text(
+            json.dumps({"symbol": sym, "source": "nasdaq", "rows": rows}))
+
+    def test_merge_adds_new_dates_and_preserves_existing_adjclose(self) -> None:
+        with tempfile.TemporaryDirectory() as dd:
+            hist = Path(dd)
+            self._hist(hist, "QQQ", [
+                {"d": "2026-09-18", "o": 1, "h": 1, "l": 1, "c": 100.0, "v": 5, "a": 99.0},
+                {"d": "2026-09-22", "o": 1, "h": 1, "l": 1, "c": 110.0, "v": 5, "a": 110.0},
+            ])
+            new = [
+                {"d": "2026-09-18", "o": 1, "h": 1, "l": 1, "c": 100.0, "v": 5, "a": 100.0},
+                {"d": "2026-09-25", "o": 1, "h": 1, "l": 1, "c": 120.0, "v": 5, "a": 120.0},
+            ]
+            added, last = sb.merge_hist_cache("QQQ", new, hist_dir=hist)
+            self.assertEqual(added, 1)                        # 09-25 만 신규
+            self.assertEqual(last, "2026-09-25")
+            by = {r["d"]: r for r in json.loads((hist / "QQQ.json").read_text())["rows"]}
+            self.assertEqual(by["2026-09-18"]["a"], 99.0)     # 기존 배당조정 adjclose 보존
+            self.assertEqual(by["2026-09-25"]["c"], 120.0)
+            again, _ = sb.merge_hist_cache("QQQ", new, hist_dir=hist)
+            self.assertEqual(again, 0)                        # 멱등: 재병합은 0 추가
+
+    def test_refresh_stops_on_error_reseeds_candle_and_spaces_requests(self) -> None:
+        with tempfile.TemporaryDirectory() as dd:
+            root = Path(dd)
+            hist = root / "hist"; cand = root / "cand"; hist.mkdir()
+            self._hist(hist, "QQQ", [{"d": "2026-09-22", "o": 1, "h": 1, "l": 1,
+                                      "c": 110.0, "v": 5, "a": 110.0}])
+            self._hist(hist, "SCHD", [{"d": "2026-09-22", "o": 1, "h": 1, "l": 1,
+                                       "c": 33.0, "v": 5, "a": 33.0}])
+            calls: list[str] = []
+
+            def fake_fetch(sym: str, days: int) -> list[dict]:
+                calls.append(sym)
+                if sym == "SCHD":
+                    raise RuntimeError("nasdaq 429: SCHD")    # 두 번째 심볼에서 오류
+                return [{"d": "2026-09-25", "o": 1, "h": 1, "l": 1,
+                         "c": 120.0, "v": 5, "a": 120.0}]
+
+            slept: list[float] = []
+            summary = sb.refresh_daily_closes(
+                ["QQQ", "SCHD", "GLD"], days=5, spacing=1.6,
+                fetcher=fake_fetch, sleep=slept.append,
+                hist_dir=hist, candle_dir=cand, depth=320,
+                candle_symbols=["QQQ", "SCHD", "GLD"])
+            self.assertEqual(summary["refreshed"], ["QQQ"])   # QQQ 만 갱신
+            self.assertIn("SCHD", summary["stopped"] or "")   # SCHD 에서 정중히 중단
+            self.assertEqual(calls, ["QQQ", "SCHD"])          # GLD 는 시도조차 안 함
+            self.assertEqual(slept, [1.6])                    # 심볼 간 1회 간격 ≥1.5
+            self.assertEqual(summary["last_dates"]["QQQ"], "2026-09-25")
+            cc = json.loads((cand / "QQQ_320.json").read_text())
+            self.assertEqual(cc[-1]["c"], 120.0)              # candle 캐시 새 종가 반영
+            self.assertNotIn("a", cc[-1])                     # candle 레이아웃엔 'a' 없음
+
+    def test_refresh_skips_missing_rows_without_stopping(self) -> None:
+        with tempfile.TemporaryDirectory() as dd:
+            hist = Path(dd) / "hist"; hist.mkdir()
+            self._hist(hist, "QQQ", [{"d": "2026-09-22", "o": 1, "h": 1, "l": 1,
+                                      "c": 110.0, "v": 5, "a": 110.0}])
+            summary = sb.refresh_daily_closes(
+                ["QQQ"], fetcher=lambda s, d: [], sleep=lambda s: None,
+                hist_dir=hist, candle_dir=Path(dd) / "cand", candle_symbols=[])
+            self.assertEqual(summary["refreshed"], [])        # 빈 응답 → 갱신 없음
+            self.assertIsNone(summary["stopped"])             # 오류 아님(중단 아님)
+
+
+class SessionDateMappingTest(unittest.TestCase):
+    """06:30 KST 실행이 '방금 끝난' ET 세션 날짜로 정확히 귀속되는가(EDT/EST/주말/휴장)."""
+
+    @staticmethod
+    def _kst_0630_as_utc(y: int, mo: int, d: int) -> datetime:
+        """해당 날짜 06:30 KST 를 UTC 순간으로(= 전일 21:30 UTC)."""
+        kst = timezone(timedelta(hours=9))
+        return datetime(y, mo, d, 6, 30, tzinfo=kst).astimezone(timezone.utc)
+
+    def test_edt_summer_maps_to_prior_weekday_session(self) -> None:
+        # KST 화 2026-09-29 06:30 → ET 월 2026-09-28 17:30(EDT) → 세션 = 09-28.
+        self.assertEqual(sb.et_session_date(self._kst_0630_as_utc(2026, 9, 29)),
+                         date(2026, 9, 28))
+
+    def test_est_winter_maps_to_prior_weekday_session(self) -> None:
+        # KST 화 2026-01-06 06:30 → ET 월 2026-01-05 16:30(EST) → 세션 = 01-05.
+        self.assertEqual(sb.et_session_date(self._kst_0630_as_utc(2026, 1, 6)),
+                         date(2026, 1, 5))
+
+    def test_weekend_has_no_session(self) -> None:
+        # KST 일 2026-09-27 06:30 → ET 토 2026-09-26 17:30 → 세션 없음.
+        self.assertIsNone(sb.et_session_date(self._kst_0630_as_utc(2026, 9, 27)))
+        # KST 월 2026-09-28 06:30 → ET 일 2026-09-27 → 세션 없음.
+        self.assertIsNone(sb.et_session_date(self._kst_0630_as_utc(2026, 9, 28)))
+
+    def test_us_holiday_has_no_session(self) -> None:
+        # KST 금 2026-01-02 06:30 → ET 목 2026-01-01 16:30(신정 휴장) → 세션 없음.
+        self.assertIsNone(sb.et_session_date(self._kst_0630_as_utc(2026, 1, 2)))
+
+    def test_before_close_has_no_session(self) -> None:
+        # 정규장 마감(16:05 ET) 전이면 오늘 세션은 아직 안 끝남.
+        pre_close = datetime(2026, 9, 28, 13, 0, tzinfo=timezone.utc)  # ET 09:00 EDT
+        self.assertIsNone(sb.et_session_date(pre_close))
+
+    def test_collector_skips_on_us_holiday(self) -> None:
+        # collector_skip_reason 도 휴장일(평일·마감 후)에 스킵해야 한다.
+        et_newyear = datetime(2026, 1, 1, 16, 30, tzinfo=timezone.utc)  # ET 목 신정
+        self.assertIn("휴장", sb.collector_skip_reason(False, et_newyear) or "")
+
+
+class USMarketHolidayTest(unittest.TestCase):
+    def test_known_2026_holidays(self) -> None:
+        hols = sb.us_market_holidays(2026)
+        for d in [date(2026, 1, 1), date(2026, 1, 19), date(2026, 2, 16),
+                  date(2026, 4, 3), date(2026, 5, 25), date(2026, 6, 19),
+                  date(2026, 9, 7), date(2026, 11, 26), date(2026, 12, 25)]:
+            self.assertIn(d, hols)
+        self.assertFalse(sb.is_us_market_holiday(date(2026, 9, 25)))   # 평범한 거래일
+
+    def test_observed_shifts_for_weekend_fixed_holidays(self) -> None:
+        # 2027-07-04 는 일요일 → 관측 휴장은 월 07-05.
+        self.assertTrue(sb.is_us_market_holiday(date(2027, 7, 5)))
+        self.assertFalse(sb.is_us_market_holiday(date(2027, 7, 4)))
 
 
 if __name__ == "__main__":

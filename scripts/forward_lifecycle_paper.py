@@ -292,11 +292,19 @@ def run_once(args: argparse.Namespace) -> int:
             "note": note,
         })
 
-    state.setdefault("snapshots", []).append({
+    snap = {
         "ts": ts, "date": today.isoformat(), "prices": dict(prices),
         "portfolios": {r["id"]: {"equity": r["equity"], "contributed": r["contributed"],
-                                 "E": r["E"]} for r in rows}})
-    state["snapshots"] = state["snapshots"][-2000:]
+                                 "E": r["E"]} for r in rows}}
+    snaps = state.setdefault("snapshots", [])
+    if args.offline_cache:
+        # 크리덴셜 없는 경로: 세션일 1개 = 스냅샷 1개(멱등). 같은 세션일 재실행은 교체.
+        snaps = [s for s in snaps if str(s.get("date")) != str(snap["date"])]
+        snaps.append(snap)
+        snaps.sort(key=lambda s: str(s.get("date")))
+    else:
+        snaps.append(snap)
+    state["snapshots"] = snaps[-2000:]
     _save_state(Path(args.state), state)
     _write_report(Path(args.report), state, prices, rows, ts, args.offline_cache or client is None)
     _log(f"lifecycle paper updated: prices={ {s: round(prices.get(s, 0.0), 2) for s in SYMBOLS} } "
