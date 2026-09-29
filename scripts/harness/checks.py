@@ -15,6 +15,7 @@
   F9  비밀정보 추적/스테이징 · publish 허용목록에 비밀 포함
   F10 실주문 안전: plist/스크립트에 --execute/live · dry-run 기본값 훼손 · 주문경로 테스트
   F11 레버리지/타이밍 주장 감사(고점대비 낙폭·합성 2x 배당 이중계상) 미언급
+  F12 LLM 판단 레이어 안전: 주문 API/실행 플래그 참조 · codex 비-읽기전용 샌드박스
 
 stdlib 만 사용한다.
 """
@@ -744,11 +745,56 @@ def check_f11_audit(ctx: Context) -> list[Finding]:
     return out
 
 
+# ── F12: LLM 판단 레이어 안전(주문/실행 경로 없음 · 읽기 전용 샌드박스) ──────────
+LLM_JUDGE_PATH = "scripts/loop/llm_judge.py"
+_LLM_FORBIDDEN_TOKENS = (
+    "create_order", "get_holdings", "get_buying_power", "execute_buys", "execute_plan",
+    "place_order", "submit_order", ".execute(", "--execute", "TRADING_MODE", "live_exec",
+)
+# codex 를 위험 샌드박스(쓰기/전체접근/승인우회)로 부르면 즉시 block.
+_LLM_DANGEROUS_SANDBOX = ("danger-full-access", "workspace-write", "dangerously-bypass")
+
+
+def check_f12_llm_judge_safety(ctx: Context) -> list[Finding]:
+    """LLM 판단 모듈은 주문 API/실행 플래그를 절대 참조하지 않고, codex 는 읽기 전용 샌드박스로만.
+
+    새 실패 유형(LLM 레이어 도입): 판단 모듈이 실주문 경로를 건드리거나, codex 를 쓰기/전체접근/
+    승인우회 샌드박스로 호출하면 block. 정적 스캔(코드 경로 전수 — block 수준).
+    """
+    if not ctx.in_scope(LLM_JUDGE_PATH):
+        return []
+    text = ctx.read(LLM_JUDGE_PATH)
+    if text is None:
+        return []
+    out: list[Finding] = []
+    hits = sorted({t for t in _LLM_FORBIDDEN_TOKENS if t in text})
+    if hits:
+        out.append(Finding(
+            "block", "F12", LLM_JUDGE_PATH,
+            f"LLM 판단 모듈이 주문/실행 경로 토큰을 참조함: {hits}.",
+            "판단 레이어는 절대 주문 API 를 호출하거나 실행/라이브 플래그를 넘기면 안 됩니다. "
+            "해당 참조를 제거하세요(결정론 엔진과 동일한 무주문 규약)."))
+    if "codex" in text:
+        if "--sandbox" not in text or "read-only" not in text:
+            out.append(Finding(
+                "block", "F12", LLM_JUDGE_PATH,
+                "codex 호출에 `--sandbox read-only` 근거가 없음.",
+                "codex exec 호출에 항상 --sandbox read-only 를 포함하세요."))
+        dangerous = sorted({t for t in _LLM_DANGEROUS_SANDBOX if t in text})
+        if dangerous:
+            out.append(Finding(
+                "block", "F12", LLM_JUDGE_PATH,
+                f"codex 호출에 위험 샌드박스/승인우회 플래그가 있음: {dangerous}.",
+                "쓰기/전체접근/승인우회 샌드박스를 제거하고 read-only 만 쓰세요."))
+    return out
+
+
 # ── 집계 ─────────────────────────────────────────────────────────────────────
 ALL_CHECKS = (
     check_f1_fees, check_f2_result_paths, check_f3_prereg, check_f4_holdout_append,
     check_f5_lookahead, check_f6_survivorship, check_f7_signal_reuse,
     check_f8_tradability, check_f9_secrets, check_f10_real_money, check_f11_audit,
+    check_f12_llm_judge_safety,
 )
 
 

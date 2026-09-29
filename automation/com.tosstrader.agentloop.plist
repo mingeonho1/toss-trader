@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  에이전트 팀 루프 LaunchAgent — 참조용 템플릿(설치 안 됨).
+  scripts/loop/run_agent_cycle.sh 를 격리 워크트리(~/github/toss-trader-loop)에서
+  헤드리스 Claude Code(/loop-cycle)로 1사이클 돌린다. 매매/주문 없음(연구 루프).
+
+  설치(권장 · 원커맨드):
+    bash scripts/install_agentloop.sh            # 설치(매주 토 10:00 KST, RunAtLoad=false)
+    bash scripts/install_agentloop.sh --status    # 상태/최근 요약·로그
+    bash scripts/install_agentloop.sh --run-now   # 즉시 1회(urgent kick · 실제 사이클)
+    bash scripts/install_agentloop.sh --uninstall # 제거
+  수동 설치 시 아래 <PROJECT> 를 이 머신 경로로 치환한 뒤:
+    cp automation/com.tosstrader.agentloop.plist ~/Library/LaunchAgents/
+    launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.tosstrader.agentloop.plist
+
+  경로 치환:
+    <PROJECT> = /Users/mingh/github/toss-trader   (메인 저장소; 워크트리가 아니라 여기 스크립트를 실행)
+
+  스케줄(KST): 매주 토요일 10:00. 미 증시 휴장이라 편성 변경/검증에 안전.
+  RunAtLoad=false: 설치·부팅만으로는 실행되지 않는다. 정기(토) 또는 urgent kick 으로만 발화.
+  urgent kick: 데일리 엔진/사람이 `launchctl kickstart -k gui/<uid>/com.tosstrader.agentloop`.
+  caffeinate -i: 사이클 실행 중 유휴 절전 방지. 최대 실행시간·락은 run_agent_cycle.sh 가 관리.
+
+  격리·안전: origin/main 발 fresh 브랜치 loop/<YYYY-MM-DD> 에서만 작업하고
+  메인 작업복사본(매일 스코어보드가 도는 곳)은 건드리지 않는다. .env 는 워크트리에서 제거.
+  --dangerously-skip-permissions 는 쓰지 않으며 허용 도구는 명시 목록만.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.tosstrader.agentloop</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/caffeinate</string>
+    <string>-i</string>
+    <string>/bin/bash</string>
+    <string><PROJECT>/scripts/loop/run_agent_cycle.sh</string>
+    <string>--reason</string>
+    <string>weekly-sat</string>
+  </array>
+  <key>RunAtLoad</key><false/>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Weekday</key><integer>6</integer>
+    <key>Hour</key><integer>10</integer>
+    <key>Minute</key><integer>0</integer>
+  </dict>
+  <key>StandardOutPath</key><string><PROJECT>/data/agentloop.launchd.out.log</string>
+  <key>StandardErrorPath</key><string><PROJECT>/data/agentloop.launchd.err.log</string>
+  <key>WorkingDirectory</key><string><PROJECT></string>
+  <key>ProcessType</key><string>Background</string>
+</dict>
+</plist>
