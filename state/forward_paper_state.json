@@ -1,11 +1,8 @@
 {
   "version": 2,
   "created_at": "2026-09-28T03:10:07.126286+00:00",
-  "session_date": "2026-09-28",
-  "regular_market": {
-    "startTime": "2026-09-28T22:30:00.000+09:00",
-    "endTime": "2026-09-29T05:00:00.000+09:00"
-  },
+  "session_date": "2026-09-29",
+  "regular_market": null,
   "seed_usd": 100.0,
   "seed_krw": 0.0,
   "fx": 0.0,
@@ -180,13 +177,12 @@
       "initialized": true,
       "last_contribution_period": "2026-09",
       "signal": {
-        "period": "2026-09-28",
+        "period": "2026-09-29",
         "weights": {
-          "GLD": 0.3333333333333333,
-          "SPY": 0.3333333333333333,
-          "QQQ": 0.3333333333333333
+          "QQQ": 0.5,
+          "SPY": 0.5
         },
-        "asof": "2026-09-28"
+        "asof": "2026-09-29"
       }
     }
   },
@@ -317,6 +313,78 @@
             "GLD": 0.3333333333333333,
             "SPY": 0.3333333333333333,
             "QQQ": 0.3333333333333333
+          },
+          "total_contributed": 100.0
+        }
+      }
+    },
+    {
+      "ts": "2026-09-29T01:07:01.456896+00:00",
+      "session_date": "2026-09-29",
+      "regular_market": null,
+      "prices": {
+        "BIL": 91.6274,
+        "EFA": 105.3095,
+        "GLD": 381.09,
+        "IEF": 89.56,
+        "IWM": 280.25,
+        "QQQ": 737.68,
+        "SCHD": 33.2595,
+        "SPY": 767.651
+      },
+      "stale_symbols": [
+        "BIL",
+        "EFA",
+        "GLD",
+        "IEF",
+        "IWM",
+        "QQQ",
+        "SCHD",
+        "SPY"
+      ],
+      "flows": {
+        "lumpsum_etf": 0.0,
+        "dual_momentum": 0.0,
+        "regime_200d": 0.0,
+        "sma_cross": 0.0
+      },
+      "strategies": {
+        "lumpsum_etf": {
+          "equity": 97.80482080545026,
+          "money_return": -0.021951791945497345,
+          "cash": 0.0,
+          "weights": {
+            "QQQ": 0.6,
+            "SCHD": 0.25,
+            "GLD": 0.15
+          },
+          "total_contributed": 100.0
+        },
+        "dual_momentum": {
+          "equity": 98.34720603765936,
+          "money_return": -0.016527939623406374,
+          "cash": 0.0,
+          "weights": {
+            "QQQ": 1.0
+          },
+          "total_contributed": 100.0
+        },
+        "regime_200d": {
+          "equity": 98.34720603765936,
+          "money_return": -0.016527939623406374,
+          "cash": 0.0,
+          "weights": {
+            "QQQ": 1.0
+          },
+          "total_contributed": 100.0
+        },
+        "sma_cross": {
+          "equity": 97.39451468871346,
+          "money_return": -0.026054853112865484,
+          "cash": 0.0,
+          "weights": {
+            "QQQ": 0.5,
+            "SPY": 0.5
           },
           "total_contributed": 100.0
         }
