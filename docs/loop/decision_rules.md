@@ -121,6 +121,7 @@ n<2 또는 벤치 정렬 스텝<2 면 vol·z·excess 는 `None`(WARMUP 단계라
 ## 부칙 (Addenda) — 변경 이력
 
 - 2026-09-29 최초 사전등록.
+- 2026-09-29 부록 B: LLM 판단 레이어(GPT-6 · Codex CLI) 추가 — 결정론 백본 위 해석 레이어.
 
 ### 부록 A — 2026-09-29, 첫 실측 이전 확정
 
@@ -134,3 +135,34 @@ n<2 또는 벤치 정렬 스텝<2 면 vol·z·excess 는 `None`(WARMUP 단계라
    전략**(같은-종가 체결 가정이라 실집행 불가), **탐색(explore) 그룹.** 리더보드 표에는 계속 표시하되
    추천/참고 선두 선정에서만 뺀다.
 3. `레버ETP` 는 실계좌 대상이 아니므로(예탁금·교육·승인 요건) 항상 `관찰 선두(추천 아님)` 로만 표기한다.
+
+### 부록 B — 2026-09-29, LLM 판단 레이어 (GPT-6 · Codex CLI)
+
+결정론 엔진(§1–§5)은 **감사 가능한 백본**으로 그대로 두고, 그 위에 GPT-6(로컬 `codex` CLI,
+`gpt-6-astra`)을 매일 해석·판단 레이어로 얹는다. 구현: `scripts/loop/llm_judge.py`, `daily_scoreboard`
+의 `daily_decision` **직후** 격리 단계 `llm_judge`. **엔진과 동일하게 절대 주문하지 않으며**, codex 는
+항상 `--sandbox read-only` 로만 호출하고 승인우회/쓰기 샌드박스 플래그를 넘기지 않는다(하네스 F12 정적 스캔).
+
+1. **컨텍스트 번들(JSON·compact·비밀 없음)**: 오늘 결정론 산출(전 전략 state/지표), 최근 10일
+   `decisions.jsonl`, 열린 `requests.jsonl`, 동결 `backtest_expectations.json`, 최신 정찰 인텔
+   (`docs/pipeline/intel/`, 있으면), 한국 리테일 하드 제약(레버 ETP 예탁금 ₩1,000만·≤$10 무료 매수·
+   매도 SEC/TAF $0.01·환전 0.05%·무주문).
+2. **구조화 출력(`--output-schema`)**: `{stance(hold_dca|recommend), recommended_strategy, sleeve_frac,
+   confidence, state_overrides[], rationale_ko, what_changed_ko, watch_items[], requests[]}`.
+3. **도메인 검증 (LLM 하네스 = 루프의 "fail → 되돌림")**:
+   - `recommended_strategy` 는 null 이거나 **실계좌(retail)** 그룹이고 결정론 상태가 **CANDIDATE/LIVE_READY**.
+     벤치마크·`_moc`·탐색(explore) 는 추천 불가. LLM 은 더 보수적일 수는 있어도 결코 덜 보수적일 수 없다.
+   - `stance="recommend"` 는 유효한 `recommended_strategy` 필수. `sleeve_frac∈[0,0.5]`, `confidence∈[0,1]`.
+   - `state_overrides` 는 **강등만**(예: CANDIDATE→EVALUATING, 무엇이든→DEMOTED; 승격·동일 금지). 언급 전략은
+     모두 번들에 존재해야 한다. 근거에 번들에 없는 전략/지표 토큰이 있으면 경미 플래그(기각 아님).
+   - 위반 시 사유를 붙여 **1~2회 재프롬프트**("이전 응답이 다음 규칙을 위반했다: …"), 그래도 실패면 결정론
+     폴백 `llm_status="rejected"`. codex 실패/미로그인/타임아웃/오프라인 → `llm_status="unavailable"`,
+     결정론 결과가 그대로 선다. 타임아웃 ~180s. 승인우회 플래그는 절대 넘기지 않는다.
+4. **병합(보수적)**: 최종 = 결정론 ∘ 검증된 LLM. state_override 는 병합 뷰(`merged_states`)에 강등으로만
+   반영하고 결정론 백본 파일(`decision_state.json`/`decisions.jsonl`)은 불변. LLM 요청은 `requests.jsonl` 에
+   `source="llm"` 로 추가(세션별 멱등). 전량 기록: `data/loop/llm_judgments.jsonl`(프롬프트 해시·모델·
+   원출력·검증오류·시도·상태·병합·킥; 비밀 없음). `reports/decision_latest.md` 끝에
+   "🤖 LLM 판단 (gpt-6-astra)" 섹션(상태 accepted/rejected/unavailable·강등·관찰 항목).
+5. **긴급 킥**: 병합 후 오늘 자 priority `high` 요청(규칙 또는 LLM)이 새로 있으면 `com.tosstrader.agentloop`
+   launchd 잡이 **로드돼 있을 때만** `launchctl kickstart` 로 에이전트 팀 루프를 1회 깨운다(ET 날짜당 1회,
+   `data/loop/kick_state.json` 영속). 규칙(결정론) 요청은 `audit`/`investigate_divergence` 를 고우선으로 본다.

@@ -339,3 +339,44 @@ def test_f11_passes_when_audit_mentioned(tmp_path):
     write(tmp_path, "reports/cycle99_c99_x.md",
           "## 결과\n합성 3x, 판정 **PASS**. 배당 이중계상·종료일 절단 감사 완료(코호트 ATH).\n")
     assert checks.check_f11_audit(ctx(tmp_path)) == []
+
+
+# ── F12: LLM 판단 레이어 안전(주문/실행 경로 · read-only 샌드박스) ─────────────
+_F12_CLEAN = (
+    "import subprocess\n"
+    'argv = [codex, "exec", "-m", "gpt-6-astra", "--sandbox", "read-only",\n'
+    '        "--skip-git-repo-check", "--ephemeral", prompt]\n'
+    "subprocess.run(argv, capture_output=True)\n"
+)
+
+
+def test_f12_blocks_order_tokens(tmp_path):
+    write(tmp_path, "scripts/loop/llm_judge.py",
+          _F12_CLEAN + "client.create_order(sym, qty)\n")
+    f = checks.check_f12_llm_judge_safety(ctx(tmp_path))
+    assert any(x.code == "F12" and "주문/실행" in x.message for x in f)
+
+
+def test_f12_blocks_dangerous_sandbox(tmp_path):
+    write(tmp_path, "scripts/loop/llm_judge.py",
+          'argv = ["codex", "exec", "--sandbox", "workspace-write", prompt]\n')
+    f = checks.check_f12_llm_judge_safety(ctx(tmp_path))
+    assert any(x.code == "F12" and "위험 샌드박스" in x.message for x in f)
+
+
+def test_f12_blocks_missing_read_only(tmp_path):
+    write(tmp_path, "scripts/loop/llm_judge.py",
+          'argv = ["codex", "exec", "-m", "gpt-6-astra", prompt]\n')
+    f = checks.check_f12_llm_judge_safety(ctx(tmp_path))
+    assert any(x.code == "F12" and "read-only" in x.message for x in f)
+
+
+def test_f12_passes_clean_llm_judge(tmp_path):
+    write(tmp_path, "scripts/loop/llm_judge.py", _F12_CLEAN)
+    assert checks.check_f12_llm_judge_safety(ctx(tmp_path)) == []
+
+
+def test_f12_skips_when_out_of_scope(tmp_path):
+    write(tmp_path, "scripts/loop/llm_judge.py", _F12_CLEAN + "create_order()\n")
+    # 스코프에 없으면 검사 생략(변경 파일만 검사하는 --changed 모드 대응).
+    assert checks.check_f12_llm_judge_safety(ctx(tmp_path, scope=set())) == []

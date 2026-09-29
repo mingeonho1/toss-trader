@@ -35,12 +35,14 @@ ALLOW = [
     ("reports/forward_paper_latest.md", "latest"),
     ("reports/forward_lifecycle_latest.md", "latest"),
     ("reports/strategy_live_latest.md", "latest"),
+    ("reports/agent_cycle_latest.md", "latest"),         # 에이전트 팀 루프 사이클 요약
     ("data/scoreboard_history.jsonl", "state"),
     ("data/forward_paper_state.json", "state"),
     ("data/forward_lifecycle_state.json", "state"),
     ("data/loop/decision_state.json", "state/loop"),    # 결정 엔진 상태 스냅샷(멱등)
     ("data/loop/decisions.jsonl", "state/loop"),        # 하루 1레코드 판정 이력
     ("data/loop/requests.jsonl", "state/loop"),         # 에이전트 팀 작업요청(머신리더블)
+    ("data/loop/llm_judgments.jsonl", "state/loop"),    # LLM 판단 이력(프롬프트 해시·상태·검증·병합)
     ("data/intraday_shadow/trades.jsonl", "state/intraday_shadow"),
     ("data/paperlab/*/state.json", "state/paperlab/{parent}"),
     ("data/paperlab/*/trades.jsonl", "state/paperlab/{parent}"),

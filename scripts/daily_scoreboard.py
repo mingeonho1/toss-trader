@@ -805,6 +805,12 @@ def build_default_steps(*, offline: bool, creds: bool, et_now: datetime,
         # 없음·멱등. 목표비중은 캐시 전용(refresh_closes/paperlab 가 앞서 갱신). 격리(실패해도 계속).
         Step("daily_decision",
              [py, str(SCRIPTS / "loop" / "daily_decision.py")], timeout=180.0),
+        # LLM 판단 레이어(GPT-6 판사) — 반드시 daily_decision **뒤**(결정론 산출물을 읽는다). 별도
+        # 격리 단계. codex 를 **읽기 전용 샌드박스**로만 호출하고 주문은 절대 없다. --offline 이면
+        # codex 미호출(결정론 그대로 유지 — CI/오프라인). 실패해도 결정론 결과·나머지 단계는 계속.
+        Step("llm_judge",
+             [py, str(SCRIPTS / "loop" / "llm_judge.py"),
+              *(["--offline"] if offline else [])], timeout=200.0),
     ]
     return steps
 
