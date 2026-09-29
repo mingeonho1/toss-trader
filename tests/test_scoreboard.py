@@ -309,6 +309,46 @@ class RefreshDailyClosesTest(unittest.TestCase):
             self.assertIsNone(summary["stopped"])             # 오류 아님(중단 아님)
 
 
+class RefreshClosesGatingTest(unittest.TestCase):
+    """회귀: live 모드에서도 refresh_closes 가 스킵되지 않아야 페이퍼 랩이 새 종가를 본다.
+
+    (버그: Toss 자격증명이 붙어 live 모드가 되면 refresh_closes 를 '캐시 갱신 불필요'로
+    스킵 → 키 없는 일봉 캐시(QQQ/TQQQ/SPY 등)가 정체 → paperlab 이 '첫 세션 대기'에서 못 벗어남.)
+    """
+
+    @staticmethod
+    def _steps(*, offline: bool, creds: bool) -> dict[str, sb.Step]:
+        et_now = datetime(2026, 9, 28, 20, 30, tzinfo=timezone.utc)  # 평일·마감 후(ET 16:30 EDT)
+        steps = sb.build_default_steps(offline=offline, creds=creds, et_now=et_now,
+                                       seed_usd=100.0, py=sys.executable)
+        return {s.name: s for s in steps}
+
+    def test_live_mode_does_not_skip_refresh(self) -> None:
+        step = self._steps(offline=False, creds=True)["refresh_closes"]
+        self.assertIsNone(step.skip_reason)                  # live 라도 실행(스킵 아님)
+
+    def test_cached_mode_does_not_skip_refresh(self) -> None:
+        step = self._steps(offline=False, creds=False)["refresh_closes"]
+        self.assertIsNone(step.skip_reason)                  # 키 없는 캐시 모드도 실행
+
+    def test_offline_mode_skips_refresh(self) -> None:
+        step = self._steps(offline=True, creds=False)["refresh_closes"]
+        self.assertIsNotNone(step.skip_reason)               # --offline(네트워크 없음)만 스킵
+        self.assertIn("offline", step.skip_reason or "")
+
+    def test_refresh_runs_before_forward_and_paperlab(self) -> None:
+        et_now = datetime(2026, 9, 28, 20, 30, tzinfo=timezone.utc)
+        order = [s.name for s in sb.build_default_steps(
+            offline=False, creds=True, et_now=et_now, seed_usd=100.0, py=sys.executable)]
+        self.assertLess(order.index("refresh_closes"), order.index("forward_paper"))
+        self.assertLess(order.index("refresh_closes"), order.index("paperlab"))
+
+    def test_refresh_symbols_cover_paperlab_core_and_forward_universe(self) -> None:
+        # forward_paper 유니버스 + paperlab 코어 ETP(레버리지/인버스/변동성)를 모두 포함.
+        for sym in ("QQQ", "SPY", "TQQQ", "SQQQ", "UVXY", "QLD"):
+            self.assertIn(sym, sb.REFRESH_SYMBOLS, f"{sym} 누락 → 캐시 정체 위험")
+
+
 class SessionDateMappingTest(unittest.TestCase):
     """06:30 KST 실행이 '방금 끝난' ET 세션 날짜로 정확히 귀속되는가(EDT/EST/주말/휴장)."""
 

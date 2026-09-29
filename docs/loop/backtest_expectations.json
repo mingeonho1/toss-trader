@@ -1,0 +1,205 @@
+{
+  "_meta": {
+    "frozen": "2026-09-29",
+    "source": "paperlab backfill replay (scripts/paperlab_run.py --backfill-from 2021-01-01 --offline), unit $1k book vs qqq_bh unit book, Toss fees, signal t -> fill t+1",
+    "window": "2021-01-01 .. cache end (~1439 sessions, ~5.7y)",
+    "benchmark": "qqq_bh unit equity curve (same broker/fees) matched by date",
+    "definitions": {
+      "exp_annual_log_excess_vs_qqq": "mean(daily log return - QQQ daily log return) * 252",
+      "tracking_vol_annual": "pstdev(daily log excess vs QQQ) * sqrt(252), floored at 0.05",
+      "backtest_mdd": "max drawdown of unit equity curve (negative)"
+    },
+    "note": "FROZEN pre-registration input for scripts/loop/daily_decision.py. Changes require a dated addendum in docs/loop/decision_rules.md. hibeta/*_psq numbers are UPPER BOUND (PIT S&P500 coverage ~27-31%)."
+  },
+  "strategies": {
+    "btc_proxy_mstr_coin": {
+      "exp_annual_log_excess_vs_qqq": -0.169537,
+      "tracking_vol_annual": 0.363087,
+      "backtest_mdd": -0.4802,
+      "backtest_cagr": -0.011302,
+      "backtest_sessions": 1439
+    },
+    "buffer_hibeta": {
+      "exp_annual_log_excess_vs_qqq": 0.139308,
+      "tracking_vol_annual": 0.288856,
+      "backtest_mdd": -0.368026,
+      "backtest_cagr": 0.34646,
+      "backtest_sessions": 1439
+    },
+    "ep_gap_swing": {
+      "exp_annual_log_excess_vs_qqq": -0.079833,
+      "tracking_vol_annual": 0.299998,
+      "backtest_mdd": -0.458227,
+      "backtest_cagr": 0.081489,
+      "backtest_sessions": 1439
+    },
+    "ftlt": {
+      "exp_annual_log_excess_vs_qqq": 0.273987,
+      "tracking_vol_annual": 0.571596,
+      "backtest_mdd": -0.662803,
+      "backtest_cagr": 0.540579,
+      "backtest_sessions": 1439
+    },
+    "ftlt_1x": {
+      "exp_annual_log_excess_vs_qqq": 0.00602,
+      "tracking_vol_annual": 0.211723,
+      "backtest_mdd": -0.293701,
+      "backtest_cagr": 0.178439,
+      "backtest_sessions": 1439
+    },
+    "ftlt_hibeta": {
+      "exp_annual_log_excess_vs_qqq": 0.184334,
+      "tracking_vol_annual": 0.297902,
+      "backtest_mdd": -0.519108,
+      "backtest_cagr": 0.408471,
+      "backtest_sessions": 1439
+    },
+    "ftlt_hibeta_psq": {
+      "exp_annual_log_excess_vs_qqq": 0.20085,
+      "tracking_vol_annual": 0.346769,
+      "backtest_mdd": -0.497166,
+      "backtest_cagr": 0.431926,
+      "backtest_sessions": 1439
+    },
+    "ftlt_moc": {
+      "exp_annual_log_excess_vs_qqq": 0.645551,
+      "tracking_vol_annual": 0.568532,
+      "backtest_mdd": -0.558612,
+      "backtest_cagr": 1.233841,
+      "backtest_sessions": 1439
+    },
+    "hibeta_basket": {
+      "exp_annual_log_excess_vs_qqq": 0.190207,
+      "tracking_vol_annual": 0.310983,
+      "backtest_mdd": -0.660199,
+      "backtest_cagr": 0.416768,
+      "backtest_sessions": 1439
+    },
+    "holy_grail": {
+      "exp_annual_log_excess_vs_qqq": 0.383134,
+      "tracking_vol_annual": 0.578265,
+      "backtest_mdd": -0.65251,
+      "backtest_cagr": 0.718248,
+      "backtest_sessions": 1439
+    },
+    "holygrail_hibeta": {
+      "exp_annual_log_excess_vs_qqq": 0.211204,
+      "tracking_vol_annual": 0.29882,
+      "backtest_mdd": -0.521594,
+      "backtest_cagr": 0.44683,
+      "backtest_sessions": 1439
+    },
+    "hot_rvol_swing": {
+      "exp_annual_log_excess_vs_qqq": 0.041734,
+      "tracking_vol_annual": 0.395078,
+      "backtest_mdd": -0.518782,
+      "backtest_cagr": 0.221286,
+      "backtest_sessions": 1439
+    },
+    "lrr_tqqq": {
+      "exp_annual_log_excess_vs_qqq": 0.140827,
+      "tracking_vol_annual": 0.355111,
+      "backtest_mdd": -0.49737,
+      "backtest_cagr": 0.348507,
+      "backtest_sessions": 1439
+    },
+    "lrr_tqqq_sqqq": {
+      "exp_annual_log_excess_vs_qqq": -0.026869,
+      "tracking_vol_annual": 0.709193,
+      "backtest_mdd": -0.653468,
+      "backtest_cagr": 0.140312,
+      "backtest_sessions": 1439
+    },
+    "lrs200_qqq": {
+      "exp_annual_log_excess_vs_qqq": -0.015245,
+      "tracking_vol_annual": 0.155034,
+      "backtest_mdd": -0.253671,
+      "backtest_cagr": 0.153645,
+      "backtest_sessions": 1439
+    },
+    "lrs200_tqqq": {
+      "exp_annual_log_excess_vs_qqq": 0.13003,
+      "tracking_vol_annual": 0.35682,
+      "backtest_mdd": -0.607679,
+      "backtest_cagr": 0.334025,
+      "backtest_sessions": 1439
+    },
+    "mom_top5_ndx": {
+      "exp_annual_log_excess_vs_qqq": 0.24607,
+      "tracking_vol_annual": 0.305858,
+      "backtest_mdd": -0.401924,
+      "backtest_cagr": 0.498165,
+      "backtest_sessions": 1439
+    },
+    "nine_sig": {
+      "exp_annual_log_excess_vs_qqq": 0.083292,
+      "tracking_vol_annual": 0.357304,
+      "backtest_mdd": -0.731977,
+      "backtest_cagr": 0.27311,
+      "backtest_sessions": 1439
+    },
+    "overnight_qqq": {
+      "exp_annual_log_excess_vs_qqq": -0.429057,
+      "tracking_vol_annual": 0.184295,
+      "backtest_mdd": -0.793839,
+      "backtest_cagr": -0.237297,
+      "backtest_sessions": 1439
+    },
+    "overnight_tqqq": {
+      "exp_annual_log_excess_vs_qqq": -0.357369,
+      "tracking_vol_annual": 0.329062,
+      "backtest_mdd": -0.833698,
+      "backtest_cagr": -0.180613,
+      "backtest_sessions": 1439
+    },
+    "qqq_bh": {
+      "exp_annual_log_excess_vs_qqq": 0.0,
+      "tracking_vol_annual": 0.05,
+      "backtest_mdd": -0.351185,
+      "backtest_cagr": 0.171366,
+      "backtest_sessions": 1439
+    },
+    "rsi2_tqqq": {
+      "exp_annual_log_excess_vs_qqq": -0.002912,
+      "tracking_vol_annual": 0.259925,
+      "backtest_mdd": -0.242449,
+      "backtest_cagr": 0.16796,
+      "backtest_sessions": 1439
+    },
+    "simple_hibeta": {
+      "exp_annual_log_excess_vs_qqq": 0.169699,
+      "tracking_vol_annual": 0.309323,
+      "backtest_mdd": -0.665794,
+      "backtest_cagr": 0.388008,
+      "backtest_sessions": 1439
+    },
+    "simple_rsi_uvxy": {
+      "exp_annual_log_excess_vs_qqq": 0.149161,
+      "tracking_vol_annual": 0.453939,
+      "backtest_mdd": -0.815643,
+      "backtest_cagr": 0.359793,
+      "backtest_sessions": 1439
+    },
+    "sma200_buffer_tqqq": {
+      "exp_annual_log_excess_vs_qqq": 0.125362,
+      "tracking_vol_annual": 0.354437,
+      "backtest_mdd": -0.469994,
+      "backtest_cagr": 0.327812,
+      "backtest_sessions": 1439
+    },
+    "tqqq_bh": {
+      "exp_annual_log_excess_vs_qqq": 0.080776,
+      "tracking_vol_annual": 0.442956,
+      "backtest_mdd": -0.815639,
+      "backtest_cagr": 0.269912,
+      "backtest_sessions": 1439
+    },
+    "voltarget_3x": {
+      "exp_annual_log_excess_vs_qqq": 0.029408,
+      "tracking_vol_annual": 0.128086,
+      "backtest_mdd": -0.351071,
+      "backtest_cagr": 0.206326,
+      "backtest_sessions": 1439
+    }
+  }
+}
