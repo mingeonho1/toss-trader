@@ -3,11 +3,15 @@
   "name": "lrs200_qqq",
   "fill_on": "close",
   "start_date": "2026-09-28",
-  "last_date": null,
-  "pending": null,
+  "last_date": "2026-09-28",
+  "pending": {
+    "QQQ": 1.0
+  },
   "last_applied": null,
   "real_contributed": 0.0,
-  "strategy_state": {},
+  "strategy_state": {
+    "pos": "lev"
+  },
   "unit": {
     "cash": 1000.0,
     "start": 1000.0,
@@ -20,5 +24,11 @@
     "positions": {},
     "fills": []
   },
-  "equity": []
+  "equity": [
+    [
+      "2026-09-28",
+      1000.0,
+      36.0
+    ]
+  ]
 }

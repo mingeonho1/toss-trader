@@ -3,11 +3,33 @@
   "name": "nine_sig",
   "fill_on": "close",
   "start_date": "2026-09-28",
-  "last_date": null,
-  "pending": null,
+  "last_date": "2026-09-28",
+  "pending": {
+    "TQQQ": 0.6,
+    "AGG": 0.4
+  },
   "last_applied": null,
   "real_contributed": 0.0,
-  "strategy_state": {},
+  "strategy_state": {
+    "model": {
+      "v_tq": 0.6,
+      "v_ag": 0.4,
+      "signal_line": 0.6,
+      "ignore_sells": 0,
+      "qcloses": [],
+      "prev_qclose": null
+    },
+    "last_tq": 77.04,
+    "last_ag": 94.65,
+    "last_q": [
+      2026,
+      2
+    ],
+    "last_weights": {
+      "TQQQ": 0.6,
+      "AGG": 0.4
+    }
+  },
   "unit": {
     "cash": 1000.0,
     "start": 1000.0,
@@ -20,5 +42,11 @@
     "positions": {},
     "fills": []
   },
-  "equity": []
+  "equity": [
+    [
+      "2026-09-28",
+      1000.0,
+      36.0
+    ]
+  ]
 }

@@ -3,10 +3,14 @@
   "name": "lrr_tqqq_sqqq",
   "fill_on": "close",
   "start_date": "2026-09-28",
-  "last_date": null,
-  "pending": null,
+  "last_date": "2026-09-28",
+  "pending": {
+    "TQQQ": 1.0
+  },
   "last_applied": null,
-  "strategy_state": {},
+  "strategy_state": {
+    "pos": "tqqq"
+  },
   "unit": {
     "cash": 1000.0,
     "start": 1000.0,
@@ -19,6 +23,12 @@
     "positions": {},
     "fills": []
   },
-  "equity": [],
+  "equity": [
+    [
+      "2026-09-28",
+      1000.0,
+      36.0
+    ]
+  ],
   "real_contributed": 0.0
 }

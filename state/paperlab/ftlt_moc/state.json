@@ -3,22 +3,60 @@
   "name": "ftlt_moc",
   "fill_on": "close",
   "start_date": "2026-09-28",
-  "last_date": null,
+  "last_date": "2026-09-28",
   "pending": null,
-  "last_applied": null,
+  "last_applied": {
+    "TQQQ": 1.0
+  },
   "real_contributed": 0.0,
   "strategy_state": {},
   "unit": {
-    "cash": 1000.0,
+    "cash": 0.009999999999990905,
     "start": 1000.0,
-    "positions": {},
-    "fills": []
+    "positions": {
+      "TQQQ": {
+        "qty": 12.967289719626168,
+        "avg": 77.04
+      }
+    },
+    "fills": [
+      {
+        "dt": "2026-09-28",
+        "symbol": "TQQQ",
+        "side": "BUY",
+        "qty": 12.967289719626168,
+        "price": 77.04,
+        "fee": 0.99,
+        "realized": 0.0
+      }
+    ]
   },
   "real": {
-    "cash": 36.0,
+    "cash": 0.0,
     "start": 36.0,
-    "positions": {},
-    "fills": []
+    "positions": {
+      "TQQQ": {
+        "qty": 0.4669003115264797,
+        "avg": 77.04
+      }
+    },
+    "fills": [
+      {
+        "dt": "2026-09-28",
+        "symbol": "TQQQ",
+        "side": "BUY",
+        "qty": 0.4669003115264797,
+        "price": 77.04,
+        "fee": 0.03,
+        "realized": 0.0
+      }
+    ]
   },
-  "equity": []
+  "equity": [
+    [
+      "2026-09-28",
+      999.01,
+      35.97
+    ]
+  ]
 }

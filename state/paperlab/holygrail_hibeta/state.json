@@ -3,8 +3,19 @@
   "name": "holygrail_hibeta",
   "fill_on": "close",
   "start_date": "2026-09-28",
-  "last_date": null,
-  "pending": null,
+  "last_date": "2026-09-28",
+  "pending": {
+    "MU": 0.1,
+    "AMD": 0.1,
+    "SMCI": 0.1,
+    "LRCX": 0.1,
+    "MRVL": 0.1,
+    "KLAC": 0.1,
+    "AMAT": 0.1,
+    "MSTR": 0.1,
+    "COIN": 0.1,
+    "AVGO": 0.1
+  },
   "last_applied": null,
   "real_contributed": 0.0,
   "strategy_state": {},
@@ -20,5 +31,11 @@
     "positions": {},
     "fills": []
   },
-  "equity": []
+  "equity": [
+    [
+      "2026-09-28",
+      1000.0,
+      36.0
+    ]
+  ]
 }

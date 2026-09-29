@@ -3,21 +3,57 @@
   "name": "overnight_qqq",
   "fill_on": "open",
   "start_date": "2026-09-28",
-  "last_date": null,
+  "last_date": "2026-09-28",
   "pending": null,
   "last_applied": null,
   "strategy_state": {},
   "unit": {
-    "cash": 1000.0,
+    "cash": 0.009999999999990905,
     "start": 1000.0,
-    "positions": {},
-    "fills": []
+    "positions": {
+      "QQQ": {
+        "qty": 1.356618196135935,
+        "avg": 736.53
+      }
+    },
+    "fills": [
+      {
+        "dt": "2026-09-28",
+        "symbol": "QQQ",
+        "side": "BUY",
+        "qty": 1.356618196135935,
+        "price": 736.53,
+        "fee": 0.8,
+        "realized": 0.0
+      }
+    ]
   },
   "real": {
-    "cash": 36.0,
+    "cash": 0.0,
     "start": 36.0,
-    "positions": {},
-    "fills": []
+    "positions": {
+      "QQQ": {
+        "qty": 0.04887784611624781,
+        "avg": 736.53
+      }
+    },
+    "fills": [
+      {
+        "dt": "2026-09-28",
+        "symbol": "QQQ",
+        "side": "BUY",
+        "qty": 0.04887784611624781,
+        "price": 736.53,
+        "fee": 0.0,
+        "realized": 0.0
+      }
+    ]
   },
-  "equity": []
+  "equity": [
+    [
+      "2026-09-28",
+      999.2000000000002,
+      36.0
+    ]
+  ]
 }
