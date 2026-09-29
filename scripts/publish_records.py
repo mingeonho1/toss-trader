@@ -30,6 +30,7 @@ KST = timezone(timedelta(hours=9))
 ALLOW = [
     ("reports/scoreboard_latest.md", "latest"),
     ("reports/paperlab_latest.md", "latest"),
+    ("reports/decision_latest.md", "latest"),           # 데일리 결정 엔진(오늘의 판단)
     ("reports/intraday_shadow_latest.md", "latest"),
     ("reports/forward_paper_latest.md", "latest"),
     ("reports/forward_lifecycle_latest.md", "latest"),
@@ -37,6 +38,9 @@ ALLOW = [
     ("data/scoreboard_history.jsonl", "state"),
     ("data/forward_paper_state.json", "state"),
     ("data/forward_lifecycle_state.json", "state"),
+    ("data/loop/decision_state.json", "state/loop"),    # 결정 엔진 상태 스냅샷(멱등)
+    ("data/loop/decisions.jsonl", "state/loop"),        # 하루 1레코드 판정 이력
+    ("data/loop/requests.jsonl", "state/loop"),         # 에이전트 팀 작업요청(머신리더블)
     ("data/intraday_shadow/trades.jsonl", "state/intraday_shadow"),
     ("data/paperlab/*/state.json", "state/paperlab/{parent}"),
     ("data/paperlab/*/trades.jsonl", "state/paperlab/{parent}"),
@@ -44,7 +48,8 @@ ALLOW = [
     ("data/_hist_cache/intraday/*.json", "intraday"),   # 키 없는 분봉은 당일치만 받을 수 있어 여기서 누적 보관
 ]
 SKIP_PARENTS = {"_backtest"}
-DAILY_SNAPSHOT = "reports/paperlab_latest.md"         # daily/YYYY-MM-DD/ 에 날짜별 사본도 남긴다
+# daily/YYYY-MM-DD/ 에 날짜별 사본도 남기는 리포트들.
+DAILY_SNAPSHOTS = ["reports/paperlab_latest.md", "reports/decision_latest.md"]
 
 SECRET_PATTERNS = [
     re.compile(rb"(API_KEY|SECRET_KEY|TOSS_CLIENT_SECRET|TOSS_CLIENT_ID)\s*="),
@@ -91,10 +96,11 @@ def collect() -> list[tuple[Path, Path]]:
                 continue
             d = dest.format(parent=src.parent.name)
             pairs.append((src, Path(d) / src.name))
-    snap = ROOT / DAILY_SNAPSHOT
-    if snap.exists():
-        day = datetime.now(KST).date().isoformat()
-        pairs.append((snap, Path("daily") / day / snap.name))
+    day = datetime.now(KST).date().isoformat()
+    for rel in DAILY_SNAPSHOTS:
+        snap = ROOT / rel
+        if snap.exists():
+            pairs.append((snap, Path("daily") / day / snap.name))
     return pairs
 
 

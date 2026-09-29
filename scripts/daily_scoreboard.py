@@ -64,6 +64,14 @@ CANDLE_CACHE = DATA / "_candle_cache"
 # 포워드 장부가 실제로 마크투마켓에 쓰는 심볼(forward_paper 유니버스 + lifecycle 의 QLD).
 # refresh_closes 는 오직 이 심볼들만 정중히 갱신한다(불필요한 요청 회피).
 BOOK_SYMBOLS = sorted(set(FP_UNIVERSE) | {"QLD"})
+# paperlab 로스터가 쓰는 코어 ETP(레버리지/인버스/변동성 포함). 모두 ETF(assetclass="etf").
+# refresh_closes 가 이들의 _hist_cache 도 전진시켜야 페이퍼 랩이 새 세션을 본다 — 예전엔
+# forward_paper 유니버스(BOOK_SYMBOLS)만 갱신해 TQQQ/SQQQ/UVXY 등이 정체했다(회귀 방지).
+PAPERLAB_CORE_ETPS = ["TQQQ", "SQQQ", "QLD", "UVXY", "SPXL", "TECL", "SOXL",
+                      "PSQ", "SMH", "SHY", "TMF", "AGG", "BSV", "IBIT"]
+# refresh_closes 가 갱신할 전체 심볼(forward_paper 유니버스 ∪ paperlab 코어 ETP). _candle_cache 재생성은
+# 여전히 FP_UNIVERSE 만(forward_paper 전용); paperlab 은 _hist_cache 를 직접 읽으므로 병합만으로 충분.
+REFRESH_SYMBOLS = sorted(set(BOOK_SYMBOLS) | set(PAPERLAB_CORE_ETPS))
 REFRESH_DAYS = 14          # Nasdaq fromdate 창(최근 ~2주). 병합이 중복 제거하므로 겹쳐도 안전.
 REFRESH_SPACING = 1.6      # 심볼 간 최소 요청 간격(초). ≥1.5 준수(정중한 폴링).
 
@@ -767,13 +775,15 @@ def build_default_steps(*, offline: bool, creds: bool, et_now: datetime,
              timeout=300.0, skip_reason=collector_skip_reason(offline, et_now)),
         Step("intraday_shadow",
              [py, str(SCRIPTS / "intraday_shadow_run.py")], timeout=180.0),
-        # 크리덴셜 없는 경로에서만: 장부 심볼의 최근 일봉을 키 없이 정중히 갱신(캐시 병합).
-        # 반드시 forward_* 단계보다 먼저 — 그래야 장부가 새 종가로 전진한다. 격리(실패해도 계속).
+        # 장부 심볼(forward_paper 유니버스 + paperlab 코어 ETP)의 최근 일봉을 **키 없이** 정중히
+        # 갱신(캐시 병합). live/cached 모두에서 돈다 — Toss 실시세가 붙어도 페이퍼 랩·판정엔진은
+        # 키 없는 일봉 캐시에 의존하므로, live 모드에서 스킵하면 QQQ/TQQQ 등이 정체해 "첫 세션 대기"가
+        # 풀리지 않는다(회귀 버그). --offline(네트워크 없음)에서만 스킵. 반드시 forward_*/paperlab
+        # 단계보다 먼저 — 그래야 장부가 새 종가로 전진한다. 격리(실패해도 나머지 단계는 계속).
         Step("refresh_closes",
              [py, str(SCRIPTS / "daily_scoreboard.py"), "--refresh-closes"],
-             timeout=120.0,
-             skip_reason=(None if (offline or not creds)
-                          else "live 모드(Toss 실시세) — 캐시 갱신 불필요")),
+             timeout=180.0,
+             skip_reason=("offline 모드(네트워크 없음 — 캐시 갱신 생략)" if offline else None)),
         Step("forward_paper",
              [py, str(SCRIPTS / "forward_paper_compare.py"),
               *off, "--cash-usd", f"{seed_usd:.2f}"], timeout=180.0),
@@ -791,6 +801,10 @@ def build_default_steps(*, offline: bool, creds: bool, et_now: datetime,
         Step("paperlab",
              [py, str(SCRIPTS / "paperlab_run.py"), *(["--offline"] if offline else [])],
              timeout=240.0),
+        # 데일리 결정 엔진(Lane A 판정) — 반드시 paperlab **뒤**(전진된 장부를 읽는다). 결정론적·주문
+        # 없음·멱등. 목표비중은 캐시 전용(refresh_closes/paperlab 가 앞서 갱신). 격리(실패해도 계속).
+        Step("daily_decision",
+             [py, str(SCRIPTS / "loop" / "daily_decision.py")], timeout=180.0),
     ]
     return steps
 
@@ -894,7 +908,7 @@ def main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
 
     if args.refresh_closes:
-        summary = refresh_daily_closes()
+        summary = refresh_daily_closes(REFRESH_SYMBOLS)
         print(json.dumps(summary, ensure_ascii=False))
         if summary.get("stopped") and not summary.get("refreshed"):
             print(f"refresh_closes stopped: {summary['stopped']}", file=sys.stderr)

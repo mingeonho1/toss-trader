@@ -40,6 +40,33 @@ python scripts/run_dca.py              # 실계좌 적립 매수 플랜(dry-run,
 ```
 근거·수치는 `reports/strategy_gate_2026-06-28.md`, `reports/improvement_roadmap_2026-06-28.md`.
 
+## 📒 매일 기록: `paper-log` 브랜치
+**코드는 `main`, 매일의 결과는 [`paper-log`](https://github.com/mingeonho1/toss-trader/tree/paper-log) 브랜치**에 쌓인다.
+맥의 launchd 작업(`com.tosstrader.scoreboard`, 매일 06:25 KST, 주문 없음)이 스코어보드·페이퍼 랩·일일 판단을
+돌린 뒤 `scripts/publish_records.py`로 커밋·푸시한다(작성자 mingeonho1). 맥에는 쌓아 두지 않는다.
+
+| 경로 (paper-log) | 내용 |
+|---|---|
+| `latest/decision_latest.md` | **오늘의 판단** — 전략별 상태(WARMUP→…→LIVE_READY/DEMOTED), 실계좌 추천, 어제와 달라진 점 |
+| `latest/paperlab_latest.md` | 공격형 페이퍼 랩 리더보드(27개 전략, $1k·$36 가상계좌, 토스 실수수료) |
+| `latest/scoreboard_latest.md` | 단계별 실행 상태(실시세/캐시 모드, 실패 단계) |
+| `latest/intraday_shadow_latest.md` | 초단타 섀도 규칙별 누적 성과(n≥200 전까지 '수집 중') |
+| `daily/<날짜>/` | 날짜별 리더보드·판단 사본 |
+| `state/` | 장부 상태(전략별 state/trades/equity), 판단 상태기계, 작업 요청(`requests.jsonl`) |
+| `intraday/` | 키 없이 당일치만 받을 수 있는 분봉의 누적본 |
+
+- 올리는 파일은 **허용 목록만**이다(.env·토큰 캐시는 구조적으로 제외 + 비밀 패턴 검사).
+- 토스 API 허용 IP가 막히면 자동으로 캐시 모드로 폴백하고 `scoreboard_latest.md` 모드 줄에 사유가 찍힌다.
+- 로컬에서 보기: `git fetch origin paper-log && git show origin/paper-log:latest/decision_latest.md`
+
+## 🔁 루프 엔지니어링: 에이전트 팀 + 도메인 하네스
+매일 판단 루프(결정론)가 페이퍼 결과로 판단을 바꾸고, 에이전트 팀 루프(`/loop-cycle`)가 그 판단이 만든 작업을 처리한다.
+- 팀(`.claude/agents/`): `paper-analyst`(관측) · `scout`(기법·뉴스·규제 정찰) · `experimenter`(사전등록 실험) ·
+  `auditor`(반박·재실험 요청) · `risk-officer`(주문경로·규제·비밀) · `decider`(편성·실계좌 추천 결정)
+- 하네스(`scripts/harness/`, `docs/harness.md`): 이 프로젝트가 **실제로 겪은 실패**만 검사한다. Claude Code 훅
+  (`.claude/settings.json`)이 위험 명령을 막고, 에이전트가 끝내려 할 때 검사를 돌려 실패하면 되돌려 보낸다. CI가 main에 같은 검사.
+- 판단 규칙: `docs/loop/decision_rules.md`, 전체 구조: `docs/loop/README.md`.
+
 ## 라이프사이클 레버리지 슬리브 (옵트인 · 기본 비활성)
 Ayres–Nalebuff *Lifecycle Investing* 의 생애주기 글라이드 노출을 **계좌의 소액 슬리브**에만
 적용하는 **선택형** 정책이다. QQQ(1x)+QLD(2x) 혼합으로 목표노출 E=clip(0.8·(W+PV)/W, 1, 2)를

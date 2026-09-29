@@ -58,6 +58,10 @@ cat > "$PLIST" <<PLIST
   <key>Label</key><string>$LABEL</string>
   <key>ProgramArguments</key>
   <array>
+    <!-- pmset 예약 기상(06:25)은 배터리에선 수 초짜리 DarkWake라 곧 다시 잠든다(2026-09-29 관측:
+         06:30 작업이 10:05 기상까지 밀림). 기상 시각에 맞춰 발화하고, 실행 중엔 caffeinate로 잠들지 않게 붙잡는다. -->
+    <string>/usr/bin/caffeinate</string>
+    <string>-i</string>
     <string>$PYREAL</string>
     <string>$RUNNER</string>
 $OFFLINE_ARG
@@ -66,7 +70,7 @@ $OFFLINE_ARG
   <dict><key>PYTHONPATH</key><string>$PROJECT/src</string></dict>
   <key>RunAtLoad</key><true/>
   <key>StartCalendarInterval</key>
-  <dict><key>Hour</key><integer>6</integer><key>Minute</key><integer>30</integer></dict>
+  <dict><key>Hour</key><integer>6</integer><key>Minute</key><integer>25</integer></dict>
   <key>StandardOutPath</key><string>$PROJECT/data/scoreboard.launchd.out.log</string>
   <key>StandardErrorPath</key><string>$PROJECT/data/scoreboard.launchd.err.log</string>
   <key>WorkingDirectory</key><string>$PROJECT</string>
