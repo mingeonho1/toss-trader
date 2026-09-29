@@ -307,9 +307,13 @@ def default_codex_runner(prompt: str, schema: Mapping[str, Any], *, model: str =
         argv = [codex, "exec", "-m", model, "--sandbox", "read-only",
                 "--skip-git-repo-check", "--ephemeral",
                 "--output-schema", str(schema_path), "-o", str(out_path), prompt]
+        # codex 는 `#!/usr/bin/env node` 스크립트다. launchd 의 최소 PATH(/usr/bin:/bin)에선 node 를
+        # 못 찾아 매일 판사가 'unavailable' 로 떨어졌다(2026-09-29 관측) → Homebrew 경로를 앞에 붙인다.
+        env = dict(os.environ)
+        env["PATH"] = "/opt/homebrew/bin:/usr/local/bin:" + env.get("PATH", "/usr/bin:/bin")
         try:
             proc = subprocess.run(argv, cwd=str(ROOT), capture_output=True, text=True,
-                                  timeout=timeout)
+                                  timeout=timeout, env=env)
         except subprocess.TimeoutExpired:
             return {"status": "error", "raw": None,
                     "error": f"타임아웃 {timeout:.0f}s 초과", "returncode": None}
