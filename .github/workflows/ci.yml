@@ -1,0 +1,32 @@
+name: ci
+
+# main·upgrade/** 로의 push/PR 에서 테스트 + 도메인 검증 하네스를 돌린다.
+# 순수 stdlib 프로젝트라 의존성 설치가 없다. 비밀정보 불필요(네트워크 미사용).
+on:
+  push:
+    branches: [main, "upgrade/**"]
+  pull_request:
+    branches: [main, "upgrade/**"]
+
+permissions:
+  contents: read
+
+jobs:
+  test-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0            # verify 의 git 비교(F4 append-only 등)를 위해 전체 이력.
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Unit tests (offline, PYTHONPATH=src)
+        env:
+          PYTHONPATH: src
+        run: python -m pytest -q -m "not network"
+
+      - name: Domain verification harness (all checks)
+        run: python scripts/harness/verify.py --all
