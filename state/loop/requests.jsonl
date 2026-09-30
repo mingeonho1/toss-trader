@@ -1,1 +1,1 @@
-{"type": "audit", "strategy": null, "reason": "전략별 n=1과 일률적인 누적수익률·최대낙폭 0이 정상적인 초기 기준점 기록인지 확인한다. 실제 수익률 구간, 가격 누락 여부, 체결 및 비용 반영 기준을 점검해 후속 괴리 평가의 기준을 확립한다.", "priority": "medium", "source": "llm", "session_date": "2026-09-28"}
+{"type": "audit", "strategy": null, "reason": "평가 세션 2026-09-28과 생성 시각 2026-09-30T00:44:22+00:00의 차이가 정상인지 확인하고, 이력 부재 및 모든 전략의 n=1·누적수익률 0이 초기화 결과인지 데이터 누락인지 점검한다.", "priority": "medium", "source": "llm", "session_date": "2026-09-28"}
