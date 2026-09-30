@@ -3,33 +3,97 @@
   "name": "btc_proxy_mstr_coin",
   "fill_on": "close",
   "start_date": "2026-09-28",
-  "last_date": "2026-09-28",
+  "last_date": "2026-09-29",
   "pending": {
     "MSTR": 0.5,
     "COIN": 0.5
   },
-  "last_applied": null,
+  "last_applied": {
+    "MSTR": 0.5,
+    "COIN": 0.5
+  },
   "real_contributed": 0.0,
   "strategy_state": {
     "btc_source": "IBIT"
   },
   "unit": {
-    "cash": 1000.0,
+    "cash": 0.01999999999998181,
     "start": 1000.0,
-    "positions": {},
-    "fills": []
+    "positions": {
+      "MSTR": {
+        "qty": 3.229456261718498,
+        "avg": 154.67
+      },
+      "COIN": {
+        "qty": 2.6286706662456583,
+        "avg": 190.02
+      }
+    },
+    "fills": [
+      {
+        "dt": "2026-09-29",
+        "symbol": "MSTR",
+        "side": "BUY",
+        "qty": 3.229456261718498,
+        "price": 154.67,
+        "fee": 0.49,
+        "realized": 0.0
+      },
+      {
+        "dt": "2026-09-29",
+        "symbol": "COIN",
+        "side": "BUY",
+        "qty": 2.6286706662456583,
+        "price": 190.02,
+        "fee": 0.49,
+        "realized": 0.0
+      }
+    ]
   },
   "real": {
-    "cash": 36.0,
+    "cash": 0.0,
     "start": 36.0,
-    "positions": {},
-    "fills": []
+    "positions": {
+      "MSTR": {
+        "qty": 0.11631214844507662,
+        "avg": 154.67
+      },
+      "COIN": {
+        "qty": 0.09467424481633512,
+        "avg": 190.02
+      }
+    },
+    "fills": [
+      {
+        "dt": "2026-09-29",
+        "symbol": "MSTR",
+        "side": "BUY",
+        "qty": 0.11631214844507662,
+        "price": 154.67,
+        "fee": 0.01,
+        "realized": 0.0
+      },
+      {
+        "dt": "2026-09-29",
+        "symbol": "COIN",
+        "side": "BUY",
+        "qty": 0.09467424481633512,
+        "price": 190.02,
+        "fee": 0.01,
+        "realized": 0.0
+      }
+    ]
   },
   "equity": [
     [
       "2026-09-28",
       1000.0,
       36.0
+    ],
+    [
+      "2026-09-29",
+      999.02,
+      35.98
     ]
   ]
 }

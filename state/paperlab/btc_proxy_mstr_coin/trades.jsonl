@@ -1,0 +1,4 @@
+{"book": "unit", "dt": "2026-09-29", "symbol": "MSTR", "side": "BUY", "qty": 3.229456261718498, "price": 154.67, "fee": 0.49, "realized": 0.0}
+{"book": "unit", "dt": "2026-09-29", "symbol": "COIN", "side": "BUY", "qty": 2.6286706662456583, "price": 190.02, "fee": 0.49, "realized": 0.0}
+{"book": "real", "dt": "2026-09-29", "symbol": "MSTR", "side": "BUY", "qty": 0.11631214844507662, "price": 154.67, "fee": 0.01, "realized": 0.0}
+{"book": "real", "dt": "2026-09-29", "symbol": "COIN", "side": "BUY", "qty": 0.09467424481633512, "price": 190.02, "fee": 0.01, "realized": 0.0}

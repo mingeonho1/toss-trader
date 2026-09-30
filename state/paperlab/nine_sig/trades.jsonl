@@ -1,0 +1,4 @@
+{"book": "unit", "dt": "2026-09-29", "symbol": "TQQQ", "side": "BUY", "qty": 7.738187451587916, "price": 77.46, "fee": 0.59, "realized": 0.0}
+{"book": "unit", "dt": "2026-09-29", "symbol": "AGG", "side": "BUY", "qty": 4.224101479915434, "price": 94.6, "fee": 0.39, "realized": 0.0}
+{"book": "real", "dt": "2026-09-29", "symbol": "TQQQ", "side": "BUY", "qty": 0.27859540407952493, "price": 77.46, "fee": 0.02, "realized": 0.0}
+{"book": "real", "dt": "2026-09-29", "symbol": "AGG", "side": "BUY", "qty": 0.1521141649048626, "price": 94.6, "fee": 0.01, "realized": 0.0}

@@ -3,24 +3,27 @@
   "name": "nine_sig",
   "fill_on": "close",
   "start_date": "2026-09-28",
-  "last_date": "2026-09-28",
+  "last_date": "2026-09-29",
   "pending": {
     "TQQQ": 0.6,
     "AGG": 0.4
   },
-  "last_applied": null,
+  "last_applied": {
+    "TQQQ": 0.6,
+    "AGG": 0.4
+  },
   "real_contributed": 0.0,
   "strategy_state": {
     "model": {
-      "v_tq": 0.6,
-      "v_ag": 0.4,
+      "v_tq": 0.6032710280373831,
+      "v_ag": 0.39978869519281557,
       "signal_line": 0.6,
       "ignore_sells": 0,
       "qcloses": [],
       "prev_qclose": null
     },
-    "last_tq": 77.04,
-    "last_ag": 94.65,
+    "last_tq": 77.46,
+    "last_ag": 94.6,
     "last_q": [
       2026,
       2
@@ -31,22 +34,83 @@
     }
   },
   "unit": {
-    "cash": 1000.0,
+    "cash": 0.01999999999998181,
     "start": 1000.0,
-    "positions": {},
-    "fills": []
+    "positions": {
+      "TQQQ": {
+        "qty": 7.738187451587916,
+        "avg": 77.46
+      },
+      "AGG": {
+        "qty": 4.224101479915434,
+        "avg": 94.6
+      }
+    },
+    "fills": [
+      {
+        "dt": "2026-09-29",
+        "symbol": "TQQQ",
+        "side": "BUY",
+        "qty": 7.738187451587916,
+        "price": 77.46,
+        "fee": 0.59,
+        "realized": 0.0
+      },
+      {
+        "dt": "2026-09-29",
+        "symbol": "AGG",
+        "side": "BUY",
+        "qty": 4.224101479915434,
+        "price": 94.6,
+        "fee": 0.39,
+        "realized": 0.0
+      }
+    ]
   },
   "real": {
-    "cash": 36.0,
+    "cash": 0.0,
     "start": 36.0,
-    "positions": {},
-    "fills": []
+    "positions": {
+      "TQQQ": {
+        "qty": 0.27859540407952493,
+        "avg": 77.46
+      },
+      "AGG": {
+        "qty": 0.1521141649048626,
+        "avg": 94.6
+      }
+    },
+    "fills": [
+      {
+        "dt": "2026-09-29",
+        "symbol": "TQQQ",
+        "side": "BUY",
+        "qty": 0.27859540407952493,
+        "price": 77.46,
+        "fee": 0.02,
+        "realized": 0.0
+      },
+      {
+        "dt": "2026-09-29",
+        "symbol": "AGG",
+        "side": "BUY",
+        "qty": 0.1521141649048626,
+        "price": 94.6,
+        "fee": 0.01,
+        "realized": 0.0
+      }
+    ]
   },
   "equity": [
     [
       "2026-09-28",
       1000.0,
       36.0
+    ],
+    [
+      "2026-09-29",
+      999.02,
+      35.97
     ]
   ]
 }

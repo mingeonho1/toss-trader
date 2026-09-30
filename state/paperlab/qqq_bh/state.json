@@ -3,29 +3,66 @@
   "name": "qqq_bh",
   "fill_on": "close",
   "start_date": "2026-09-28",
-  "last_date": "2026-09-28",
+  "last_date": "2026-09-29",
   "pending": {
     "QQQ": 1.0
   },
-  "last_applied": null,
+  "last_applied": {
+    "QQQ": 1.0
+  },
   "strategy_state": {},
   "unit": {
-    "cash": 1000.0,
+    "cash": 0.009999999999990905,
     "start": 1000.0,
-    "positions": {},
-    "fills": []
+    "positions": {
+      "QQQ": {
+        "qty": 1.3537869445611372,
+        "avg": 737.93
+      }
+    },
+    "fills": [
+      {
+        "dt": "2026-09-29",
+        "symbol": "QQQ",
+        "side": "BUY",
+        "qty": 1.3537869445611372,
+        "price": 737.93,
+        "fee": 0.99,
+        "realized": 0.0
+      }
+    ]
   },
   "real": {
-    "cash": 36.0,
+    "cash": 0.0,
     "start": 36.0,
-    "positions": {},
-    "fills": []
+    "positions": {
+      "QQQ": {
+        "qty": 0.04874446085672083,
+        "avg": 737.93
+      }
+    },
+    "fills": [
+      {
+        "dt": "2026-09-29",
+        "symbol": "QQQ",
+        "side": "BUY",
+        "qty": 0.04874446085672083,
+        "price": 737.93,
+        "fee": 0.03,
+        "realized": 0.0
+      }
+    ]
   },
   "equity": [
     [
       "2026-09-28",
       1000.0,
       36.0
+    ],
+    [
+      "2026-09-29",
+      999.0099999999999,
+      35.97
     ]
   ],
   "real_contributed": 0.0

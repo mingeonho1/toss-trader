@@ -3,11 +3,13 @@
   "name": "voltarget_3x",
   "fill_on": "close",
   "start_date": "2026-09-28",
-  "last_date": "2026-09-28",
+  "last_date": "2026-09-29",
   "pending": {
     "TQQQ": 0.4858123288513841
   },
-  "last_applied": null,
+  "last_applied": {
+    "TQQQ": 0.4858123288513841
+  },
   "strategy_state": {
     "week": [
       2026,
@@ -16,22 +18,57 @@
     "lev": 1.4574369865541523
   },
   "unit": {
-    "cash": 1000.0,
+    "cash": 514.1876711486159,
     "start": 1000.0,
-    "positions": {},
-    "fills": []
+    "positions": {
+      "TQQQ": {
+        "qty": 6.265586481427629,
+        "avg": 77.46
+      }
+    },
+    "fills": [
+      {
+        "dt": "2026-09-29",
+        "symbol": "TQQQ",
+        "side": "BUY",
+        "qty": 6.265586481427629,
+        "price": 77.46,
+        "fee": 0.48,
+        "realized": 0.0
+      }
+    ]
   },
   "real": {
-    "cash": 36.0,
+    "cash": 18.510756161350173,
     "start": 36.0,
-    "positions": {},
-    "fills": []
+    "positions": {
+      "TQQQ": {
+        "qty": 0.2256550973231323,
+        "avg": 77.46
+      }
+    },
+    "fills": [
+      {
+        "dt": "2026-09-29",
+        "symbol": "TQQQ",
+        "side": "BUY",
+        "qty": 0.2256550973231323,
+        "price": 77.46,
+        "fee": 0.01,
+        "realized": 0.0
+      }
+    ]
   },
   "equity": [
     [
       "2026-09-28",
       1000.0,
       36.0
+    ],
+    [
+      "2026-09-29",
+      999.52,
+      35.989999999999995
     ]
   ],
   "real_contributed": 0.0
