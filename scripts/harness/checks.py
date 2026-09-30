@@ -16,6 +16,7 @@
   F10 실주문 안전: plist/스크립트에 --execute/live · dry-run 기본값 훼손 · 주문경로 테스트
   F11 레버리지/타이밍 주장 감사(고점대비 낙폭·합성 2x 배당 이중계상) 미언급
   F12 LLM 판단 레이어 안전: 주문 API/실행 플래그 참조 · codex 비-읽기전용 샌드박스
+  F13 스테일 장부: 결정엔진/리더보드가 낡은 페이퍼 랩(일봉 소스 지연)으로 계산됨
 
 stdlib 만 사용한다.
 """
@@ -789,12 +790,98 @@ def check_f12_llm_judge_safety(ctx: Context) -> list[Finding]:
     return out
 
 
+# ── F13: 스테일 장부(결정엔진/리더보드가 낡은 페이퍼 랩으로 계산) ─────────────────
+# 실제 사고(2026-09-30): Nasdaq /historical 일봉이 최신 완료 세션(09-29)을 며칠 늦게 실어
+# 캐시가 09-28 에 정체 → paperlab 이 첫 세션(09-28)에서 못 벗어나고, 결정엔진/리더보드가 그
+# 낡은 장부로 계산됨(생성 09-30 인데 세션 09-28). 데이터가 있을 때만·결정론적으로(생성 타임스탬프
+# 기준) 검사한다 — 네트워크·현재시각 비의존(레포 산출물만으로 재현 가능).
+DECISION_STATE = "data/loop/decision_state.json"
+DECISION_REPORT = "reports/decision_latest.md"
+_F13_SCOPE = (DECISION_STATE, DECISION_REPORT, "scripts/daily_scoreboard.py",
+              "scripts/loop/daily_decision.py", "scripts/paperlab_run.py")
+
+
+def _paperlab_book_last(root: Path) -> str | None:
+    """페이퍼 랩 전 전략 state.json 의 last_date 중 최댓값(ISO 문자열). 없으면 None."""
+    base = root / "data" / "paperlab"
+    if not base.is_dir():
+        return None
+    latest: str | None = None
+    for p in sorted(base.glob("*/state.json")):
+        if p.parent.name.startswith("_"):        # _backtest 등 비-포워드 폴더 제외.
+            continue
+        try:
+            ld = json.loads(p.read_text(encoding="utf-8")).get("last_date")
+        except (OSError, ValueError):
+            continue
+        if isinstance(ld, str) and (latest is None or ld > latest):
+            latest = ld
+    return latest
+
+
+def _latest_session_for(generated_iso: str) -> str | None:
+    """생성 타임스탬프 기준 '최신 완료 US 정규장 세션'(계산 휴장 캘린더; 네트워크 없음). ISO 문자열."""
+    if not generated_iso:
+        return None
+    try:
+        import sys as _sys
+        from datetime import datetime as _dt, timezone as _tz
+        _scripts = str(Path(__file__).resolve().parents[1])   # scripts/
+        if _scripts not in _sys.path:
+            _sys.path.insert(0, _scripts)
+        import daily_scoreboard as _sb                          # stdlib 전용 모듈.
+        gen = _dt.fromisoformat(generated_iso)
+        if gen.tzinfo is None:
+            gen = gen.replace(tzinfo=_tz.utc)
+        return _sb.latest_completed_us_session(gen).isoformat()  # client 없음 → 계산 캘린더.
+    except Exception:  # noqa: BLE001  파싱/임포트 실패 → 검사 생략(폴백).
+        return None
+
+
+def check_f13_stale_books(ctx: Context) -> list[Finding]:
+    """결정엔진/리더보드가 낡은 페이퍼 랩으로 계산됐는지(스테일 장부) 검사(데이터 있을 때만·block).
+
+    두 가지 결정론적 판정:
+      (1) 결정 세션 < 페이퍼 랩 최신 처리일 → 장부는 전진했는데 결정이 안 따라옴.
+      (2) 생성 시각 기준 최신 완료 US 세션 > 결정 세션 → 일봉 소스 지연으로 낡은 세션에 고정.
+    """
+    if ctx.scope is not None and not ctx.any_in_scope(_F13_SCOPE):
+        return []                                    # 관련 산출물/코드 변경이 없으면 생략.
+    state_txt = ctx.read(DECISION_STATE)
+    if state_txt is None:
+        return []                                    # 결정 산출물 없음 → 검사할 데이터 없음.
+    try:
+        state = json.loads(state_txt)
+    except ValueError:
+        return []
+    session_date = str(state.get("session_date") or "")
+    if not session_date:
+        return []
+    out: list[Finding] = []
+    book_last = _paperlab_book_last(ctx.root)
+    if book_last and session_date < book_last:
+        out.append(Finding(
+            "block", "F13", DECISION_STATE,
+            f"결정 세션({session_date})이 페이퍼 랩 최신 처리일({book_last})보다 뒤처짐 "
+            f"→ 낡은 장부로 판정.",
+            "paperlab 전진 뒤 daily_decision 을 재실행해 결정 세션을 장부에 맞추세요."))
+    expected = _latest_session_for(str(state.get("generated") or ""))
+    if expected and session_date < expected:
+        out.append(Finding(
+            "block", "F13", DECISION_REPORT,
+            f"생성 시각 기준 최신 완료 US 세션은 {expected} 인데 결정/리더보드는 {session_date} "
+            f"로 계산됨 → 스테일 장부(일봉 소스 지연 의심).",
+            "일봉 종가 소스(라이브=토스 1차/Nasdaq 폴백)를 갱신해 캐시를 최신 완료 세션까지 "
+            "전진시키고 paperlab+daily_decision 을 재실행하세요."))
+    return out
+
+
 # ── 집계 ─────────────────────────────────────────────────────────────────────
 ALL_CHECKS = (
     check_f1_fees, check_f2_result_paths, check_f3_prereg, check_f4_holdout_append,
     check_f5_lookahead, check_f6_survivorship, check_f7_signal_reuse,
     check_f8_tradability, check_f9_secrets, check_f10_real_money, check_f11_audit,
-    check_f12_llm_judge_safety,
+    check_f12_llm_judge_safety, check_f13_stale_books,
 )
 
 

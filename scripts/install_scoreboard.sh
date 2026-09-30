@@ -59,9 +59,12 @@ cat > "$PLIST" <<PLIST
   <key>ProgramArguments</key>
   <array>
     <!-- pmset 예약 기상(06:25)은 배터리에선 수 초짜리 DarkWake라 곧 다시 잠든다(2026-09-29 관측:
-         06:30 작업이 10:05 기상까지 밀림). 기상 시각에 맞춰 발화하고, 실행 중엔 caffeinate로 잠들지 않게 붙잡는다. -->
+         06:30 작업이 10:05 기상까지 밀림). 기상 시각에 맞춰 발화하고, 실행 중엔 caffeinate로 잠들지 않게 붙잡는다.
+         -i(유휴 슬립 방지) + -s(AC 전원일 때 시스템 슬립까지 방지 — 배터리에선 무해). AC 전원 유지 시
+         06:25 작업이 밀리지 않고 즉시 완료된다(2026-09-30 페이퍼 랩 정체 회귀 대응). -->
     <string>/usr/bin/caffeinate</string>
     <string>-i</string>
+    <string>-s</string>
     <string>$PYREAL</string>
     <string>$RUNNER</string>
 $OFFLINE_ARG

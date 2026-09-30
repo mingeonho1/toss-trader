@@ -92,19 +92,30 @@ def _fetch_full(symbol: str) -> list[Candle] | None:
 
 
 def _polite_refresh(pairs: Sequence[tuple[str, str]], *,
+                    client: Any = None, cutoff: Any = None,
                     sleep: Callable[[float], None] = time.sleep) -> str | None:
-    """(symbol, assetclass) 목록의 최근 종가만 Nasdaq 최근창으로 정중히 갱신(새 거래일만 병합).
+    """(symbol, assetclass) 목록의 최근 종가만 정중히 갱신(새 거래일만 병합).
 
-    ≥1.5s 간격, 429/오류 즉시 중단(정중). 갱신 파일이 없으면 최근창으로 부트스트랩(과거는 캐시에 의존).
+    라이브(client!=None)면 **토스 일봉 1차 + Nasdaq 폴백**, 아니면 Nasdaq 전용. 회귀: Nasdaq
+    /historical 이 최신 완료 세션을 며칠 늦게 실어(2026-09-29 관측) 캐시가 정체 → 페이퍼 랩이
+    첫 세션(2026-09-28)에서 못 벗어남. 토스는 완료 세션을 당일 저녁에 이미 제공(``cutoff`` 초과
+    당일 미완료 캔들은 제외). ≥1.5s 간격, Nasdaq 폴백까지 실패하면 즉시 중단(정중).
     """
     import json
     for i, (sym, assetclass) in enumerate(pairs):
         if i > 0:
             sleep(REFRESH_SPACING)
-        try:
-            rows = histdata.fetch_nasdaq_recent(sym, days=REFRESH_DAYS, assetclass=assetclass)
-        except Exception as exc:  # noqa: BLE001  429/네트워크/파싱 → 중단(정중)
-            return f"{sym}: {type(exc).__name__}: {exc}"
+        rows: list[dict] = []
+        if client is not None:
+            try:
+                rows = histdata.fetch_toss_recent(sym, days=REFRESH_DAYS, client=client, cutoff=cutoff)
+            except Exception:  # noqa: BLE001  토스 실패 → Nasdaq 폴백(여기선 중단 안 함)
+                rows = []
+        if not rows:
+            try:
+                rows = histdata.fetch_nasdaq_recent(sym, days=REFRESH_DAYS, assetclass=assetclass)
+            except Exception as exc:  # noqa: BLE001  429/네트워크/파싱 → 중단(정중)
+                return f"{sym}: {type(exc).__name__}: {exc}"
         if not rows:
             continue
         path = _cache_file(sym)
@@ -207,8 +218,17 @@ def run_forward(args: argparse.Namespace) -> int:
 
     if not args.offline and not args.no_refresh:
         pairs = _refresh_pairs(hibeta_uni)
-        stopped = _polite_refresh(pairs)
-        _log(f"refresh closes: symbols={len(pairs)} stopped={stopped}")
+        client = cutoff = None
+        try:                                    # 라이브면 토스 1차(Nasdaq 지연 우회) — 실패해도 폴백.
+            sys.path.insert(0, str(ROOT / "scripts"))
+            import daily_scoreboard as _sb       # noqa: PLC0415  (scripts/daily_scoreboard.py)
+            client = _sb._toss_client_or_none()
+            cutoff = _sb.latest_completed_us_session(client=client) if client is not None else None
+        except Exception:  # noqa: BLE001
+            client = cutoff = None
+        stopped = _polite_refresh(pairs, client=client, cutoff=cutoff)
+        _log(f"refresh closes: symbols={len(pairs)} "
+             f"source={'toss+nasdaq' if client is not None else 'nasdaq'} stopped={stopped}")
 
     panel = _load_panel(sorted(needed), offline=args.offline)
     if "QQQ" not in panel:
