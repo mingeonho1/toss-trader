@@ -380,3 +380,53 @@ def test_f12_skips_when_out_of_scope(tmp_path):
     write(tmp_path, "scripts/loop/llm_judge.py", _F12_CLEAN + "create_order()\n")
     # 스코프에 없으면 검사 생략(변경 파일만 검사하는 --changed 모드 대응).
     assert checks.check_f12_llm_judge_safety(ctx(tmp_path, scope=set())) == []
+
+
+# ── F13: 스테일 장부(결정엔진/리더보드가 낡은 페이퍼 랩으로 계산) ─────────────────
+def _decision_state(root: Path, session_date: str, generated: str) -> None:
+    write(root, "data/loop/decision_state.json",
+          json.dumps({"session_date": session_date, "generated": generated,
+                      "books_dir": str(root / "data" / "paperlab")}))
+
+
+def _paperlab_state(root: Path, name: str, last_date: str) -> None:
+    write(root, f"data/paperlab/{name}/state.json", json.dumps({"last_date": last_date}))
+
+
+def test_f13_blocks_stale_session_vs_generated(tmp_path):
+    # 실제 사고: 생성 09-30 인데 결정/장부가 09-28 에 고정(최신 완료 세션 09-29) → 스테일.
+    _decision_state(tmp_path, "2026-09-28", "2026-09-30T00:44:22+00:00")
+    _paperlab_state(tmp_path, "qqq_bh", "2026-09-28")
+    f = checks.check_f13_stale_books(ctx(tmp_path))
+    assert "F13" in codes(f, "block")
+    assert any("2026-09-29" in x.message for x in f)          # 최신 완료 세션 명시
+
+
+def test_f13_blocks_session_behind_books(tmp_path):
+    # 장부는 09-28 까지 전진했는데 결정 세션은 09-25 → 낡은 장부로 판정(생성은 주말이라 캘린더는 무해).
+    _decision_state(tmp_path, "2026-09-25", "2026-09-26T20:00:00+00:00")  # 토(ET) → 최신완료 09-25
+    _paperlab_state(tmp_path, "qqq_bh", "2026-09-28")
+    f = checks.check_f13_stale_books(ctx(tmp_path))
+    assert "F13" in codes(f, "block")
+    assert any("페이퍼 랩 최신 처리일" in x.message for x in f)
+
+
+def test_f13_passes_when_fresh(tmp_path):
+    # 결정 세션 = 장부 = 최신 완료 세션(09-29) → block 없음.
+    _decision_state(tmp_path, "2026-09-29", "2026-09-30T00:44:22+00:00")
+    _paperlab_state(tmp_path, "qqq_bh", "2026-09-29")
+    _paperlab_state(tmp_path, "mom_top5_ndx", "2026-09-29")
+    assert checks.check_f13_stale_books(ctx(tmp_path)) == []
+
+
+def test_f13_skips_when_no_decision_state(tmp_path):
+    # 결정 산출물이 없으면(신규 클론/CI) 검사할 데이터 없음 → 생략.
+    _paperlab_state(tmp_path, "qqq_bh", "2026-09-28")
+    assert checks.check_f13_stale_books(ctx(tmp_path)) == []
+
+
+def test_f13_skips_when_out_of_scope(tmp_path):
+    _decision_state(tmp_path, "2026-09-28", "2026-09-30T00:44:22+00:00")
+    _paperlab_state(tmp_path, "qqq_bh", "2026-09-28")
+    # 관련 산출물/코드가 스코프에 없으면 생략(--changed 모드 대응).
+    assert checks.check_f13_stale_books(ctx(tmp_path, scope=set())) == []

@@ -229,6 +229,10 @@ GitHub Actions 초안(비활성)은 `docs/github-actions/scoreboard.yml`. 오프
 `PYTHONPATH=src python -m pytest -q tests/test_scoreboard.py`.
 > ⚠️ macOS TCC: repo 가 `~/Desktop`(또는 Documents/Downloads) 아래면 launchd 접근 거부 —
 > 보호되지 않는 경로(예: `~/github/toss-trader`)에 두거나 해당 python 에 전체 디스크 접근을 부여한다.
+> 💤 **전원**: 06:25 작업은 `caffeinate -i -s` 로 감싸(유휴+시스템 슬립 방지) 실행 중 잠들지 않는다.
+> `-s` 는 **AC 전원일 때만** 시스템 슬립을 막으므로(배터리에선 무해), 밤새 **맥을 전원에 꽂아두면**
+> 06:25 작업이 밀리지 않고 즉시 끝난다. 배터리로 두면 예약 기상이 수 초짜리 DarkWake 로 끝나
+> 작업이 다음 기상까지 밀릴 수 있다(2026-09-29 관측: 06:30→10:05 지연 → 페이퍼 랩 정체 회귀).
 
 ## 자동화 (항상 dry-run) & 실거래 전환
 **입금**은 API로 불가 → 은행 자동이체/토스 앱으로 설정(예: 매주 일요일 ₩50,000). 봇은 들어온 현금만 매수.

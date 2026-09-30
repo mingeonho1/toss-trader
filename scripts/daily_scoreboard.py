@@ -61,6 +61,11 @@ FP_DEPTH = 320
 HIST_CACHE = DATA / "_hist_cache"
 CANDLE_CACHE = DATA / "_candle_cache"
 
+# 스테일 가드(도메인 하네스)용 경로.
+PAPERLAB_STATE_DIR = DATA / "paperlab"
+DECISION_LATEST = REPORTS / "decision_latest.md"
+LOOP_REQUESTS = DATA / "loop" / "requests.jsonl"
+
 # 포워드 장부가 실제로 마크투마켓에 쓰는 심볼(forward_paper 유니버스 + lifecycle 의 QLD).
 # refresh_closes 는 오직 이 심볼들만 정중히 갱신한다(불필요한 요청 회피).
 BOOK_SYMBOLS = sorted(set(FP_UNIVERSE) | {"QLD"})
@@ -281,6 +286,45 @@ def _default_recent_fetcher(symbol: str, days: int) -> list[dict[str, Any]]:
     """기본 페처: Nasdaq /historical 최근 창(키 불필요·네트워크). 테스트는 주입으로 대체."""
     from toss_trader.histdata import fetch_nasdaq_recent  # 지연 임포트(오프라인 단위테스트 격리)
     return fetch_nasdaq_recent(symbol, days=days, assetclass="etf")
+
+
+def _toss_client_or_none() -> Any:
+    """라이브면 토큰이 발급되는 TossClient, 아니면 None(키 없음/차단 → Nasdaq 폴백).
+
+    읽기 전용. 예외(키 없음·허용 IP 미등록 등)는 전부 삼켜 None 을 돌려준다(캐시/Nasdaq 경로 유지).
+    """
+    try:
+        sys.path.insert(0, str(ROOT / "src"))
+        from toss_trader.client import TossClient  # noqa: PLC0415  지연 import
+        client = TossClient()
+        client._ensure_token()
+        return client
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _make_recent_fetcher(client: Any, cutoff: "date | None"
+                         ) -> Callable[[str, int], list[dict[str, Any]]]:
+    """일봉 종가 페처를 만든다. 라이브(client!=None)면 **토스 일봉 1차 + Nasdaq 폴백**, 아니면 Nasdaq 전용.
+
+    회귀 배경: Nasdaq /historical 이 최신 완료 세션을 며칠씩 늦게 싣는다(2026-09-29 관측 — 09-30
+    에도 캐시가 09-28 에 정체). 토스는 완료 세션을 당일 저녁에 이미 제공하므로 라이브에선 토스를
+    1차 소스로 쓴다. 토스가 비었거나(비상장) 실패하면 Nasdaq 로 폴백(심볼-날짜당 소스는 하나만
+    병합되므로 이중계상 없음; 신규행 우선순위는 토스).
+    """
+    from toss_trader.histdata import fetch_nasdaq_recent, fetch_toss_recent  # 지연 import
+
+    def fetch(symbol: str, days: int) -> list[dict[str, Any]]:
+        if client is not None:
+            try:
+                rows = fetch_toss_recent(symbol, days=days, client=client, cutoff=cutoff)
+                if rows:
+                    return rows
+            except Exception:  # noqa: BLE001  토스 실패 → Nasdaq 폴백(여기선 중단 안 함)
+                pass
+        return fetch_nasdaq_recent(symbol, days=days, assetclass="etf")
+
+    return fetch
 
 
 def merge_hist_cache(symbol: str, new_rows: Sequence[dict[str, Any]], *,
@@ -751,6 +795,221 @@ def et_session_date(now_utc: datetime) -> date | None:
     return d
 
 
+# ── 최신 완료 세션 도출(스테일 가드) ──────────────────────────────────────────
+def _is_trading_day(d: date) -> bool:
+    return d.weekday() < 5 and not is_us_market_holiday(d)
+
+
+def _computed_latest_session(now_utc: datetime) -> date:
+    """계산 미 휴장 캘린더로 '최신 완료' 정규장 세션(네트워크 불필요·결정론).
+
+    오늘(ET) 세션은 거래일이고 정규장 마감(16:05 ET) 이후일 때만 '완료'로 친다. 그 외엔
+    직전 거래일부터 거꾸로 걸어 첫 거래일을 찾는다.
+    """
+    et = _et(now_utc)
+    d = et.date()
+    if not _is_trading_day(d) or et.time() < ET_CLOSE:
+        d -= timedelta(days=1)
+    while not _is_trading_day(d):
+        d -= timedelta(days=1)
+    return d
+
+
+def _parse_iso_dt(v: Any) -> datetime | None:
+    if not v:
+        return None
+    try:
+        dt = datetime.fromisoformat(str(v))
+    except (TypeError, ValueError):
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
+def _iter_calendar_sessions(obj: Any):
+    """토스 장 캘린더 응답(중첩 dict/list)에서 (date, regularMarket) 쌍을 방어적으로 뽑는다.
+
+    스키마가 확정적이지 않아(전일/당일/익일 컨테이너 키 미상) 트리를 순회하며 'date' 와
+    'regularMarket' 키를 동시에 가진 dict 만 채택한다.
+    """
+    stack = [obj]
+    seen = 0
+    while stack and seen < 5000:
+        cur = stack.pop()
+        seen += 1
+        if isinstance(cur, dict):
+            if "date" in cur and "regularMarket" in cur:
+                try:
+                    d = date.fromisoformat(str(cur.get("date"))[:10])
+                    yield d, cur.get("regularMarket")
+                except (TypeError, ValueError):
+                    pass
+            stack.extend(cur.values())
+        elif isinstance(cur, list):
+            stack.extend(cur)
+
+
+def _toss_latest_session(client: Any, *, now_utc: datetime, computed: date) -> date | None:
+    """토스 장 캘린더에서 '이미 끝난' 최신 정규장 세션. 파싱 불확실 → None(계산 캘린더로 폴백).
+
+    regularMarket 이 null 이면 휴장. endTime 이 now 이전인 가장 최근 거래일을 고른다. 신뢰성
+    검증(계산 캘린더의 거래일 · computed±10일 이내)을 통과할 때만 채택(임시 휴장 반영, 파싱 오탐 차단).
+    """
+    try:
+        cal = client.get_market_calendar("US")
+    except Exception:  # noqa: BLE001
+        return None
+    best: date | None = None
+    for d, reg in _iter_calendar_sessions(cal):
+        if reg is None:                     # 정규장 null = 휴장
+            continue
+        end = _parse_iso_dt(reg.get("endTime") if isinstance(reg, dict) else None)
+        if end is not None and end > now_utc:
+            continue                        # 아직 안 끝난 세션
+        if best is None or d > best:
+            best = d
+    if best is not None and _is_trading_day(best) and abs((best - computed).days) <= 10:
+        return best
+    return None
+
+
+def latest_completed_us_session(now_utc: datetime | None = None, *,
+                                client: Any = None) -> date:
+    """최신 완료 미 정규장 세션 날짜. 라이브(client)면 토스 장 캘린더로 도출(임시 휴장까지 반영),
+    실패/키없음이면 계산 미 휴장 캘린더로 폴백. 항상 date 를 돌려준다(결정론)."""
+    now_utc = now_utc or _now_utc()
+    computed = _computed_latest_session(now_utc)
+    if client is not None:
+        toss = _toss_latest_session(client, now_utc=now_utc, computed=computed)
+        if toss is not None:
+            return toss
+    return computed
+
+
+# ── 페이퍼 랩 last_date + 스테일 신호(요청/배너) ──────────────────────────────
+def paperlab_last_date(base_dir: Path | None = None) -> date | None:
+    """페이퍼 랩 전 전략 state.json 의 last_date 중 최댓값(가장 앞선 처리 세션). 없으면 None."""
+    base_dir = base_dir if base_dir is not None else PAPERLAB_STATE_DIR   # 호출 시점 전역 반영(테스트 주입).
+    if not base_dir.is_dir():
+        return None
+    latest: date | None = None
+    for p in sorted(base_dir.glob("*/state.json")):
+        if p.parent.name.startswith("_"):        # _backtest 등 비-포워드 폴더 제외.
+            continue
+        try:
+            ld = json.loads(p.read_text(encoding="utf-8")).get("last_date")
+        except (OSError, ValueError):
+            continue
+        if not ld:
+            continue
+        try:
+            d = date.fromisoformat(str(ld))
+        except (TypeError, ValueError):
+            continue
+        if latest is None or d > latest:
+            latest = d
+    return latest
+
+
+_STALE_BANNER_START = "<!-- STALE-PAPER-BANNER -->"
+_STALE_BANNER_END = "<!-- /STALE-PAPER-BANNER -->"
+
+
+def _strip_stale_banner(text: str) -> str:
+    """decision_latest.md 에서 이전 스테일 배너 블록을 제거(멱등 재삽입/해소용)."""
+    start = text.find(_STALE_BANNER_START)
+    if start == -1:
+        return text
+    end = text.find(_STALE_BANNER_END, start)
+    if end == -1:
+        return text
+    end += len(_STALE_BANNER_END)
+    while end < len(text) and text[end] == "\n":
+        end += 1
+    return text[:start] + text[end:]
+
+
+def _write_stale_banner(expected: date, actual: date, *, path: Path | None = None) -> None:
+    """reports/decision_latest.md 상단(제목 다음)에 스테일 배너를 멱등 삽입(기존 배너는 교체)."""
+    path = path if path is not None else DECISION_LATEST
+    banner = (f"{_STALE_BANNER_START}\n"
+              f"> ⚠️ **경고 — 스테일 장부**: 페이퍼 랩 last_date `{actual}` 가 최신 완료 US 정규장 "
+              f"세션 `{expected}` 보다 뒤처져 있습니다. 아래 판정은 **낡은 장부**로 계산됐을 수 "
+              f"있습니다(일봉 종가 소스 지연). `ops_stale_paper` 고우선 요청을 방출했습니다.\n"
+              f"{_STALE_BANNER_END}\n")
+    try:
+        text = path.read_text(encoding="utf-8") if path.exists() else ""
+    except OSError:
+        text = ""
+    text = _strip_stale_banner(text)
+    lines = text.splitlines(keepends=True)
+    insert_at = 0
+    for i, ln in enumerate(lines):
+        if ln.startswith("# "):
+            insert_at = i + 1
+            break
+    head = "".join(lines[:insert_at])
+    tail = "".join(lines[insert_at:])
+    new = head + ("\n" if head and not head.endswith("\n\n") else "") + banner + "\n" + tail
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(new, encoding="utf-8")
+    os.replace(tmp, path)
+
+
+def _rewrite_requests(rows: list[dict[str, Any]], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    body = "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(body, encoding="utf-8")
+    os.replace(tmp, path)
+
+
+def _append_stale_request(expected: date, actual: date, *, path: Path | None = None) -> None:
+    """data/loop/requests.jsonl 에 ops_stale_paper 고우선 요청을 멱등 upsert(에이전트 루프 킥)."""
+    path = path if path is not None else LOOP_REQUESTS
+    rows = [r for r in read_history(path) if r.get("type") != "ops_stale_paper"]
+    rows.append({
+        "type": "ops_stale_paper",
+        "priority": "high",
+        "strategy": None,
+        "reason": (f"페이퍼 랩 장부가 최신 완료 US 정규장 세션({expected})까지 전진하지 못함"
+                   f"(현재 last_date={actual}). 일봉 종가 소스 지연 의심 — 토스 일봉/캐시 병합을 "
+                   f"점검하고 장부를 재전진시켜라."),
+        "expected_session": expected.isoformat(),
+        "paperlab_last_date": actual.isoformat(),
+        "source": "scoreboard",
+        "session_date": actual.isoformat(),
+    })
+    _rewrite_requests(rows, path)
+
+
+def _clear_stale_request(path: Path | None = None) -> None:
+    """스테일 해소 시 기존 ops_stale_paper 요청을 정리(멱등; 변경 있을 때만 재기록)."""
+    path = path if path is not None else LOOP_REQUESTS
+    rows = read_history(path)
+    kept = [r for r in rows if r.get("type") != "ops_stale_paper"]
+    if len(kept) != len(rows):
+        _rewrite_requests(kept, path)
+
+
+def _clear_stale_banner(path: Path | None = None) -> None:
+    """스테일 해소 시 decision_latest.md 의 배너를 제거(daily_decision 재기록과 무관히 자가치유·멱등)."""
+    path = path if path is not None else DECISION_LATEST
+    try:
+        if not path.exists():
+            return
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return
+    stripped = _strip_stale_banner(text)
+    if stripped != text:
+        tmp = path.with_suffix(path.suffix + ".tmp")
+        tmp.write_text(stripped, encoding="utf-8")
+        os.replace(tmp, path)
+
+
 # ── 기본 단계 구성 ────────────────────────────────────────────────────────────
 def collector_skip_reason(offline: bool, et_now: datetime) -> str | None:
     """인트라데이 수집기를 스킵할 사유(없으면 None → 실행). et_now 는 이미 ET 로 변환된 시각."""
@@ -860,6 +1119,27 @@ def run_scoreboard(*, offline: bool = False, now_utc: datetime | None = None,
 
     intraday = intraday_rule_stats(read_trades(trades_path))
 
+    # ── 스테일 가드(도메인 하네스): paperlab + daily_decision 뒤, 장부가 최신 완료 세션까지
+    # 전진했는지 검사. offline(캐시 동결)에선 오탐 방지 위해 생략. 실패는 격리(스코어보드 계속). ──
+    if not offline:
+        try:
+            _guard_client = _toss_client_or_none() if creds else None
+            _expected = latest_completed_us_session(now_utc, client=_guard_client)
+            _actual = paperlab_last_date()
+            if _actual is not None and _actual < _expected:
+                pr = by_name.get("paperlab")
+                if pr is not None:                     # (1) 대시보드에서 ❌ stale 로 표시.
+                    pr.status = "failed"
+                    pr.detail = (f"stale: 장부 {_actual} < 최신 완료 세션 {_expected} "
+                                 f"(일봉 소스 지연 — ops_stale_paper 방출)")
+                _append_stale_request(_expected, _actual)   # (2) 고우선 요청(루프 킥).
+                _write_stale_banner(_expected, _actual)      # (3) decision_latest.md 배너.
+            else:
+                _clear_stale_request()                       # 해소 시 이전 요청 정리(멱등).
+                _clear_stale_banner()                        # 배너도 자가치유(멱등).
+        except Exception:  # noqa: BLE001
+            pass
+
     dca = parse_dca_plan(by_name["dca_plan"].stdout) if "dca_plan" in by_name and \
         by_name["dca_plan"].ok else []
     tax = parse_tax(by_name["tax_report"].stdout) if "tax_report" in by_name and \
@@ -914,7 +1194,13 @@ def main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
 
     if args.refresh_closes:
-        summary = refresh_daily_closes(REFRESH_SYMBOLS)
+        # 라이브(자격증명 사용 가능)면 토스 일봉을 1차 소스로(Nasdaq 지연 우회), 아니면 Nasdaq 전용.
+        client = _toss_client_or_none()
+        cutoff = latest_completed_us_session(client=client) if client is not None else None
+        fetcher = _make_recent_fetcher(client, cutoff)
+        summary = refresh_daily_closes(REFRESH_SYMBOLS, fetcher=fetcher)
+        summary["source"] = "toss+nasdaq" if client is not None else "nasdaq"
+        summary["cutoff"] = cutoff.isoformat() if cutoff is not None else None
         print(json.dumps(summary, ensure_ascii=False))
         if summary.get("stopped") and not summary.get("refreshed"):
             print(f"refresh_closes stopped: {summary['stopped']}", file=sys.stderr)

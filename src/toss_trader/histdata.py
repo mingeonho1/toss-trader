@@ -868,4 +868,63 @@ def fetch_nasdaq_recent(symbol: str, *, days: int = 14,
     rows = _parse_nasdaq_historical(data)
     for r in rows:                      # 최신 창 → 배당계수 1 → adjclose=close
         r["a"] = r["c"]
+        r["src"] = "nasdaq"
     return rows
+
+
+# --------------------------------------------------------------------------- 토스 일봉(라이브 1차 소스)
+def _toss_float(v: Any) -> float:
+    """토스 가격 필드(문자열 '740.34' 또는 숫자)를 float 로. 실패/None → 0.0."""
+    if v is None:
+        return 0.0
+    try:
+        return float(str(v).replace(",", ""))
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def fetch_toss_recent(symbol: str, *, days: int = 14, client: Any = None,
+                      cutoff: date | None = None) -> list[dict]:
+    """토스 일봉 캔들(adjusted=true)로 최근 창을 가져와 _hist_cache row 포맷으로 반환.
+
+    라이브(자격증명) 모드의 **1차** 종가 소스. Nasdaq /historical 이 최신 완료 세션을 며칠씩
+    늦게 싣는 회귀(2026-09-29 관측)를 우회한다 — 토스는 완료 세션을 당일 저녁에 이미 제공.
+
+    각 row: {"d","o","h","l","c","v","a","src":"toss"}.
+      · 토스 close 는 **배당+분할 조정(adjusted=true)**. 최신 구간은 (미래) 배당이 없어 조정계수≈1
+        이므로 ``a=c`` 로 둔다(fetch_nasdaq_recent 와 동일 규약; 마크투마켓은 원시 ``c`` 만 사용).
+        차이 주의: 캐시 과거행의 ``c`` 는 Yahoo 분할조정 원시가·``a`` 가 배당조정가인 반면, 토스 신규행은
+        ``c`` 자체가 배당조정가다. 최신 종단에선 배당계수≈1 이라 두 계열이 일치(2026-09-28 종가
+        736.53 = Nasdaq = 토스 = 캐시). 배당락 당일엔 미세 차이가 있을 수 있으나 신규행만 토스로
+        채우므로 심볼-날짜당 소스는 하나로 유지된다(``src`` 로 출처 기록).
+      · ``cutoff`` 지정 시 그 날짜(최신 **완료** 세션)를 초과하는 행은 제외한다 — 토스는 진행 중인
+        당일(미완료) 저거래량 캔들도 함께 주므로(2026-09-30 v=25,541 관측) 완료 세션만 병합한다.
+
+    빈 응답/파싱 실패면 ``[]``(호출측이 Nasdaq 폴백). 네트워크/인증 예외는 전파(호출측에서 격리).
+    """
+    if client is None:
+        from .client import TossClient  # 지연 임포트(키 없는 경로 보호)
+        client = TossClient()
+    count = max(5, min(200, int(days) + 3))     # 주말/공휴일 여유 포함해 창보다 약간 넉넉히.
+    page = client.get_candles(symbol, interval="1d", count=count, adjusted=True)
+    raw = page.get("candles", []) if isinstance(page, dict) else (page or [])
+    out: list[dict] = []
+    for r in raw:
+        ts = r.get("timestamp") or r.get("date")
+        try:
+            d = date.fromisoformat(str(ts)[:10])    # 일봉 날짜 = 타임스탬프 앞 10자리.
+        except (TypeError, ValueError):
+            continue
+        if cutoff is not None and d > cutoff:       # 진행 중 당일(미완료) 캔들 제외.
+            continue
+        c = _toss_float(r.get("closePrice"))
+        if c <= 0:                                   # 종가 없는 행은 무의미(스킵).
+            continue
+        o = _toss_float(r.get("openPrice")) or c
+        h = _toss_float(r.get("highPrice")) or c
+        low = _toss_float(r.get("lowPrice")) or c
+        v = _toss_float(r.get("volume"))
+        out.append({"d": d.isoformat(), "o": o, "h": h, "l": low,
+                    "c": c, "v": v, "a": c, "src": "toss"})
+    out.sort(key=lambda x: x["d"])
+    return out
