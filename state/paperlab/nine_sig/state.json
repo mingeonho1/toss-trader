@@ -3,34 +3,36 @@
   "name": "nine_sig",
   "fill_on": "close",
   "start_date": "2026-09-28",
-  "last_date": "2026-09-30",
+  "last_date": "2026-10-01",
   "pending": {
-    "TQQQ": 0.6,
-    "AGG": 0.4
+    "TQQQ": 0.6461237567956448,
+    "AGG": 0.3538762432043552
   },
   "last_applied": {
     "TQQQ": 0.6,
     "AGG": 0.4
   },
-  "real_contributed": 0.0,
+  "real_contributed": 35.0,
   "strategy_state": {
     "model": {
-      "v_tq": 0.6077102803738318,
-      "v_ag": 0.3995351294241944,
-      "signal_line": 0.6,
+      "v_tq": 0.654,
+      "v_ag": 0.35818999165642235,
+      "signal_line": 0.654,
       "ignore_sells": 0,
-      "qcloses": [],
-      "prev_qclose": null
+      "qcloses": [
+        78.73
+      ],
+      "prev_qclose": 78.73
     },
-    "last_tq": 78.03,
-    "last_ag": 94.54,
+    "last_tq": 78.73,
+    "last_ag": 94.42,
     "last_q": [
       2026,
-      2
+      3
     ],
     "last_weights": {
-      "TQQQ": 0.6,
-      "AGG": 0.4
+      "TQQQ": 0.6461237567956448,
+      "AGG": 0.3538762432043552
     }
   },
   "unit": {
@@ -68,7 +70,7 @@
     ]
   },
   "real": {
-    "cash": 0.0,
+    "cash": 35.0,
     "start": 36.0,
     "positions": {
       "TQQQ": {
@@ -116,6 +118,11 @@
       "2026-09-30",
       1003.1773207586102,
       36.119672530431046
+    ],
+    [
+      "2026-10-01",
+      1008.087159797132,
+      71.29643561349812
     ]
   ]
 }
