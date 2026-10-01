@@ -162,6 +162,26 @@
           "E": null
         }
       }
+    },
+    {
+      "ts": "2026-10-01T00:52:22.580709+00:00",
+      "date": "2026-10-01",
+      "prices": {
+        "QQQ": 741.82,
+        "QLD": 96.2
+      },
+      "portfolios": {
+        "lifecycle_sleeve": {
+          "equity": 132.87862245705486,
+          "contributed": 135.0,
+          "E": 2.0
+        },
+        "dca_qqq": {
+          "equity": 133.77702432162263,
+          "contributed": 135.0,
+          "E": null
+        }
+      }
     }
   ],
   "portfolios": {
@@ -169,8 +189,8 @@
       "cash": 0.0,
       "positions": {
         "QLD": {
-          "quantity": 1.0187187872847034,
-          "avg_price": 97.86891
+          "quantity": 1.381274661715747,
+          "avg_price": 97.44348108052164
         }
       },
       "fills": [
@@ -182,18 +202,27 @@
           "cost": 0.2991026919242274,
           "dt": "2026-09-28",
           "realized_pnl": 0.0
+        },
+        {
+          "symbol": "QLD",
+          "side": "BUY",
+          "quantity": 0.36255587443104353,
+          "price": 96.24810000000001,
+          "cost": 0.10468594217347957,
+          "dt": "2026-10-01",
+          "realized_pnl": 0.0
         }
       ],
-      "total_contributed": 100.0,
-      "last_contribution_period": "2026-09",
+      "total_contributed": 135.0,
+      "last_contribution_period": "2026-10",
       "initialized": true
     },
     "dca_qqq": {
       "cash": 0.0,
       "positions": {
         "QQQ": {
-          "quantity": 0.13331960475769897,
-          "avg_price": 747.8337300000001
+          "quantity": 0.1803362329427929,
+          "avg_price": 746.3625538224452
         }
       },
       "fills": [
@@ -205,12 +234,21 @@
           "cost": 0.29910269192422734,
           "dt": "2026-09-28",
           "realized_pnl": 0.0
+        },
+        {
+          "symbol": "QQQ",
+          "side": "BUY",
+          "quantity": 0.047016628185093945,
+          "price": 742.19091,
+          "cost": 0.10468594217347957,
+          "dt": "2026-10-01",
+          "realized_pnl": 0.0
         }
       ],
-      "total_contributed": 100.0,
-      "last_contribution_period": "2026-09",
+      "total_contributed": 135.0,
+      "last_contribution_period": "2026-10",
       "initialized": true
     }
   },
-  "months_remaining": 300
+  "months_remaining": 299
 }
