@@ -892,6 +892,72 @@
           "total_contributed": 100.0
         }
       }
+    },
+    {
+      "ts": "2026-10-02T04:06:27.726275+00:00",
+      "session_date": "2026-10-02",
+      "regular_market": {
+        "startTime": "2026-10-02T22:30:00.000+09:00",
+        "endTime": "2026-10-03T05:00:00.000+09:00"
+      },
+      "prices": {
+        "BIL": 91.43,
+        "EFA": 103.09,
+        "GLD": 383.43,
+        "IEF": 89.3,
+        "IWM": 279.92,
+        "QQQ": 745.14,
+        "SCHD": 32.75,
+        "SPY": 766.24
+      },
+      "stale_symbols": [],
+      "flows": {
+        "lumpsum_etf": 0.0,
+        "dual_momentum": 0.0,
+        "regime_200d": 0.0,
+        "sma_cross": 0.0
+      },
+      "strategies": {
+        "lumpsum_etf": {
+          "equity": 98.11278587814911,
+          "money_return": -0.018872141218508887,
+          "cash": 0.0,
+          "weights": {
+            "QQQ": 0.6,
+            "SCHD": 0.25,
+            "GLD": 0.15
+          },
+          "total_contributed": 100.0
+        },
+        "dual_momentum": {
+          "equity": 99.34177028915181,
+          "money_return": -0.006582297108481905,
+          "cash": 0.0,
+          "weights": {
+            "QQQ": 1.0
+          },
+          "total_contributed": 100.0
+        },
+        "regime_200d": {
+          "equity": 99.34177028915181,
+          "money_return": -0.006582297108481905,
+          "cash": 0.0,
+          "weights": {
+            "QQQ": 1.0
+          },
+          "total_contributed": 100.0
+        },
+        "sma_cross": {
+          "equity": 97.74230530167691,
+          "money_return": -0.022576946983230872,
+          "cash": 0.0,
+          "weights": {
+            "QQQ": 0.5,
+            "SPY": 0.5
+          },
+          "total_contributed": 100.0
+        }
+      }
     }
   ]
 }

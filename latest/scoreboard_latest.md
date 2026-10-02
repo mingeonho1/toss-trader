@@ -1,35 +1,35 @@
 # 매일 자동 스코어보드
 
-- 생성: `2026-10-02T06:25:01+09:00`  ·  모드: **live(실시세)**  ·  ET 세션: `2026-10-01T17:25-04:00`
+- 생성: `2026-10-02T13:05:33+09:00`  ·  모드: **live(실시세)**  ·  ET 세션: `2026-10-02T00:05-04:00`
 - 읽기 전용 · 주문 없음 · 멱등(같은 날 여러 번 실행해도 이력 중복 없음).
-- 단계: ok 10 / 실패 0 / 스킵 0.
-- 변경 이력: `2026-10-02T06:25:01+09:00 | steps ok=10/실패=0/스킵=0 | books=6 | shadow_trades=96 | mode=live(실시세)`
+- 단계: ok 9 / 실패 0 / 스킵 1.
+- 변경 이력: `2026-10-02T13:05:33+09:00 | steps ok=9/실패=0/스킵=1 | books=6 | shadow_trades=96 | mode=live(실시세)`
 
 ## 단계 상태
 
 | 단계 | 상태 | 소요 | 비고 |
 |---|---|---:|---|
-| intraday_collect | ✅ ok | 32.6s |  |
-| intraday_shadow | ✅ ok | 1.1s |  |
-| refresh_closes | ✅ ok | 1079.8s |  |
-| forward_paper | ✅ ok | 9.6s |  |
-| forward_lifecycle | ✅ ok | 3111.6s |  |
-| dca_plan | ✅ ok | 4.7s |  |
+| intraday_collect | ⏭ skipped | 0.0s | ET 00:05 < 16:05 (정규장 마감 전) |
+| intraday_shadow | ✅ ok | 3.5s |  |
+| refresh_closes | ✅ ok | 43.5s |  |
+| forward_paper | ✅ ok | 5.2s |  |
+| forward_lifecycle | ✅ ok | 1.6s |  |
+| dca_plan | ✅ ok | 3.1s |  |
 | tax_report | ✅ ok | 2.1s |  |
-| paperlab | ✅ ok | 542.4s |  |
-| daily_decision | ✅ ok | 0.4s |  |
-| llm_judge | ✅ ok | 35.7s |  |
+| paperlab | ✅ ok | 84.9s |  |
+| daily_decision | ✅ ok | 1.3s |  |
+| llm_judge | ✅ ok | 44.1s |  |
 
 ## 포워드 페이퍼 (장부별 지분·낙폭, 시작 이후)
 
 | 장부 | 소스 | 지분 | 납입 | Money Return | 최대낙폭(원지분) | 스냅샷 |
 |---|---|---:|---:|---:|---:|---:|
-| B0 Lump-sum ETF (QQQ60/SCHD25/GLD15) | live | $97.80 | $100.00 | -2.20% | -1.38% | 10 |
-| B1 Dual momentum → IEF | live | $98.90 | $100.00 | -1.10% | -1.07% | 10 |
-| 200d regime filter → IEF | live | $98.90 | $100.00 | -1.10% | -1.07% | 10 |
-| SMA 20/60 trend top3 | live | $97.37 | $100.00 | -2.63% | -1.91% | 10 |
-| Lifecycle sleeve (QQQ/QLD) | live | $132.93 | $135.00 | -1.53% | -2.15% | 10 |
-| DCA-QQQ (lifecycle benchmark) | live | $133.81 | $135.00 | -0.88% | -1.07% | 10 |
+| B0 Lump-sum ETF (QQQ60/SCHD25/GLD15) | live | $98.11 | $100.00 | -1.89% | -1.38% | 11 |
+| B1 Dual momentum → IEF | live | $99.34 | $100.00 | -0.66% | -1.07% | 11 |
+| 200d regime filter → IEF | live | $99.34 | $100.00 | -0.66% | -1.07% | 11 |
+| SMA 20/60 trend top3 | live | $97.74 | $100.00 | -2.26% | -1.91% | 11 |
+| Lifecycle sleeve (QQQ/QLD) | live | $133.98 | $135.00 | -0.75% | -2.15% | 11 |
+| DCA-QQQ (lifecycle benchmark) | live | $134.36 | $135.00 | -0.47% | -1.07% | 11 |
 
 ## 인트라데이 섀도 (규칙별, 포지션 $30)
 
@@ -46,14 +46,14 @@
 
 ## 오늘의 DCA 플랜 (dry-run, 주문 없음)
 
-- 계좌 1 | 매수가능 ₩0 (= $0.00 @ 1356.9) | 보유평가 $0.00
+- 계좌 1 | 매수가능 ₩0 (= $0.00 @ 1357.9) | 보유평가 $0.00
 - 적립 매수 플랜 (목표배분 {'QQQ': 0.6, 'SCHD': 0.25, 'GLD': 0.15}): 없음
 
 ## 양도세 (YTD)
 
 - 실현손익(YTD, 통산) : ₩0  → 예상세액 ₩0 (공제 ₩2,500,000 반영)
 - 남은 기본공제        : ₩2,500,000
-- 보유 미실현손익(원화, 현재 환율 1,357):
+- 보유 미실현손익(원화, 현재 환율 1,358):
 - 합계                                 미실현 ₩0
 - 하베스팅 플랜:
 - 하베스팅 없음 — 실현할 미실현 이익 없음(모두 손실이거나 보유 없음)
