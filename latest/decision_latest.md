@@ -1,6 +1,6 @@
 # 오늘의 판단 (데일리 결정 엔진)
 
-- 생성: `2026-10-09T23:39:52+00:00`  ·  ET 세션: `2026-10-09`  ·  장부: `/Users/mingh/github/toss-trader/data/paperlab`
+- 생성: `2026-10-11T05:02:21+00:00`  ·  ET 세션: `2026-10-09`  ·  장부: `/Users/mingh/github/toss-trader/data/paperlab`
 - 결정론적 · LLM 없음 · **주문 없음** · 멱등(같은 세션 날짜 재실행 = 동일 결과).
 - 규칙: `docs/loop/decision_rules.md` (사전등록 2026-09-29). 기대치: `docs/loop/backtest_expectations.json`.
 
@@ -67,18 +67,7 @@
 
 ## 🤖 LLM 판단 (gpt-6-astra)
 
-- 상태: **채택(accepted)** · 모델 `gpt-6-astra` · 시도 1회 · prompt_hash `0cf0293f1668c74e`
-- 입장(stance): **hold_dca** · 추천 전략: `None` · 슬리브 0.0% · confidence 0.99
-- 무엇이 바뀌었나: 평가 대상은 2026-10-09 세션이다. 2026-10-08 이력이 없어 엄밀한 전일 대비 비교는 불가능하다. 최근 제공 이력인 2026-10-07 대비 실계좌 표시 선두가 holygrail_hibeta에서 ftlt_1x로 바뀌었지만, 여전히 WARMUP·actionable=false이며 목표 비중도 없다. changes는 비어 있어 보고된 상태 전이는 없다. 2026-10-07 미결 요청에 기록된 n=8과 비교하면 현재 n=10으로 관측 수는 늘었다. 다만 이전 성과 수치가 없어 수익률·z·낙폭의 변화는 계산할 수 없다. 생성 시각이 2026-10-09T23:39:52+00:00으로 갱신된 것만으로 기존 장부 지연 문제가 해결됐다고 볼 수는 없다.
-- 판단 근거: 모든 전략이 n=10의 WARMUP이므로 추천 가능한 실계좌 전략이 없다. confidence는 추천 보류 판단에 대한 확신이며 향후 수익에 대한 확신이 아니다. ftlt_1x의 누적수익률은 약 1.707%지만 초과성과 지표는 0이고 z=-0.0057이므로 백테스트 기대를 뛰어넘는 근거가 아니다. holygrail_hibeta의 누적수익률 약 -0.470%, z=-0.5043과 overnight_qqq의 누적수익률 약 0.682%, z=0.1879도 짧은 표본의 노이즈와 양립한다. 현재는 노이즈를 우선 가설로 두되 동일 보유 노출의 영향을 확인해야 하며, 레짐 변화나 전략 실패를 확정할 수 없다. 비용 전후 원장과 체결 내역이 없어 수수료 기여도는 분리할 수 없다. 미결 데이터 감사도 있어 추가 강등보다는 WARMUP 유지와 검증이 타당하다. hold_dca는 기본 방침 유지이며 신규 주문 지시가 아니다.
-- 관찰 항목:
-  - 2026-10-08 이력 부재가 보고서 누락인지 관측 누락인지 확인하고, 현재 장부 last_date와 실제 가격 시각이 2026-10-09 평가 세션에 맞는지 검증한다.
-  - buffer_hibeta, ftlt_hibeta, ftlt_hibeta_psq, holygrail_hibeta, simple_hibeta의 동일 누적수익률·변동성·낙폭이 공통 보유 때문인지 계산 경로 공유 오류인지 확인한다.
-  - hibeta_basket과 동일 성과 묶음 사이의 작은 수익률 차이를 비용으로 단정하지 말고 보유·체결·비용 원장으로 대조한다. 제공된 소액 매수·매도 최소비용·환전 조건의 적용과 중복 차감 여부도 확인한다.
-  - ep_gap_swing과 mom_top5_ndx의 누적수익률·변동성·낙폭 0이 정상적인 무신호 대기인지, 신호·체결·평가 누락인지 확인한다.
-  - overnight_qqq의 양의 단기 수익만으로 음의 백테스트 기대가 개선됐다고 판단하지 않는다. n=10에서 산출된 연율 수익률과 짧은 관측 낙폭을 장기 기대수익·위험으로 해석하지 않는다.
-- 적용된 강등: 없음
-- LLM 방출 요청(requests.jsonl · source=llm):
-  - `audit` [high]  — 기존 미결 데이터·비용·동일 성과 감사와 장부 지연 점검에 n=10 관측을 병합한다. 2026-10-08 보고 이력 부재, 현재 장부 last_date, 2026-10-09까지의 세션별 관측·가격 반영을 대조하여 지연 해소 여부를 확인한다. 동일 성과 실계좌 전략의 보유·신호·체결·평가 경로, ep_gap_swing·mom_top5_ndx의 정상 대기 여부, 비용 항목별 차감을 검증한다. 관측 수 증가만으로 정상화를 판정하지 말고 기존 고우선순위 지연 요청의 해소 증거를 확보한다.
-  - `investigate_divergence` [medium] overnight_qqq — 기존 미결 요청을 n=10으로 병합 갱신한다. 누적수익률 약 0.682%와 z=0.1879는 백테스트 CAGR -0.237297 및 기대 연간 로그 초과수익 -0.429057의 구조적 개선을 입증하지 않는다. 백테스트와 관측의 진입·청산 시각, 체결가격, 노출 구간 및 비용 가정을 일치시키고 비용 전후 성과를 분리해 노이즈·비용·레짐 가설을 비교한다.
-- 에이전트 루프 킥: kicked (gui/504/com.tosstrader.agentloop)
+- 상태: **불가(unavailable)** · 모델 `gpt-6-astra` · 시도 1회 · prompt_hash `07f0033706e16569`
+- codex(GPT-6) 호출 불가(미로그인/타임아웃/오프라인 등) — 결정론적 판단이 그대로 유지된다.
+  - 사유: rc=1: before completion: error sending request for url (https://api.openai.com/v1/responses)
+ERROR: stream disconnected before completion: error sending request for url (https://api.openai.com/v1/responses)
