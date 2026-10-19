@@ -1,7 +1,7 @@
 # Forward Paper Strategy Comparison
 
-- Generated: `2026-10-17T05:40:11.832649+00:00`
-- Session date: `2026-10-17`
+- Generated: `2026-10-18T22:53:12.953683+00:00`
+- Session date: `2026-10-19`
 - Real orders: none. These are virtual fills using current prices plus the cost model.
 - Cost model: roundtrip `70bps`
 - Purpose: operational validation and cost/turnover observation, not statistical ranking.
@@ -30,8 +30,7 @@
 
 ## Latest Virtual Trades
 
-- SMA 20/60 trend top3: SELL SPY 0.063493 @ $760.72 cost $0.1449
-- SMA 20/60 trend top3: SELL QQQ 0.065882 @ $707.52 cost $0.1398
+- No virtual trades on this run.
 
 ## Notes
 

@@ -1,6 +1,6 @@
 # 오늘의 판단 (데일리 결정 엔진)
 
-- 생성: `2026-10-17T13:47:42+00:00`  ·  ET 세션: `2026-10-16`  ·  장부: `/Users/mingh/github/toss-trader/data/paperlab`
+- 생성: `2026-10-19T00:00:14+00:00`  ·  ET 세션: `2026-10-16`  ·  장부: `/Users/mingh/github/toss-trader/data/paperlab`
 - 결정론적 · LLM 없음 · **주문 없음** · 멱등(같은 세션 날짜 재실행 = 동일 결과).
 - 규칙: `docs/loop/decision_rules.md` (사전등록 2026-09-29). 기대치: `docs/loop/backtest_expectations.json`.
 
@@ -67,6 +67,6 @@
 
 ## 🤖 LLM 판단 (gpt-6-astra)
 
-- 상태: **불가(unavailable)** · 모델 `gpt-6-astra` · 시도 1회 · prompt_hash `6e808890a598f2f1`
+- 상태: **불가(unavailable)** · 모델 `gpt-6-astra` · 시도 1회 · prompt_hash `008ebbd88ac47e15`
 - codex(GPT-6) 호출 불가(미로그인/타임아웃/오프라인 등) — 결정론적 판단이 그대로 유지된다.
   - 사유: 타임아웃 180s 초과
