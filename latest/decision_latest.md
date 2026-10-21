@@ -1,6 +1,11 @@
 # 오늘의 판단 (데일리 결정 엔진)
 
-- 생성: `2026-10-21T00:01:21+00:00`  ·  ET 세션: `2026-10-20`  ·  장부: `/Users/mingh/github/toss-trader/data/paperlab`
+<!-- STALE-PAPER-BANNER -->
+> ⚠️ **경고 — 스테일 장부**: 페이퍼 랩 last_date `2026-10-20` 가 최신 완료 US 정규장 세션 `2026-10-21` 보다 뒤처져 있습니다. 아래 판정은 **낡은 장부**로 계산됐을 수 있습니다(일봉 종가 소스 지연). `ops_stale_paper` 고우선 요청을 방출했습니다.
+<!-- /STALE-PAPER-BANNER -->
+
+
+- 생성: `2026-10-21T22:54:00+00:00`  ·  ET 세션: `2026-10-20`  ·  장부: `/Users/mingh/github/toss-trader/data/paperlab`
 - 결정론적 · LLM 없음 · **주문 없음** · 멱등(같은 세션 날짜 재실행 = 동일 결과).
 - 규칙: `docs/loop/decision_rules.md` (사전등록 2026-09-29). 기대치: `docs/loop/backtest_expectations.json`.
 
@@ -67,18 +72,7 @@
 
 ## 🤖 LLM 판단 (gpt-6-astra)
 
-- 상태: **채택(accepted)** · 모델 `gpt-6-astra` · 시도 1회 · prompt_hash `d5e4ded13d9ee66b`
-- 입장(stance): **hold_dca** · 추천 전략: `None` · 슬리브 0.0% · confidence 0.99
-- 무엇이 바뀌었나: 평가 세션 2026-10-20은 직전 2026-10-19 대비 changes가 계속 비어 있고, 실계좌 표시 선두 mom_top5_ndx의 WARMUP·actionable=false도 동일하다. 직전 미결 요청에 기록된 n=16에서 오늘 n=17로 증가했다. 해당 요청의 전일 수치를 기준으로 overnight_qqq의 누적수익률은 -2.6398%에서 -3.2287%로 약 0.5889%p 하락했고, excess_qqq는 +0.1199%에서 -0.3865%로 약 0.5064%p 하락해 음수로 전환했다. z도 0.6124에서 0.5239로 낮아졌다. 누적수익률의 차이는 당일 수익률과 구분한다. 다른 전략의 전일 상세 지표는 제공되지 않아 전일 성과 변화는 판단하지 않는다. 생성 시각이 2026-10-21T00:01:21+00:00이라는 사실만으로 평가 세션 대비 장부 지연이나 기존 경보 해소를 확정할 수 없다.
-- 판단 근거: 모든 전략의 결정론적 상태가 WARMUP이므로 추천 가능한 실계좌 전략이 없다. mom_top5_ndx는 표시상 선두일 뿐 actionable=false이며, 누적수익률·변동성·최대낙폭이 모두 0인 상태를 검증된 우위로 해석하지 않는다. 추가 전략 배분은 보류하고 상태도 유지한다. confidence는 추천 보류 결정에 대한 확신이지 괴리 원인에 대한 확신이 아니다. 관측 n=17만으로 백테스트 기대의 구조적 훼손이나 개선을 확정할 수 없다. buffer_hibeta·ftlt_hibeta·ftlt_hibeta_psq·holygrail_hibeta·simple_hibeta는 누적수익률 약 -13.88%, 최대낙폭 약 -17.91%로 동일하고 z는 약 -1.49~-1.74다. 공통 시장 노출에 따른 단기 변동을 우선 가설로 두되, 특정 레짐에 대한 취약성과 계산 경로 공유 오류를 구분해야 한다. overnight_qqq의 z=0.524도 음의 백테스트 기대가 개선됐다는 증거로 삼기 어렵다. 거래·비용 원장이 없으므로 수수료가 괴리를 주도했다고 판정할 수 없으며 레짐 전환도 미확정이다. 짧은 관측의 연율화 수익률은 장기 전망으로 사용하지 않는다. 이 판단은 실주문이나 신규 DCA 매수 지시가 아니다.
-- 관찰 항목:
-  - 추천 재검토는 제외 조건에 해당하지 않는 실계좌 전략이 결정론적으로 CANDIDATE 또는 LIVE_READY에 도달한 뒤에만 가능하다. LIVE_READY도 사용자 승인이 필요하다.
-  - mom_top5_ndx와 ep_gap_swing의 누적수익률·변동성·최대낙폭 0이 정상적인 무포지션 대기인지, 신호·체결·평가 데이터 누락인지 확인한다.
-  - 동일 성과 실계좌 전략들의 실제 보유와 방어 신호를 대조한다. 동일 성과 자체는 오류의 증거도, 독립적인 여러 전략의 검증 결과도 아니다.
-  - overnight_qqq의 상대성과 음수 전환이 지속되는지 관찰하고, 진입·청산 시각 및 비용을 일치시킨 백테스트 비교로 단기 노이즈와 구조적 괴리를 구분한다.
-  - 원천 가격 시각·장부 최종 세션·n 산식을 확인한다. 비용은 번들에 주어진 소액 매수 무료·매도 최소 비용·주간 환전 비용 조건을 기준으로 항목별 검증한다.
-- 적용된 강등: 없음
-- LLM 방출 요청(requests.jsonl · source=llm):
-  - `audit` [high]  — 기존 고우선순위 데이터·비용·동일 성과 감사를 2026-10-20, n=17 기준으로 병합 갱신한다. 실제 장부와 원천 가격이 평가 세션까지 반영됐는지 확인하고 기존 지연 경보의 해소 여부를 명시한다. buffer_hibeta·ftlt_hibeta·ftlt_hibeta_psq·holygrail_hibeta·simple_hibeta의 동일 성과를 보유·신호·체결·평가 경로로 검증하고, mom_top5_ndx·ep_gap_swing의 무수익 상태가 정상 대기인지 확인한다. 비용 차감 전후 성과와 항목별 원장으로 번들의 비용 조건 적용 및 중복 차감을 점검한다. 별도 중복 감사 대신 기존 요청에 통합한다.
-  - `investigate_divergence` [medium] overnight_qqq — 기존 미결 조사를 n=17, cum=-0.032287147970628816, excess_qqq=-0.0038651401997852374, z=0.5239328278267507로 병합 갱신한다. 전일 대비 절대·상대성과 악화와 장기 백테스트 기대 대비 괴리를 분리한다. 백테스트 CAGR=-0.237297 및 기대 연간 로그 초과수익=-0.429057과 비교할 때 기간·수익률 정의·진입 및 청산 시각·가격·비용·노출 구간을 일치시킨다. 총수익·비용·시장 노출 기여를 분해하되 단기 노이즈를 우선 가설로 유지하고 수수료 주도 괴리나 레짐 전환은 미확정으로 둔다.
-- 에이전트 루프 킥: kicked (gui/504/com.tosstrader.agentloop)
+- 상태: **불가(unavailable)** · 모델 `gpt-6-astra` · 시도 1회 · prompt_hash `9cdafbe4f9aa2960`
+- codex(GPT-6) 호출 불가(미로그인/타임아웃/오프라인 등) — 결정론적 판단이 그대로 유지된다.
+  - 사유: rc=1: before completion: error sending request for url (https://api.openai.com/v1/responses)
+ERROR: stream disconnected before completion: error sending request for url (https://api.openai.com/v1/responses)
