@@ -3,23 +3,59 @@
   "name": "ep_gap_swing",
   "fill_on": "open",
   "start_date": "2026-09-28",
-  "last_date": "2026-10-20",
-  "pending": {},
-  "last_applied": null,
+  "last_date": "2026-10-22",
+  "pending": {
+    "SMCI": 1.0
+  },
+  "last_applied": {
+    "SMCI": 1.0
+  },
   "strategy_state": {
-    "holds": {}
+    "holds": {
+      "SMCI": 1
+    }
   },
   "unit": {
-    "cash": 1000.0,
+    "cash": 0.009999999999990905,
     "start": 1000.0,
-    "positions": {},
-    "fills": []
+    "positions": {
+      "SMCI": {
+        "qty": 29.015393552134768,
+        "avg": 34.43
+      }
+    },
+    "fills": [
+      {
+        "dt": "2026-10-22",
+        "symbol": "SMCI",
+        "side": "BUY",
+        "qty": 29.015393552134768,
+        "price": 34.43,
+        "fee": 0.99,
+        "realized": 0.0
+      }
+    ]
   },
   "real": {
-    "cash": 36.0,
+    "cash": 0.0,
     "start": 36.0,
-    "positions": {},
-    "fills": []
+    "positions": {
+      "SMCI": {
+        "qty": 1.0447284345047922,
+        "avg": 34.43
+      }
+    },
+    "fills": [
+      {
+        "dt": "2026-10-22",
+        "symbol": "SMCI",
+        "side": "BUY",
+        "qty": 1.0447284345047922,
+        "price": 34.43,
+        "fee": 0.03,
+        "realized": 0.0
+      }
+    ]
   },
   "equity": [
     [
@@ -106,6 +142,16 @@
       "2026-10-20",
       1000.0,
       36.0
+    ],
+    [
+      "2026-10-21",
+      1000.0,
+      36.0
+    ],
+    [
+      "2026-10-22",
+      978.4090705779844,
+      35.228242811501595
     ]
   ],
   "real_contributed": 0.0
