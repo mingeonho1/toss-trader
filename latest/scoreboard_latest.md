@@ -1,35 +1,35 @@
 # 매일 자동 스코어보드
 
-- 생성: `2026-10-24T06:25:01+09:00`  ·  모드: **live(실시세)**  ·  ET 세션: `2026-10-23T17:25-04:00`
+- 생성: `2026-10-25T06:33:14+09:00`  ·  모드: **offline(캐시) · 토스 API 사용 불가 → 캐시 모드 폴백 (허용 IP 미등록)**  ·  ET 세션: `2026-10-24T17:33-04:00`
 - 읽기 전용 · 주문 없음 · 멱등(같은 날 여러 번 실행해도 이력 중복 없음).
-- 단계: ok 9 / 실패 1 / 스킵 0.
-- 변경 이력: `2026-10-24T06:25:01+09:00 | steps ok=9/실패=1/스킵=0 | books=6 | shadow_trades=465 | mode=live(실시세)`
+- 단계: ok 7 / 실패 0 / 스킵 3.
+- 변경 이력: `2026-10-25T06:33:14+09:00 | steps ok=7/실패=0/스킵=3 | books=6 | shadow_trades=465 | mode=offline(캐시) · 토스 API 사용 불가 → 캐시 모드 폴백 (허용 IP 미등록)`
 
 ## 단계 상태
 
 | 단계 | 상태 | 소요 | 비고 |
 |---|---|---:|---|
-| intraday_collect | ✅ ok | 38.1s |  |
-| intraday_shadow | ✅ ok | 4.9s |  |
-| refresh_closes | ✅ ok | 1013.1s |  |
-| forward_paper | ✅ ok | 3.8s |  |
-| forward_lifecycle | ✅ ok | 1.8s |  |
-| dca_plan | ❌ failed | 1068.2s | rc=1: ConnectionResetError: [Errno 54] Connection reset by peer |
-| tax_report | ✅ ok | 2.6s |  |
-| paperlab | ✅ ok | 4304.2s |  |
+| intraday_collect | ⏭ skipped | 0.0s | 주말(ET Sat) — 새 세션 없음 |
+| intraday_shadow | ✅ ok | 157.6s |  |
+| refresh_closes | ✅ ok | 8.9s |  |
+| forward_paper | ✅ ok | 0.3s |  |
+| forward_lifecycle | ✅ ok | 0.2s |  |
+| dca_plan | ⏭ skipped | 0.0s | 자격증명 없음(플랜 생략) |
+| tax_report | ⏭ skipped | 0.0s | 자격증명 없음(양도세 생략) |
+| paperlab | ✅ ok | 1518.3s |  |
 | daily_decision | ✅ ok | 0.5s |  |
-| llm_judge | ✅ ok | 10973.9s |  |
+| llm_judge | ✅ ok | 1553.7s |  |
 
 ## 포워드 페이퍼 (장부별 지분·낙폭, 시작 이후)
 
 | 장부 | 소스 | 지분 | 납입 | Money Return | 최대낙폭(원지분) | 스냅샷 |
 |---|---|---:|---:|---:|---:|---:|
-| B0 Lump-sum ETF (QQQ60/SCHD25/GLD15) | live | $96.17 | $100.00 | -3.83% | -3.09% | 31 |
-| B1 Dual momentum → IEF | live | $94.05 | $100.00 | -5.95% | -7.20% | 31 |
-| 200d regime filter → IEF | live | $94.05 | $100.00 | -5.95% | -7.20% | 31 |
-| SMA 20/60 trend top3 | live | $93.61 | $100.00 | -6.39% | -5.77% | 31 |
-| Lifecycle sleeve (QQQ/QLD) | live | $119.44 | $135.00 | -11.53% | -14.30% | 31 |
-| DCA-QQQ (lifecycle benchmark) | live | $127.22 | $135.00 | -5.76% | -7.20% | 31 |
+| B0 Lump-sum ETF (QQQ60/SCHD25/GLD15) | cached | $96.09 | $100.00 | -3.91% | -3.17% | 32 |
+| B1 Dual momentum → IEF | cached | $93.91 | $100.00 | -6.09% | -7.20% | 32 |
+| 200d regime filter → IEF | cached | $93.91 | $100.00 | -6.09% | -7.20% | 32 |
+| SMA 20/60 trend top3 | cached | $93.61 | $100.00 | -6.39% | -5.77% | 32 |
+| Lifecycle sleeve (QQQ/QLD) | cached | $119.00 | $135.00 | -11.85% | -14.30% | 32 |
+| DCA-QQQ (lifecycle benchmark) | cached | $127.03 | $135.00 | -5.90% | -7.20% | 32 |
 
 ## 인트라데이 섀도 (규칙별, 포지션 $30)
 
@@ -50,12 +50,7 @@
 
 ## 양도세 (YTD)
 
-- 실현손익(YTD, 통산) : ₩0  → 예상세액 ₩0 (공제 ₩2,500,000 반영)
-- 남은 기본공제        : ₩2,500,000
-- 보유 미실현손익(원화, 현재 환율 1,328):
-- 합계                                 미실현 ₩0
-- 하베스팅 플랜:
-- 하베스팅 없음 — 실현할 미실현 이익 없음(모두 손실이거나 보유 없음)
+- 자격증명/픽스처 없음 → 양도세 리포트 생략.
 
 ## 주의
 
