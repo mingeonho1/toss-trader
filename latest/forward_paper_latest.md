@@ -1,7 +1,7 @@
 # Forward Paper Strategy Comparison
 
-- Generated: `2026-10-22T21:26:20.267322+00:00`
-- Session date: `2026-10-23`
+- Generated: `2026-10-23T21:42:41.513260+00:00`
+- Session date: `2026-10-24`
 - Real orders: none. These are virtual fills using current prices plus the cost model.
 - Cost model: roundtrip `70bps`
 - Purpose: operational validation and cost/turnover observation, not statistical ranking.
@@ -10,27 +10,27 @@
 
 | Symbol | Price | Freshness |
 |---|---:|---|
-| BIL | $91.61 | fresh |
-| EFA | $103.15 | fresh |
-| GLD | $368.90 | fresh |
-| IEF | $91.27 | fresh |
-| IWM | $276.33 | fresh |
-| QQQ | $703.97 | fresh |
-| SCHD | $35.37 | fresh |
-| SPY | $764.06 | fresh |
+| BIL | $91.63 | fresh |
+| EFA | $102.83 | fresh |
+| GLD | $366.37 | fresh |
+| IEF | $91.10 | fresh |
+| IWM | $275.96 | fresh |
+| QQQ | $705.48 | fresh |
+| SCHD | $35.28 | fresh |
+| SPY | $761.05 | fresh |
 
 ## Portfolios
 
 | Strategy | Mode | Target | Equity | Money Return | TWR | Cash | Trades | Cost | MDD | Sharpe | Positions | Note |
 |---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---|---|
-| Lump-sum ETF baseline QQQ60/SCHD25/GLD15 | buy_once | GLD:15%, QQQ:60%, SCHD:25% | $96.21 | -3.79% | -1.63% | $0.00 | 3 | $0.2991 | -3.05% | -1.79 | GLD $13.78 (-7.84%), QQQ $56.31 (-5.87%), SCHD $26.12 (+4.78%) |  |
-| Dual momentum top1 -> IEF | rebalance | QQQ:100% | $93.85 | -6.15% | -4.57% | $0.00 | 1 | $0.2991 | -7.20% | -2.88 | QQQ $93.85 (-5.87%) |  |
-| QQQ 200d regime filter -> IEF | rebalance | QQQ:100% | $93.85 | -6.15% | -4.57% | $0.00 | 1 | $0.2991 | -7.20% | -2.88 | QQQ $93.85 (-5.87%) |  |
-| SMA 20/60 trend top3 | rebalance | cash | $93.61 | -6.39% | -3.89% | $93.61 | 10 | $1.3388 | -5.77% | -3.45 | cash |  |
+| Lump-sum ETF baseline QQQ60/SCHD25/GLD15 | buy_once | GLD:15%, QQQ:60%, SCHD:25% | $96.17 | -3.83% | -1.67% | $0.00 | 3 | $0.2991 | -3.09% | -1.80 | GLD $13.69 (-8.47%), QQQ $56.43 (-5.66%), SCHD $26.05 (+4.51%) |  |
+| Dual momentum top1 -> IEF | rebalance | QQQ:100% | $94.05 | -5.95% | -4.36% | $0.00 | 1 | $0.2991 | -7.20% | -2.68 | QQQ $94.05 (-5.66%) |  |
+| QQQ 200d regime filter -> IEF | rebalance | QQQ:100% | $94.05 | -5.95% | -4.36% | $0.00 | 1 | $0.2991 | -7.20% | -2.68 | QQQ $94.05 (-5.66%) |  |
+| SMA 20/60 trend top3 | rebalance | cash | $93.61 | -6.39% | -3.89% | $93.61 | 10 | $1.3388 | -5.77% | -3.38 | cash |  |
 
 ## Latest Virtual Trades
 
-- SMA 20/60 trend top3: SELL SPY 0.122944 @ $763.68 cost $0.2817
+- No virtual trades on this run.
 
 ## Notes
 
