@@ -1,2 +1,4 @@
 {"book": "unit", "dt": "2026-10-22", "symbol": "SMCI", "side": "BUY", "qty": 29.015393552134768, "price": 34.43, "fee": 0.99, "realized": 0.0}
+{"book": "unit", "dt": "2026-10-27", "symbol": "SMCI", "side": "SELL", "qty": 29.015393552134768, "price": 33.3, "fee": 0.99, "realized": -32.78739471391236}
 {"book": "real", "dt": "2026-10-22", "symbol": "SMCI", "side": "BUY", "qty": 1.0447284345047922, "price": 34.43, "fee": 0.03, "realized": 0.0}
+{"book": "real", "dt": "2026-10-27", "symbol": "SMCI", "side": "SELL", "qty": 1.0447284345047922, "price": 33.3, "fee": 0.05, "realized": -1.180543130990418}

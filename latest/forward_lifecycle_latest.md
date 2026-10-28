@@ -1,6 +1,6 @@
 # Forward Lifecycle Paper (sleeve vs DCA-QQQ)
 
-- Generated: `2026-10-27T00:59:14.717820+00:00`
+- Generated: `2026-10-27T21:58:05.430127+00:00`
 - Price source: `live Toss`
 - Real orders: none. Virtual fills using current prices + cost model.
 - Plan start: `2026-09` · months remaining: `299`
@@ -10,15 +10,15 @@
 
 | Symbol | Price |
 |---|---:|
-| QQQ | $714.78 |
-| QLD | $88.68 |
+| QQQ | $721.66 |
+| QLD | $90.41 |
 
 ## Portfolios
 
 | Portfolio | Equity | Contributed | Money Return | E target | Cash | Positions | Note |
 |---|---:|---:|---:|---:|---:|---|---|
-| lifecycle_sleeve | $122.49 | $135.00 | -9.27% | 2.000 | $0.00 | QLD:1.3813 |  |
-| dca_qqq | $128.90 | $135.00 | -4.52% | n/a | $0.00 | QQQ:0.1803 |  |
+| lifecycle_sleeve | $124.88 | $135.00 | -7.50% | 2.000 | $0.00 | QLD:1.3813 |  |
+| dca_qqq | $130.14 | $135.00 | -3.60% | n/a | $0.00 | QQQ:0.1803 |  |
 
 ## Notes
 
