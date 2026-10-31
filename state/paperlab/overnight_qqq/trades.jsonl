@@ -45,6 +45,8 @@
 {"book": "unit", "dt": "2026-10-28", "symbol": "QQQ", "side": "BUY", "qty": 1.3165383746372021, "price": 725.77, "fee": 0.76, "realized": 0.0}
 {"book": "unit", "dt": "2026-10-29", "symbol": "QQQ", "side": "SELL", "qty": 1.3165383746372021, "price": 716.54, "fee": 0.97, "realized": -12.1516491979014}
 {"book": "unit", "dt": "2026-10-29", "symbol": "QQQ", "side": "BUY", "qty": 1.3161952516878768, "price": 715.42, "fee": 0.75, "realized": 0.0}
+{"book": "unit", "dt": "2026-10-30", "symbol": "QQQ", "side": "SELL", "qty": 1.3161952516878768, "price": 697.21, "fee": 0.9400000000000001, "realized": -23.967915533236134}
+{"book": "unit", "dt": "2026-10-30", "symbol": "QQQ", "side": "BUY", "qty": 1.3266006624705708, "price": 690.49, "fee": 0.72, "realized": 0.0}
 {"book": "real", "dt": "2026-09-28", "symbol": "QQQ", "side": "BUY", "qty": 0.04887784611624781, "price": 736.53, "fee": 0.0, "realized": 0.0}
 {"book": "real", "dt": "2026-09-29", "symbol": "QQQ", "side": "SELL", "qty": 0.04887784611624781, "price": 740.145, "fee": 0.05, "realized": 0.17669341371023628}
 {"book": "real", "dt": "2026-09-29", "symbol": "QQQ", "side": "BUY", "qty": 0.04895680269634009, "price": 737.93, "fee": 0.0, "realized": 0.0}
@@ -92,3 +94,5 @@
 {"book": "real", "dt": "2026-10-28", "symbol": "QQQ", "side": "BUY", "qty": 0.04788570348119376, "price": 725.77, "fee": 0.0, "realized": 0.0}
 {"book": "real", "dt": "2026-10-29", "symbol": "QQQ", "side": "SELL", "qty": 0.04788570348119376, "price": 716.54, "fee": 0.05, "realized": -0.4419850431314193}
 {"book": "real", "dt": "2026-10-29", "symbol": "QQQ", "side": "BUY", "qty": 0.04789078020241897, "price": 715.42, "fee": 0.0, "realized": 0.0}
+{"book": "real", "dt": "2026-10-30", "symbol": "QQQ", "side": "SELL", "qty": 0.04789078020241897, "price": 697.21, "fee": 0.05, "realized": -0.8720911074860458}
+{"book": "real", "dt": "2026-10-30", "symbol": "QQQ", "side": "BUY", "qty": 0.04828445142569557, "price": 690.49, "fee": 0.0, "realized": 0.0}

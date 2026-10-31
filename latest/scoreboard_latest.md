@@ -1,59 +1,59 @@
 # 매일 자동 스코어보드
 
-- 생성: `2026-10-30T06:25:00+09:00`  ·  모드: **live(실시세)**  ·  ET 세션: `2026-10-29T17:25-04:00`
+- 생성: `2026-10-31T06:25:00+09:00`  ·  모드: **live(실시세)**  ·  ET 세션: `2026-10-30T17:25-04:00`
 - 읽기 전용 · 주문 없음 · 멱등(같은 날 여러 번 실행해도 이력 중복 없음).
-- 단계: ok 10 / 실패 0 / 스킵 0.
-- 변경 이력: `2026-10-30T06:25:00+09:00 | steps ok=10/실패=0/스킵=0 | books=6 | shadow_trades=597 | mode=live(실시세)`
+- 단계: ok 9 / 실패 1 / 스킵 0.
+- 변경 이력: `2026-10-31T06:25:00+09:00 | steps ok=9/실패=1/스킵=0 | books=6 | shadow_trades=622 | mode=live(실시세)`
 
 ## 단계 상태
 
 | 단계 | 상태 | 소요 | 비고 |
 |---|---|---:|---|
-| intraday_collect | ✅ ok | 32.9s |  |
-| intraday_shadow | ✅ ok | 7.1s |  |
-| refresh_closes | ✅ ok | 38.6s |  |
-| forward_paper | ✅ ok | 3.8s |  |
-| forward_lifecycle | ✅ ok | 1.6s |  |
-| dca_plan | ✅ ok | 1.9s |  |
-| tax_report | ✅ ok | 1.8s |  |
-| paperlab | ✅ ok | 77.1s |  |
+| intraday_collect | ❌ failed | 15224.0s | rc=1: {"summary": {"SPY_1m": {"symbol": "SPY", "interval": "1m", "path": "/Users/mingh/github/toss-trader/data/_hist_cache/intraday/SPY_1m.json", "before": 16542, "added": 815, "updated": 0, "total": 17357, "fetched_rows": 815, "source": "nasdaq"}, "SPY_5m": {"symbol": "SPY", "interval": "5m", "path": "/U |
+| intraday_shadow | ✅ ok | 1989.2s |  |
+| refresh_closes | ✅ ok | 8987.5s |  |
+| forward_paper | ✅ ok | 1988.6s |  |
+| forward_lifecycle | ✅ ok | 979.6s |  |
+| dca_plan | ✅ ok | 693.0s |  |
+| tax_report | ✅ ok | 2.3s |  |
+| paperlab | ✅ ok | 9348.3s |  |
 | daily_decision | ✅ ok | 0.5s |  |
-| llm_judge | ✅ ok | 30.2s |  |
+| llm_judge | ✅ ok | 20879.3s |  |
 
 ## 포워드 페이퍼 (장부별 지분·낙폭, 시작 이후)
 
 | 장부 | 소스 | 지분 | 납입 | Money Return | 최대낙폭(원지분) | 스냅샷 |
 |---|---|---:|---:|---:|---:|---:|
-| B0 Lump-sum ETF (QQQ60/SCHD25/GLD15) | live | $96.55 | $100.00 | -3.45% | -3.17% | 37 |
-| B1 Dual momentum → IEF | live | $93.97 | $100.00 | -6.03% | -7.20% | 37 |
-| 200d regime filter → IEF | live | $93.97 | $100.00 | -6.03% | -7.20% | 37 |
-| SMA 20/60 trend top3 | live | $91.38 | $100.00 | -8.62% | -8.01% | 37 |
-| Lifecycle sleeve (QQQ/QLD) | live | $119.05 | $135.00 | -11.81% | -14.30% | 37 |
-| DCA-QQQ (lifecycle benchmark) | live | $127.10 | $135.00 | -5.85% | -7.20% | 37 |
+| B0 Lump-sum ETF (QQQ60/SCHD25/GLD15) | live | $95.14 | $100.00 | -4.86% | -4.13% | 38 |
+| B1 Dual momentum → IEF | live | $92.35 | $100.00 | -7.65% | -8.69% | 38 |
+| 200d regime filter → IEF | live | $92.35 | $100.00 | -7.65% | -8.69% | 38 |
+| SMA 20/60 trend top3 | live | $90.19 | $100.00 | -9.81% | -9.21% | 38 |
+| Lifecycle sleeve (QQQ/QLD) | live | $115.16 | $135.00 | -14.70% | -17.04% | 38 |
+| DCA-QQQ (lifecycle benchmark) | live | $124.92 | $135.00 | -7.47% | -8.69% | 38 |
 
 ## 인트라데이 섀도 (규칙별, 포지션 $30)
 
-- 누적 가상 트레이드 597건 · 세션 날짜 23개 (2026-09-28~2026-10-29).
+- 누적 가상 트레이드 622건 · 세션 날짜 24개 (2026-09-28~2026-10-30).
 
 | 규칙 | n | 평균 net bps | t-stat | 상태 |
 |---|---:|---:|---:|---|
-| ORB-5 (QQQ/TQQQ) | 34 | -78.94 | -7.13 | 수집 중 (n<200) |
-| ORB-15 (QQQ/TQQQ) | 32 | -47.58 | -2.86 | 수집 중 (n<200) |
+| ORB-5 (QQQ/TQQQ) | 36 | -81.24 | -7.57 | 수집 중 (n<200) |
+| ORB-15 (QQQ/TQQQ) | 34 | -53.39 | -3.26 | 수집 중 (n<200) |
 | Intraday momentum (QQQ/TQQQ) | 16 | -45.86 | -3.55 | 수집 중 (n<200) |
-| ORB-5 (movers) | 269 | 56.16 | 1.09 | 기각 |
-| ORB-15 (movers) | 235 | 50.20 | 0.85 | 기각 |
+| ORB-5 (movers) | 281 | 46.72 | 0.95 | 기각 |
+| ORB-15 (movers) | 244 | 44.37 | 0.78 | 기각 |
 | Gap-and-go (movers) | 1 | -50.13 | 0.00 | 수집 중 (n<200) |
 
 ## 오늘의 DCA 플랜 (dry-run, 주문 없음)
 
-- 계좌 1 | 매수가능 ₩0 (= $0.00 @ 1342.5) | 보유평가 $0.00
+- 계좌 1 | 매수가능 ₩0 (= $0.00 @ 1338.9) | 보유평가 $0.00
 - 적립 매수 플랜 (목표배분 {'QQQ': 0.6, 'SCHD': 0.25, 'GLD': 0.15}): 없음
 
 ## 양도세 (YTD)
 
 - 실현손익(YTD, 통산) : ₩0  → 예상세액 ₩0 (공제 ₩2,500,000 반영)
 - 남은 기본공제        : ₩2,500,000
-- 보유 미실현손익(원화, 현재 환율 1,342):
+- 보유 미실현손익(원화, 현재 환율 1,339):
 - 합계                                 미실현 ₩0
 - 하베스팅 플랜:
 - 하베스팅 없음 — 실현할 미실현 이익 없음(모두 손실이거나 보유 없음)
