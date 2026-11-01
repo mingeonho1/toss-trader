@@ -1,6 +1,6 @@
 # 오늘의 판단 (데일리 결정 엔진)
 
-- 생성: `2026-10-31T08:18:38+00:00`  ·  ET 세션: `2026-10-30`  ·  장부: `/Users/mingh/github/toss-trader/data/paperlab`
+- 생성: `2026-11-01T05:22:58+00:00`  ·  ET 세션: `2026-10-30`  ·  장부: `/Users/mingh/github/toss-trader/data/paperlab`
 - 결정론적 · LLM 없음 · **주문 없음** · 멱등(같은 세션 날짜 재실행 = 동일 결과).
 - 규칙: `docs/loop/decision_rules.md` (사전등록 2026-09-29). 기대치: `docs/loop/backtest_expectations.json`.
 
@@ -67,6 +67,7 @@
 
 ## 🤖 LLM 판단 (gpt-6-astra)
 
-- 상태: **불가(unavailable)** · 모델 `gpt-6-astra` · 시도 1회 · prompt_hash `8a5fb6e0a905a690`
+- 상태: **불가(unavailable)** · 모델 `gpt-6-astra` · 시도 1회 · prompt_hash `60099987fe8bc6ce`
 - codex(GPT-6) 호출 불가(미로그인/타임아웃/오프라인 등) — 결정론적 판단이 그대로 유지된다.
-  - 사유: 타임아웃 180s 초과
+  - 사유: rc=1: before completion: error sending request for url (https://api.openai.com/v1/responses)
+ERROR: stream disconnected before completion: error sending request for url (https://api.openai.com/v1/responses)

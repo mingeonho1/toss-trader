@@ -1,7 +1,7 @@
 {
   "version": 2,
   "created_at": "2026-09-28T03:10:07.126286+00:00",
-  "session_date": "2026-10-31",
+  "session_date": "2026-11-01",
   "regular_market": null,
   "seed_usd": 100.0,
   "seed_krw": 0.0,
@@ -63,9 +63,9 @@
     "dual_momentum": {
       "cash": 0.0,
       "positions": {
-        "QQQ": {
-          "quantity": 0.13331960475769897,
-          "avg_price": 747.8337300000001
+        "IWM": {
+          "quantity": 0.3277284273690663,
+          "avg_price": 279.95991
         }
       },
       "fills": [
@@ -78,6 +78,26 @@
           "cost": 0.29910269192422734,
           "dt": "2026-09-28",
           "realized_pnl": 0.0
+        },
+        {
+          "ts": "2026-11-01T01:33:13.574079+00:00",
+          "symbol": "QQQ",
+          "side": "SELL",
+          "quantity": 0.13331960475769897,
+          "price": 692.343655,
+          "cost": 0.2769089473233021,
+          "dt": "2026-11-01",
+          "realized_pnl": -7.3979148669750785
+        },
+        {
+          "ts": "2026-11-01T01:33:13.574079+00:00",
+          "symbol": "IWM",
+          "side": "BUY",
+          "quantity": 0.3277284273690663,
+          "price": 279.95991,
+          "cost": 0.2752524630920561,
+          "dt": "2026-11-01",
+          "realized_pnl": 0.0
         }
       ],
       "initial_equity": 100.0,
@@ -85,11 +105,11 @@
       "initialized": true,
       "last_contribution_period": "2026-09",
       "signal": {
-        "period": "2026-10",
+        "period": "2026-11",
         "weights": {
-          "QQQ": 1.0
+          "IWM": 1.0
         },
-        "asof": "2026-10-01"
+        "asof": "2026-11-01"
       }
     },
     "regime_200d": {
@@ -117,11 +137,11 @@
       "initialized": true,
       "last_contribution_period": "2026-09",
       "signal": {
-        "period": "2026-10",
+        "period": "2026-11",
         "weights": {
           "QQQ": 1.0
         },
-        "asof": "2026-10-01"
+        "asof": "2026-11-01"
       }
     },
     "sma_cross": {
@@ -294,9 +314,9 @@
       "initialized": true,
       "last_contribution_period": "2026-09",
       "signal": {
-        "period": "2026-10-31",
+        "period": "2026-11-01",
         "weights": {},
-        "asof": "2026-10-31"
+        "asof": "2026-11-01"
       }
     }
   },
@@ -2749,6 +2769,66 @@
           "cash": 0.0,
           "weights": {
             "QQQ": 1.0
+          },
+          "total_contributed": 100.0
+        },
+        "regime_200d": {
+          "equity": 92.3491570196105,
+          "money_return": -0.07650842980389494,
+          "cash": 0.0,
+          "weights": {
+            "QQQ": 1.0
+          },
+          "total_contributed": 100.0
+        },
+        "sma_cross": {
+          "equity": 90.18840956868037,
+          "money_return": -0.09811590431319628,
+          "cash": 90.18840956868037,
+          "weights": {},
+          "total_contributed": 100.0
+        }
+      }
+    },
+    {
+      "ts": "2026-11-01T01:33:13.574079+00:00",
+      "session_date": "2026-11-01",
+      "regular_market": null,
+      "prices": {
+        "BIL": 91.69,
+        "EFA": 103.48,
+        "GLD": 356.1,
+        "IEF": 91.72,
+        "IWM": 279.82,
+        "QQQ": 692.69,
+        "SCHD": 35.79,
+        "SPY": 757.06
+      },
+      "stale_symbols": [],
+      "flows": {
+        "lumpsum_etf": 0.0,
+        "dual_momentum": 0.0,
+        "regime_200d": 0.0,
+        "sma_cross": 0.0
+      },
+      "strategies": {
+        "lumpsum_etf": {
+          "equity": 95.14075728005368,
+          "money_return": -0.04859242719946322,
+          "cash": 0.0,
+          "weights": {
+            "QQQ": 0.6,
+            "SCHD": 0.25,
+            "GLD": 0.15
+          },
+          "total_contributed": 100.0
+        },
+        "dual_momentum": {
+          "equity": 91.70496854641213,
+          "money_return": -0.08295031453587864,
+          "cash": 0.0,
+          "weights": {
+            "IWM": 1.0
           },
           "total_contributed": 100.0
         },
