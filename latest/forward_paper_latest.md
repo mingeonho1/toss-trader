@@ -1,7 +1,7 @@
 # Forward Paper Strategy Comparison
 
-- Generated: `2026-11-01T01:33:13.574079+00:00`
-- Session date: `2026-11-01`
+- Generated: `2026-11-01T21:25:50.614460+00:00`
+- Session date: `2026-11-02`
 - Real orders: none. These are virtual fills using current prices plus the cost model.
 - Cost model: roundtrip `70bps`
 - Purpose: operational validation and cost/turnover observation, not statistical ranking.
@@ -23,15 +23,14 @@
 
 | Strategy | Mode | Target | Equity | Money Return | TWR | Cash | Trades | Cost | MDD | Sharpe | Positions | Note |
 |---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---|---|
-| Lump-sum ETF baseline QQQ60/SCHD25/GLD15 | buy_once | GLD:15%, QQQ:60%, SCHD:25% | $95.14 | -4.86% | -2.72% | $0.00 | 3 | $0.2991 | -4.13% | -2.13 | GLD $13.30 (-11.04%), QQQ $55.41 (-7.37%), SCHD $26.43 (+6.02%) |  |
-| Dual momentum top1 -> IEF | rebalance | IWM:100% | $91.70 | -8.30% | -6.75% | $0.00 | 3 | $0.8513 | -9.33% | -3.16 | IWM $91.70 (-0.05%) |  |
-| QQQ 200d regime filter -> IEF | rebalance | QQQ:100% | $92.35 | -7.65% | -6.10% | $0.00 | 1 | $0.2991 | -8.69% | -2.84 | QQQ $92.35 (-7.37%) |  |
-| SMA 20/60 trend top3 | rebalance | cash | $90.19 | -9.81% | -7.40% | $90.19 | 16 | $2.4400 | -9.21% | -5.15 | cash |  |
+| Lump-sum ETF baseline QQQ60/SCHD25/GLD15 | buy_once | GLD:15%, QQQ:60%, SCHD:25% | $95.14 | -4.86% | -2.72% | $0.00 | 3 | $0.2991 | -4.13% | -2.10 | GLD $13.30 (-11.04%), QQQ $55.41 (-7.37%), SCHD $26.43 (+6.02%) |  |
+| Dual momentum top1 -> IEF | rebalance | IWM:100% | $91.70 | -8.30% | -6.75% | $0.00 | 3 | $0.8513 | -9.33% | -3.11 | IWM $91.70 (-0.05%) |  |
+| QQQ 200d regime filter -> IEF | rebalance | QQQ:100% | $92.35 | -7.65% | -6.10% | $0.00 | 1 | $0.2991 | -8.69% | -2.80 | QQQ $92.35 (-7.37%) |  |
+| SMA 20/60 trend top3 | rebalance | cash | $90.19 | -9.81% | -7.40% | $90.19 | 16 | $2.4400 | -9.21% | -5.06 | cash |  |
 
 ## Latest Virtual Trades
 
-- Dual momentum top1 -> IEF: SELL QQQ 0.133320 @ $692.34 cost $0.2769
-- Dual momentum top1 -> IEF: BUY IWM 0.327728 @ $279.96 cost $0.2753
+- No virtual trades on this run.
 
 ## Notes
 
