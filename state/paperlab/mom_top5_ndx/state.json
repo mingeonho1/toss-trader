@@ -3,26 +3,26 @@
   "name": "mom_top5_ndx",
   "fill_on": "close",
   "start_date": "2026-09-28",
-  "last_date": "2026-10-30",
+  "last_date": "2026-11-02",
   "pending": {
     "MU": 0.2,
+    "MRVL": 0.2,
     "INTC": 0.2,
     "AMD": 0.2,
-    "MRVL": 0.2,
-    "LRCX": 0.2
+    "AMAT": 0.2
   },
   "last_applied": null,
   "strategy_state": {
     "period": [
       2026,
-      10
+      11
     ],
     "weights": {
       "MU": 0.2,
+      "MRVL": 0.2,
       "INTC": 0.2,
       "AMD": 0.2,
-      "MRVL": 0.2,
-      "LRCX": 0.2
+      "AMAT": 0.2
     }
   },
   "unit": {
@@ -160,6 +160,11 @@
     ],
     [
       "2026-10-30",
+      1000.0,
+      36.0
+    ],
+    [
+      "2026-11-02",
       1000.0,
       36.0
     ]
