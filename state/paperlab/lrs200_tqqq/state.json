@@ -3,16 +3,14 @@
   "name": "lrs200_tqqq",
   "fill_on": "close",
   "start_date": "2026-09-28",
-  "last_date": "2026-11-04",
-  "pending": {
-    "TQQQ": 1.0
-  },
+  "last_date": "2026-11-05",
+  "pending": {},
   "last_applied": {
     "TQQQ": 1.0
   },
   "real_contributed": 0.0,
   "strategy_state": {
-    "pos": "lev"
+    "pos": "cash"
   },
   "unit": {
     "cash": 0.009999999999990905,
@@ -196,6 +194,11 @@
       "2026-11-04",
       802.460038729667,
       28.89302091402014
+    ],
+    [
+      "2026-11-05",
+      650.7915646785439,
+      23.432044926413635
     ]
   ]
 }
