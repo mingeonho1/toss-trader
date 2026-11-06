@@ -1,6 +1,6 @@
 # Forward Paper Strategy Comparison
 
-- Generated: `2026-11-05T23:03:35.824437+00:00`
+- Generated: `2026-11-06T06:56:31.891979+00:00`
 - Session date: `2026-11-06`
 - Real orders: none. These are virtual fills using current prices plus the cost model.
 - Cost model: roundtrip `70bps`
@@ -10,22 +10,22 @@
 
 | Symbol | Price | Freshness |
 |---|---:|---|
-| BIL | $91.43 | fresh |
-| EFA | $101.59 | fresh |
-| GLD | $374.41 | fresh |
-| IEF | $92.05 | fresh |
-| IWM | $270.01 | fresh |
-| QQQ | $645.16 | fresh |
-| SCHD | $35.34 | fresh |
-| SPY | $730.63 | fresh |
+| BIL | $91.43 | stale cache |
+| EFA | $102.70 | stale cache |
+| GLD | $375.49 | stale cache |
+| IEF | $91.99 | stale cache |
+| IWM | $270.98 | stale cache |
+| QQQ | $648.06 | stale cache |
+| SCHD | $35.42 | stale cache |
+| SPY | $733.00 | stale cache |
 
 ## Portfolios
 
 | Strategy | Mode | Target | Equity | Money Return | TWR | Cash | Trades | Cost | MDD | Sharpe | Positions | Note |
 |---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---|---|
-| Lump-sum ETF baseline QQQ60/SCHD25/GLD15 | buy_once | GLD:15%, QQQ:60%, SCHD:25% | $91.69 | -8.31% | -6.25% | $0.00 | 3 | $0.2991 | -7.60% | -2.41 | GLD $13.99 (-6.46%), QQQ $51.61 (-13.73%), SCHD $26.09 (+4.69%) |  |
-| Dual momentum top1 -> IEF | rebalance | IWM:100% | $88.49 | -11.51% | -10.02% | $0.00 | 3 | $0.8513 | -12.51% | -3.22 | IWM $88.49 (-3.55%) |  |
-| QQQ 200d regime filter -> IEF | rebalance | QQQ:100% | $86.01 | -13.99% | -12.54% | $0.00 | 1 | $0.2991 | -14.96% | -3.34 | QQQ $86.01 (-13.73%) |  |
+| Lump-sum ETF baseline QQQ60/SCHD25/GLD15 | buy_once | GLD:15%, QQQ:60%, SCHD:25% | $92.02 | -7.98% | -5.91% | $0.00 | 3 | $0.2991 | -7.27% | -2.36 | GLD $14.03 (-6.19%), QQQ $51.84 (-13.34%), SCHD $26.15 (+4.93%) | stale price; trades skipped for GLD,QQQ,SCHD |
+| Dual momentum top1 -> IEF | rebalance | IWM:100% | $88.81 | -11.19% | -9.70% | $0.00 | 3 | $0.8513 | -12.19% | -3.19 | IWM $88.81 (-3.21%) | stale price; trades skipped for IWM |
+| QQQ 200d regime filter -> IEF | rebalance | QQQ:100% | $86.40 | -13.60% | -12.15% | $0.00 | 1 | $0.2991 | -14.57% | -3.32 | QQQ $86.40 (-13.34%) | stale price; trades skipped for QQQ |
 | SMA 20/60 trend top3 | rebalance | cash | $90.19 | -9.81% | -7.40% | $90.19 | 16 | $2.4400 | -9.21% | -4.76 | cash |  |
 
 ## Latest Virtual Trades
