@@ -1,56 +1,62 @@
 # 매일 자동 스코어보드
 
-- 생성: `2026-11-06T15:55:36+09:00`  ·  모드: **live(실시세)**  ·  ET 세션: `2026-11-06T01:55-05:00`
+- 생성: `2026-11-07T06:25:00+09:00`  ·  모드: **live(실시세)**  ·  ET 세션: `2026-11-06T16:25-05:00`
 - 읽기 전용 · 주문 없음 · 멱등(같은 날 여러 번 실행해도 이력 중복 없음).
-- 단계: ok 6 / 실패 3 / 스킵 1.
-- 변경 이력: `2026-11-06T15:55:36+09:00 | steps ok=6/실패=3/스킵=1 | books=6 | shadow_trades=751 | mode=live(실시세)`
+- 단계: ok 10 / 실패 0 / 스킵 0.
+- 변경 이력: `2026-11-07T06:25:00+09:00 | steps ok=10/실패=0/스킵=0 | books=6 | shadow_trades=792 | mode=live(실시세)`
 
 ## 단계 상태
 
 | 단계 | 상태 | 소요 | 비고 |
 |---|---|---:|---|
-| intraday_collect | ⏭ skipped | 0.0s | ET 01:55 < 16:05 (정규장 마감 전) |
-| intraday_shadow | ✅ ok | 9.2s |  |
-| refresh_closes | ❌ failed | 17.3s | rc=1: refresh_closes stopped: AGG: URLError: <urlopen error [Errno 8] nodename nor servname provided, or not known> |
-| forward_paper | ✅ ok | 27.6s |  |
-| forward_lifecycle | ✅ ok | 4.0s |  |
-| dca_plan | ❌ failed | 0.8s | rc=1: toss_trader.errors.TossAPIError: [403 ip-not-allowed] 허용되지 않은 IP 주소입니다. | requestId=6I9l95J4NIfkMw9u |
-| tax_report | ❌ failed | 1.5s | rc=1: toss_trader.errors.TossAPIError: [403 ip-not-allowed] 허용되지 않은 IP 주소입니다. | requestId=6NYBiOzokR5g83V2 |
-| paperlab | ✅ ok | 103.9s |  |
-| daily_decision | ✅ ok | 0.4s |  |
-| llm_judge | ✅ ok | 21.5s |  |
+| intraday_collect | ✅ ok | 35.2s |  |
+| intraday_shadow | ✅ ok | 9.8s |  |
+| refresh_closes | ✅ ok | 2750.3s |  |
+| forward_paper | ✅ ok | 3.9s |  |
+| forward_lifecycle | ✅ ok | 1.8s |  |
+| dca_plan | ✅ ok | 1.9s |  |
+| tax_report | ✅ ok | 1.8s |  |
+| paperlab | ✅ ok | 3645.0s |  |
+| daily_decision | ✅ ok | 0.5s |  |
+| llm_judge | ✅ ok | 10.4s |  |
 
 ## 포워드 페이퍼 (장부별 지분·낙폭, 시작 이후)
 
 | 장부 | 소스 | 지분 | 납입 | Money Return | 최대낙폭(원지분) | 스냅샷 |
 |---|---|---:|---:|---:|---:|---:|
-| B0 Lump-sum ETF (QQQ60/SCHD25/GLD15) | live | $92.02 | $100.00 | -7.98% | -7.60% | 46 |
-| B1 Dual momentum → IEF | live | $88.81 | $100.00 | -11.19% | -12.51% | 46 |
-| 200d regime filter → IEF | live | $86.40 | $100.00 | -13.60% | -14.96% | 46 |
-| SMA 20/60 trend top3 | live | $90.19 | $100.00 | -9.81% | -9.21% | 46 |
-| Lifecycle sleeve (QQQ/QLD) | live | $130.06 | $170.00 | -23.49% | -17.04% | 46 |
-| DCA-QQQ (lifecycle benchmark) | live | $149.50 | $170.00 | -12.06% | -8.69% | 46 |
+| B0 Lump-sum ETF (QQQ60/SCHD25/GLD15) | live | $92.47 | $100.00 | -7.53% | -7.60% | 47 |
+| B1 Dual momentum → IEF | live | $89.69 | $100.00 | -10.31% | -12.51% | 47 |
+| 200d regime filter → IEF | live | $87.57 | $100.00 | -12.43% | -14.96% | 47 |
+| SMA 20/60 trend top3 | live | $90.19 | $100.00 | -9.81% | -9.21% | 47 |
+| Lifecycle sleeve (QQQ/QLD) | live | $133.66 | $170.00 | -21.38% | -17.04% | 47 |
+| DCA-QQQ (lifecycle benchmark) | live | $151.52 | $170.00 | -10.87% | -8.69% | 47 |
 
 ## 인트라데이 섀도 (규칙별, 포지션 $30)
 
-- 누적 가상 트레이드 751건 · 세션 날짜 28개 (2026-09-28~2026-11-05).
+- 누적 가상 트레이드 792건 · 세션 날짜 29개 (2026-09-28~2026-11-06).
 
 | 규칙 | n | 평균 net bps | t-stat | 상태 |
 |---|---:|---:|---:|---|
-| ORB-5 (QQQ/TQQQ) | 42 | -78.99 | -8.41 | 수집 중 (n<200) |
-| ORB-15 (QQQ/TQQQ) | 40 | -67.73 | -4.22 | 수집 중 (n<200) |
-| Intraday momentum (QQQ/TQQQ) | 22 | -53.21 | -5.13 | 수집 중 (n<200) |
-| ORB-5 (movers) | 333 | 153.64 | 1.30 | 기각 |
-| ORB-15 (movers) | 290 | 141.98 | 1.53 | 기각 |
-| Gap-and-go (movers) | 2 | -212.79 | -1.31 | 수집 중 (n<200) |
+| ORB-5 (QQQ/TQQQ) | 44 | -79.09 | -8.82 | 수집 중 (n<200) |
+| ORB-15 (QQQ/TQQQ) | 42 | -76.84 | -4.53 | 수집 중 (n<200) |
+| Intraday momentum (QQQ/TQQQ) | 24 | -58.74 | -5.60 | 수집 중 (n<200) |
+| ORB-5 (movers) | 348 | 139.93 | 1.24 | 기각 |
+| ORB-15 (movers) | 305 | 125.28 | 1.42 | 기각 |
+| Gap-and-go (movers) | 3 | -179.09 | -1.79 | 수집 중 (n<200) |
 
 ## 오늘의 DCA 플랜 (dry-run, 주문 없음)
 
-- 자격증명 없음 또는 단계 스킵 → 플랜 생략(오프라인 모드에선 정상).
+- 계좌 1 | 매수가능 ₩0 (= $0.00 @ 1366.0) | 보유평가 $0.00
+- 적립 매수 플랜 (목표배분 {'QQQ': 0.6, 'SCHD': 0.25, 'GLD': 0.15}): 없음
 
 ## 양도세 (YTD)
 
-- 자격증명/픽스처 없음 → 양도세 리포트 생략.
+- 실현손익(YTD, 통산) : ₩0  → 예상세액 ₩0 (공제 ₩2,500,000 반영)
+- 남은 기본공제        : ₩2,500,000
+- 보유 미실현손익(원화, 현재 환율 1,366):
+- 합계                                 미실현 ₩0
+- 하베스팅 플랜:
+- 하베스팅 없음 — 실현할 미실현 이익 없음(모두 손실이거나 보유 없음)
 
 ## 주의
 
