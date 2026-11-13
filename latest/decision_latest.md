@@ -5,7 +5,7 @@
 <!-- /STALE-PAPER-BANNER -->
 
 
-- 생성: `2026-11-12T23:31:49+00:00`  ·  ET 세션: `2026-11-11`  ·  장부: `/Users/mingh/github/toss-trader/data/paperlab`
+- 생성: `2026-11-13T04:03:07+00:00`  ·  ET 세션: `2026-11-11`  ·  장부: `/Users/mingh/github/toss-trader/data/paperlab`
 - 결정론적 · LLM 없음 · **주문 없음** · 멱등(같은 세션 날짜 재실행 = 동일 결과).
 - 규칙: `docs/loop/decision_rules.md` (사전등록 2026-09-29). 기대치: `docs/loop/backtest_expectations.json`.
 
@@ -72,6 +72,6 @@
 
 ## 🤖 LLM 판단 (gpt-6-astra)
 
-- 상태: **불가(unavailable)** · 모델 `gpt-6-astra` · 시도 1회 · prompt_hash `4860e052b17ddfef`
+- 상태: **불가(unavailable)** · 모델 `gpt-6-astra` · 시도 1회 · prompt_hash `6e1cb278137b8be9`
 - codex(GPT-6) 호출 불가(미로그인/타임아웃/오프라인 등) — 결정론적 판단이 그대로 유지된다.
-  - 사유: rc=1: e_http_client: fail to delete session: Client error: HTTP request failed: http/request failed: error sending request for url (https://app.wandsol.com/mcp) session_id="1230cfe05a70442b96658b8e79ceca08"
+  - 사유: rc=1: OR: {"type":"error","status":400,"error":{"type":"invalid_request_error","message":"The 'gpt-6-astra' model requires a newer version of Codex. Please upgrade to the latest app or CLI and try again."}}
