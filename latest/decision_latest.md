@@ -1,11 +1,11 @@
 # 오늘의 판단 (데일리 결정 엔진)
 
 <!-- STALE-PAPER-BANNER -->
-> ⚠️ **경고 — 스테일 장부**: 페이퍼 랩 last_date `2026-11-11` 가 최신 완료 US 정규장 세션 `2026-11-12` 보다 뒤처져 있습니다. 아래 판정은 **낡은 장부**로 계산됐을 수 있습니다(일봉 종가 소스 지연). `ops_stale_paper` 고우선 요청을 방출했습니다.
+> ⚠️ **경고 — 스테일 장부**: 페이퍼 랩 last_date `2026-11-11` 가 최신 완료 US 정규장 세션 `2026-11-13` 보다 뒤처져 있습니다. 아래 판정은 **낡은 장부**로 계산됐을 수 있습니다(일봉 종가 소스 지연). `ops_stale_paper` 고우선 요청을 방출했습니다.
 <!-- /STALE-PAPER-BANNER -->
 
 
-- 생성: `2026-11-13T04:16:51+00:00`  ·  ET 세션: `2026-11-11`  ·  장부: `/Users/mingh/github/toss-trader/data/paperlab`
+- 생성: `2026-11-14T02:32:46+00:00`  ·  ET 세션: `2026-11-11`  ·  장부: `/Users/mingh/github/toss-trader/data/paperlab`
 - 결정론적 · LLM 없음 · **주문 없음** · 멱등(같은 세션 날짜 재실행 = 동일 결과).
 - 규칙: `docs/loop/decision_rules.md` (사전등록 2026-09-29). 기대치: `docs/loop/backtest_expectations.json`.
 
@@ -72,6 +72,6 @@
 
 ## 🤖 LLM 판단 (gpt-6-astra)
 
-- 상태: **불가(unavailable)** · 모델 `gpt-6-astra` · 시도 1회 · prompt_hash `8ac4bd4ba265cf3b`
+- 상태: **불가(unavailable)** · 모델 `gpt-6-astra` · 시도 1회 · prompt_hash `fff99efef4ab40d3`
 - codex(GPT-6) 호출 불가(미로그인/타임아웃/오프라인 등) — 결정론적 판단이 그대로 유지된다.
   - 사유: rc=1: OR: {"type":"error","status":400,"error":{"type":"invalid_request_error","message":"The 'gpt-6-astra' model requires a newer version of Codex. Please upgrade to the latest app or CLI and try again."}}

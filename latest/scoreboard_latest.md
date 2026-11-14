@@ -1,35 +1,35 @@
 # 매일 자동 스코어보드
 
-- 생성: `2026-11-13T13:15:57+09:00`  ·  모드: **offline(캐시) · 토스 API 사용 불가 → 캐시 모드 폴백 (허용 IP 미등록)**  ·  ET 세션: `2026-11-12T23:15-05:00`
+- 생성: `2026-11-14T11:31:43+09:00`  ·  모드: **offline(캐시) · 토스 API 사용 불가 → 캐시 모드 폴백 (허용 IP 미등록)**  ·  ET 세션: `2026-11-13T21:31-05:00`
 - 읽기 전용 · 주문 없음 · 멱등(같은 날 여러 번 실행해도 이력 중복 없음).
 - 단계: ok 5 / 실패 3 / 스킵 2.
-- 변경 이력: `2026-11-13T13:15:57+09:00 | steps ok=5/실패=3/스킵=2 | books=6 | shadow_trades=832 | mode=offline(캐시) · 토스 API 사용 불가 → 캐시 모드 폴백 (허용 IP 미등록)`
+- 변경 이력: `2026-11-14T11:31:43+09:00 | steps ok=5/실패=3/스킵=2 | books=6 | shadow_trades=832 | mode=offline(캐시) · 토스 API 사용 불가 → 캐시 모드 폴백 (허용 IP 미등록)`
 
 ## 단계 상태
 
 | 단계 | 상태 | 소요 | 비고 |
 |---|---|---:|---|
-| intraday_collect | ❌ failed | 24.1s | rc=1: {"summary": {"SPY_1m": {"error": "SPY 1m: 모든 소스 실패 → nasdaq: HTTPError: HTTP Error 403: Forbidden"}, "SPY_5m": {"error": "SPY 5m: 모든 소스 실패 → nasdaq: HTTPError: HTTP Error 403: Forbidden"}, "QQQ_1m": {"error": "QQQ 1m: 모든 소스 실패 → nasdaq: HTTPError: HTTP Error 403: Forbidden"}, "QQQ_5m": {"error": "QQ |
-| intraday_shadow | ✅ ok | 9.5s |  |
-| refresh_closes | ❌ failed | 2.8s | rc=1: refresh_closes stopped: AGG: HTTPError: HTTP Error 403: Forbidden |
-| forward_paper | ✅ ok | 0.3s |  |
-| forward_lifecycle | ✅ ok | 0.1s |  |
+| intraday_collect | ❌ failed | 27.1s | rc=1: {"summary": {"SPY_1m": {"error": "SPY 1m: 모든 소스 실패 → nasdaq: HTTPError: HTTP Error 403: Forbidden"}, "SPY_5m": {"error": "SPY 5m: 모든 소스 실패 → nasdaq: HTTPError: HTTP Error 403: Forbidden"}, "QQQ_1m": {"error": "QQQ 1m: 모든 소스 실패 → nasdaq: HTTPError: HTTP Error 403: Forbidden"}, "QQQ_5m": {"error": "QQ |
+| intraday_shadow | ✅ ok | 10.6s |  |
+| refresh_closes | ❌ failed | 5.6s | rc=1: refresh_closes stopped: AGG: HTTPError: HTTP Error 403: Forbidden |
+| forward_paper | ✅ ok | 0.9s |  |
+| forward_lifecycle | ✅ ok | 0.2s |  |
 | dca_plan | ⏭ skipped | 0.0s | 자격증명 없음(플랜 생략) |
 | tax_report | ⏭ skipped | 0.0s | 자격증명 없음(양도세 생략) |
-| paperlab | ❌ failed | 10.9s | stale: 장부 2026-11-11 < 최신 완료 세션 2026-11-12 (일봉 소스 지연 — ops_stale_paper 방출) |
-| daily_decision | ✅ ok | 2.1s |  |
-| llm_judge | ✅ ok | 20.1s |  |
+| paperlab | ❌ failed | 14.6s | stale: 장부 2026-11-11 < 최신 완료 세션 2026-11-13 (일봉 소스 지연 — ops_stale_paper 방출) |
+| daily_decision | ✅ ok | 0.8s |  |
+| llm_judge | ✅ ok | 17.1s |  |
 
 ## 포워드 페이퍼 (장부별 지분·낙폭, 시작 이후)
 
 | 장부 | 소스 | 지분 | 납입 | Money Return | 최대낙폭(원지분) | 스냅샷 |
 |---|---|---:|---:|---:|---:|---:|
-| B0 Lump-sum ETF (QQQ60/SCHD25/GLD15) | cached | $95.46 | $100.00 | -4.54% | -7.60% | 53 |
-| B1 Dual momentum → IEF | cached | $92.78 | $100.00 | -7.22% | -12.51% | 53 |
-| 200d regime filter → IEF | cached | $92.03 | $100.00 | -7.97% | -14.96% | 53 |
-| SMA 20/60 trend top3 | cached | $90.19 | $100.00 | -9.81% | -9.21% | 53 |
-| Lifecycle sleeve (QQQ/QLD) | cached | $147.26 | $170.00 | -13.37% | -17.04% | 53 |
-| DCA-QQQ (lifecycle benchmark) | cached | $159.24 | $170.00 | -6.33% | -8.69% | 53 |
+| B0 Lump-sum ETF (QQQ60/SCHD25/GLD15) | cached | $95.46 | $100.00 | -4.54% | -7.60% | 54 |
+| B1 Dual momentum → IEF | cached | $92.78 | $100.00 | -7.22% | -12.51% | 54 |
+| 200d regime filter → IEF | cached | $92.03 | $100.00 | -7.97% | -14.96% | 54 |
+| SMA 20/60 trend top3 | cached | $90.19 | $100.00 | -9.81% | -9.21% | 54 |
+| Lifecycle sleeve (QQQ/QLD) | cached | $147.26 | $170.00 | -13.37% | -17.04% | 54 |
+| DCA-QQQ (lifecycle benchmark) | cached | $159.24 | $170.00 | -6.33% | -8.69% | 54 |
 
 ## 인트라데이 섀도 (규칙별, 포지션 $30)
 
