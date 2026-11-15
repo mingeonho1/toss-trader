@@ -1,24 +1,24 @@
 # 매일 자동 스코어보드
 
-- 생성: `2026-11-15T06:25:03+09:00`  ·  모드: **offline(캐시) · 토스 API 사용 불가 → 캐시 모드 폴백 (허용 IP 미등록)**  ·  ET 세션: `2026-11-14T16:25-05:00`
+- 생성: `2026-11-15T06:33:11+09:00`  ·  모드: **offline(캐시) · 토스 API 사용 불가 → 캐시 모드 폴백 (허용 IP 미등록)**  ·  ET 세션: `2026-11-14T16:33-05:00`
 - 읽기 전용 · 주문 없음 · 멱등(같은 날 여러 번 실행해도 이력 중복 없음).
 - 단계: ok 5 / 실패 2 / 스킵 3.
-- 변경 이력: `2026-11-15T06:25:03+09:00 | steps ok=5/실패=2/스킵=3 | books=6 | shadow_trades=832 | mode=offline(캐시) · 토스 API 사용 불가 → 캐시 모드 폴백 (허용 IP 미등록)`
+- 변경 이력: `2026-11-15T06:33:11+09:00 | steps ok=5/실패=2/스킵=3 | books=6 | shadow_trades=832 | mode=offline(캐시) · 토스 API 사용 불가 → 캐시 모드 폴백 (허용 IP 미등록)`
 
 ## 단계 상태
 
 | 단계 | 상태 | 소요 | 비고 |
 |---|---|---:|---|
 | intraday_collect | ⏭ skipped | 0.0s | 주말(ET Sat) — 새 세션 없음 |
-| intraday_shadow | ✅ ok | 12.1s |  |
-| refresh_closes | ❌ failed | 5.0s | rc=1: refresh_closes stopped: AGG: HTTPError: HTTP Error 403: Forbidden |
+| intraday_shadow | ✅ ok | 2043.1s |  |
+| refresh_closes | ❌ failed | 2122.6s | rc=1: refresh_closes stopped: AGG: HTTPError: HTTP Error 403: Forbidden |
 | forward_paper | ✅ ok | 0.3s |  |
 | forward_lifecycle | ✅ ok | 0.2s |  |
 | dca_plan | ⏭ skipped | 0.0s | 자격증명 없음(플랜 생략) |
 | tax_report | ⏭ skipped | 0.0s | 자격증명 없음(양도세 생략) |
-| paperlab | ❌ failed | 14.6s | stale: 장부 2026-11-11 < 최신 완료 세션 2026-11-13 (일봉 소스 지연 — ops_stale_paper 방출) |
+| paperlab | ❌ failed | 2228.3s | stale: 장부 2026-11-11 < 최신 완료 세션 2026-11-13 (일봉 소스 지연 — ops_stale_paper 방출) |
 | daily_decision | ✅ ok | 0.6s |  |
-| llm_judge | ✅ ok | 18.3s |  |
+| llm_judge | ✅ ok | 2596.4s |  |
 
 ## 포워드 페이퍼 (장부별 지분·낙폭, 시작 이후)
 
