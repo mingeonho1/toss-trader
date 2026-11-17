@@ -1142,6 +1142,26 @@
           "E": null
         }
       }
+    },
+    {
+      "ts": "2026-11-17T21:25:38.879038+00:00",
+      "date": "2026-11-18",
+      "prices": {
+        "QQQ": 661.92,
+        "QLD": 75.08
+      },
+      "portfolios": {
+        "lifecycle_sleeve": {
+          "equity": 135.11585167993903,
+          "contributed": 170.0,
+          "E": 2.0
+        },
+        "dca_qqq": {
+          "equity": 152.6967234573904,
+          "contributed": 170.0,
+          "E": null
+        }
+      }
     }
   ],
   "portfolios": {
