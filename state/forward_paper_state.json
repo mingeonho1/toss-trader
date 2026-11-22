@@ -1,8 +1,11 @@
 {
   "version": 2,
   "created_at": "2026-09-28T03:10:07.126286+00:00",
-  "session_date": "2026-11-22",
-  "regular_market": null,
+  "session_date": "2026-11-23",
+  "regular_market": {
+    "startTime": "2026-11-23T23:30:00.000+09:00",
+    "endTime": "2026-11-24T06:00:00.000+09:00"
+  },
   "seed_usd": 100.0,
   "seed_krw": 0.0,
   "fx": 0.0,
@@ -314,9 +317,9 @@
       "initialized": true,
       "last_contribution_period": "2026-09",
       "signal": {
-        "period": "2026-11-22",
+        "period": "2026-11-23",
         "weights": {},
-        "asof": "2026-11-22"
+        "asof": "2026-11-23"
       }
     }
   },
@@ -4231,6 +4234,69 @@
       "ts": "2026-11-22T00:53:35.505252+00:00",
       "session_date": "2026-11-22",
       "regular_market": null,
+      "prices": {
+        "BIL": 91.595,
+        "EFA": 97.15,
+        "GLD": 324.45,
+        "IEF": 91.4088,
+        "IWM": 258.848,
+        "QQQ": 617.74,
+        "SCHD": 34.0981,
+        "SPY": 697.49
+      },
+      "stale_symbols": [],
+      "flows": {
+        "lumpsum_etf": 0.0,
+        "dual_momentum": 0.0,
+        "regime_200d": 0.0,
+        "sma_cross": 0.0
+      },
+      "strategies": {
+        "lumpsum_etf": {
+          "equity": 86.71359150418849,
+          "money_return": -0.1328640849581152,
+          "cash": 0.0,
+          "weights": {
+            "QQQ": 0.6,
+            "SCHD": 0.25,
+            "GLD": 0.15
+          },
+          "total_contributed": 100.0
+        },
+        "dual_momentum": {
+          "equity": 84.83184796762808,
+          "money_return": -0.15168152032371918,
+          "cash": 0.0,
+          "weights": {
+            "IWM": 1.0
+          },
+          "total_contributed": 100.0
+        },
+        "regime_200d": {
+          "equity": 82.35685264302096,
+          "money_return": -0.1764314735697904,
+          "cash": 0.0,
+          "weights": {
+            "QQQ": 1.0
+          },
+          "total_contributed": 100.0
+        },
+        "sma_cross": {
+          "equity": 90.18840956868037,
+          "money_return": -0.09811590431319628,
+          "cash": 90.18840956868037,
+          "weights": {},
+          "total_contributed": 100.0
+        }
+      }
+    },
+    {
+      "ts": "2026-11-22T21:59:33.901414+00:00",
+      "session_date": "2026-11-23",
+      "regular_market": {
+        "startTime": "2026-11-23T23:30:00.000+09:00",
+        "endTime": "2026-11-24T06:00:00.000+09:00"
+      },
       "prices": {
         "BIL": 91.595,
         "EFA": 97.15,

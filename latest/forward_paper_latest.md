@@ -1,7 +1,7 @@
 # Forward Paper Strategy Comparison
 
-- Generated: `2026-11-22T00:53:35.505252+00:00`
-- Session date: `2026-11-22`
+- Generated: `2026-11-22T21:59:33.901414+00:00`
+- Session date: `2026-11-23`
 - Real orders: none. These are virtual fills using current prices plus the cost model.
 - Cost model: roundtrip `70bps`
 - Purpose: operational validation and cost/turnover observation, not statistical ranking.
@@ -23,10 +23,10 @@
 
 | Strategy | Mode | Target | Equity | Money Return | TWR | Cash | Trades | Cost | MDD | Sharpe | Positions | Note |
 |---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---|---|
-| Lump-sum ETF baseline QQQ60/SCHD25/GLD15 | buy_once | GLD:15%, QQQ:60%, SCHD:25% | $86.71 | -13.29% | -11.34% | $0.00 | 3 | $0.2991 | -12.62% | -3.11 | GLD $12.12 (-18.94%), QQQ $49.41 (-17.40%), SCHD $25.18 (+1.01%) |  |
-| Dual momentum top1 -> IEF | rebalance | IWM:100% | $84.83 | -15.17% | -13.74% | $0.00 | 3 | $0.8513 | -16.12% | -3.20 | IWM $84.83 (-7.54%) |  |
-| QQQ 200d regime filter -> IEF | rebalance | QQQ:100% | $82.36 | -17.64% | -16.26% | $0.00 | 1 | $0.2991 | -18.57% | -3.09 | QQQ $82.36 (-17.40%) |  |
-| SMA 20/60 trend top3 | rebalance | cash | $90.19 | -9.81% | -7.40% | $90.19 | 16 | $2.4400 | -9.21% | -3.94 | cash |  |
+| Lump-sum ETF baseline QQQ60/SCHD25/GLD15 | buy_once | GLD:15%, QQQ:60%, SCHD:25% | $86.71 | -13.29% | -11.34% | $0.00 | 3 | $0.2991 | -12.62% | -3.08 | GLD $12.12 (-18.94%), QQQ $49.41 (-17.40%), SCHD $25.18 (+1.01%) |  |
+| Dual momentum top1 -> IEF | rebalance | IWM:100% | $84.83 | -15.17% | -13.74% | $0.00 | 3 | $0.8513 | -16.12% | -3.17 | IWM $84.83 (-7.54%) |  |
+| QQQ 200d regime filter -> IEF | rebalance | QQQ:100% | $82.36 | -17.64% | -16.26% | $0.00 | 1 | $0.2991 | -18.57% | -3.06 | QQQ $82.36 (-17.40%) |  |
+| SMA 20/60 trend top3 | rebalance | cash | $90.19 | -9.81% | -7.40% | $90.19 | 16 | $2.4400 | -9.21% | -3.90 | cash |  |
 
 ## Latest Virtual Trades
 
