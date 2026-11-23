@@ -66,6 +66,7 @@
 {"book": "unit", "dt": "2026-11-19", "symbol": "AVGO", "side": "SELL", "qty": 0.20174598825265505, "price": 346.51, "fee": 0.07999999999999999, "realized": -1.7329980390903132}
 {"book": "unit", "dt": "2026-11-19", "symbol": "KLAC", "side": "SELL", "qty": 0.4767323574094283, "price": 141.38, "fee": 0.07999999999999999, "realized": -4.767323574094283}
 {"book": "unit", "dt": "2026-11-19", "symbol": "PSQ", "side": "BUY", "qty": 23.30865781223981, "price": 28.39, "fee": 0.66, "realized": 0.0}
+{"book": "unit", "dt": "2026-11-23", "symbol": "PSQ", "side": "SELL", "qty": 23.30865781223981, "price": 27.95, "fee": 0.68, "realized": -10.25580943738563}
 {"book": "real", "dt": "2026-09-29", "symbol": "MU", "side": "BUY", "qty": 0.003380027791339618, "price": 1065.08, "fee": 0.0, "realized": 0.0}
 {"book": "real", "dt": "2026-09-29", "symbol": "AMD", "side": "BUY", "qty": 0.005925243181855588, "price": 607.57, "fee": 0.0, "realized": 0.0}
 {"book": "real", "dt": "2026-09-29", "symbol": "SMCI", "side": "BUY", "qty": 0.08776206728425158, "price": 41.02, "fee": 0.0, "realized": 0.0}
@@ -131,3 +132,4 @@
 {"book": "real", "dt": "2026-11-19", "symbol": "AVGO", "side": "SELL", "qty": 0.007179756003251936, "price": 346.51, "fee": 0.02, "realized": -0.06167410406793436}
 {"book": "real", "dt": "2026-11-19", "symbol": "KLAC", "side": "SELL", "qty": 0.016965997860479115, "price": 141.38, "fee": 0.02, "realized": -0.16965997860479115}
 {"book": "real", "dt": "2026-11-19", "symbol": "PSQ", "side": "BUY", "qty": 0.8192197260293314, "price": 28.39, "fee": 0.02, "realized": 0.0}
+{"book": "real", "dt": "2026-11-23", "symbol": "PSQ", "side": "SELL", "qty": 0.8192197260293314, "price": 27.95, "fee": 0.04, "realized": -0.3604566794529068}

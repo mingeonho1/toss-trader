@@ -3,7 +3,7 @@
   "name": "hot_rvol_swing",
   "fill_on": "open",
   "start_date": "2026-09-28",
-  "last_date": "2026-11-20",
+  "last_date": "2026-11-23",
   "pending": {},
   "last_applied": null,
   "strategy_state": {
@@ -219,6 +219,11 @@
     ],
     [
       "2026-11-20",
+      1000.0,
+      36.0
+    ],
+    [
+      "2026-11-23",
       1000.0,
       36.0
     ]
