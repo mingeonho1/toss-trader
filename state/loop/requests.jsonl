@@ -40,3 +40,10 @@
 {"type": "regime_note", "qqq_return": 0.0347, "reason": "QQQ moved 3%+ today", "session_date": "2026-11-09"}
 {"type": "regime_note", "qqq_return": -0.0584, "reason": "QQQ moved 3%+ today", "session_date": "2026-11-20"}
 {"type": "regime_note", "qqq_return": 0.0675, "reason": "QQQ moved 3%+ today", "session_date": "2026-11-23"}
+{"type": "investigate_divergence", "strategy": "buffer_hibeta", "z": -2.0328, "session_date": "2026-11-24"}
+{"type": "investigate_divergence", "strategy": "ftlt_hibeta", "z": -2.4448, "session_date": "2026-11-24"}
+{"type": "investigate_divergence", "strategy": "ftlt_hibeta_psq", "z": -2.2445, "session_date": "2026-11-24"}
+{"type": "investigate_divergence", "strategy": "hibeta_basket", "z": -2.9605, "session_date": "2026-11-24"}
+{"type": "investigate_divergence", "strategy": "lrs200_tqqq", "z": -2.7054, "session_date": "2026-11-24"}
+{"type": "investigate_divergence", "strategy": "simple_hibeta", "z": -2.3389, "session_date": "2026-11-24"}
+{"type": "investigate_divergence", "strategy": "simple_rsi_uvxy", "z": -2.1399, "session_date": "2026-11-24"}
