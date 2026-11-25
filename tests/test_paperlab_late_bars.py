@@ -85,6 +85,26 @@ class LateBarEngineTest(unittest.TestCase):
         self.assertEqual(s["equity"], ref["equity"])
         self.assertEqual(s["unit"]["fills"], ref["unit"]["fills"])
 
+    def test_late_signal_symbol_defers(self) -> None:
+        # 감사 2026-11-26: 신호 전용 심볼(보유 안 함)의 봉이 늦어도 그 날은 보류해야 한다(holy_grail TQQQ RSI).
+        class _Signal(_Hold):
+            name = "signal_tqqq"
+
+            def universe(self) -> list[str]:
+                return ["QQQ", "X", "TQQQ"]
+
+            def decide(self, history, state):
+                t = history["TQQQ"]
+                return {"X": 1.0} if len(t) >= 2 and t[-1].close > t[-2].close else {"QQQ": 1.0}
+
+        lab = PaperLab(_Signal())
+        ref = lab.run(lab.fresh_state(self.dates[0]), self.dates, self.full)
+        s = lab.run(lab.fresh_state(self.dates[0]), self.dates, self._late("TQQQ", 1))
+        self.assertEqual(s["last_date"], self.dates[-2].isoformat())
+        s = lab.run(s, self.dates, self.full)
+        self.assertEqual(s["equity"], ref["equity"])
+        self.assertEqual(s["unit"]["fills"], ref["unit"]["fills"])
+
     def test_dead_symbol_does_not_stall(self) -> None:
         # X 캐시가 day1 에서 멈춤(지연 6세션 > 3) → 대기하지 않고 직전가 캐리로 끝까지 진행.
         lab = PaperLab(_Hold())
