@@ -47,3 +47,9 @@
 {"type": "investigate_divergence", "strategy": "lrs200_tqqq", "z": -2.7054, "session_date": "2026-11-24"}
 {"type": "investigate_divergence", "strategy": "simple_hibeta", "z": -2.3389, "session_date": "2026-11-24"}
 {"type": "investigate_divergence", "strategy": "simple_rsi_uvxy", "z": -2.1399, "session_date": "2026-11-24"}
+{"type": "investigate_divergence", "strategy": "ftlt_hibeta", "z": -2.3594, "session_date": "2026-11-25"}
+{"type": "investigate_divergence", "strategy": "ftlt_hibeta_psq", "z": -2.1699, "session_date": "2026-11-25"}
+{"type": "investigate_divergence", "strategy": "hibeta_basket", "z": -2.9568, "session_date": "2026-11-25"}
+{"type": "investigate_divergence", "strategy": "lrs200_tqqq", "z": -2.6323, "session_date": "2026-11-25"}
+{"type": "investigate_divergence", "strategy": "simple_hibeta", "z": -2.3633, "session_date": "2026-11-25"}
+{"type": "investigate_divergence", "strategy": "simple_rsi_uvxy", "z": -2.19, "session_date": "2026-11-25"}
