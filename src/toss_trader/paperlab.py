@@ -21,6 +21,7 @@ from __future__ import annotations
 import json
 import math
 import os
+from bisect import bisect_right
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -36,6 +37,34 @@ __all__ = [
 ]
 
 _EPS = 1e-12
+LATE_BAR_WAIT_SESSIONS = 3      # 보유/목표 심볼 봉이 이만큼 이내로 늦으면 그 날 처리를 보류(다음 실행 재계산)
+
+
+def _last_bars(syms: Sequence[str], by_date: Mapping[str, Mapping[date, Candle]]) -> dict[str, date]:
+    return {s: max(by_date[s]) for s in syms if by_date.get(s)}
+
+
+def _late_symbols(syms, d: date, master_dates: Sequence[date],
+                  by_date: Mapping[str, Mapping[date, Candle]], last_bar: Mapping[str, date]) -> list[str]:
+    """d 봉이 아직 안 들어온 심볼: 캐시가 d 이전에서 멈췄고 그 지연이 ≤LATE_BAR_WAIT_SESSIONS.
+
+    이런 날을 직전가로 마크하고 last_date 를 넘기면, 나중에 봉이 채워져도 멱등 규칙(d<=last 스킵)
+    때문에 재계산되지 않아 허위 수익이 남는다(감사 2026-11-25). 중간 결측(이후 봉 있음)·오래 멈춘
+    (죽은) 심볼은 대기하지 않고 기존대로 캐리포워드한다(영구 정체 방지)."""
+    out: list[str] = []
+    for s in syms:
+        if by_date.get(s, {}).get(d) is not None:
+            continue
+        lb = last_bar.get(s)
+        if lb is None or lb >= d:
+            continue
+        if len(master_dates) - bisect_right(master_dates, lb) <= LATE_BAR_WAIT_SESSIONS:
+            out.append(s)
+    return out
+
+
+def _held(*books: "PaperBook") -> set[str]:
+    return {s for b in books for s, p in b.positions.items() if p["qty"] > _EPS}
 
 # 레버리지/인버스/변동성 ETP(한국 리테일 첫 거래 시 예탁금 규제 대상). 유니버스에 하나라도 있으면
 # '레버리지 ETP(예탁금 필요)' 그룹으로 분류한다.
@@ -366,9 +395,13 @@ class PaperLab:
                 break
 
         prev_d: date | None = last        # 직전 처리 거래일(월초 적립 판정용)
+        last_bar = _last_bars(uni, by_date)
         for d in master_dates:
             if last is not None and d <= last:
                 continue
+            if d >= start_date and _late_symbols(_held(unit, real) | set(pending or {}),
+                                                 d, master_dates, by_date, last_bar):
+                break             # 보유/목표 심볼 봉 지연 → 이 날부터 보류(last_date 미진행, 다음 실행에서 계산)
             # 오늘 캔들 반영(가시 히스토리 · 체결/마크 가격). 워밍업 구간(d<start)에도 히스토리는
             # 채워야 첫 거래일에 SMA200/RSI2 등 룩백 신호가 눈 뜬 채로 계산된다.
             close_px: dict[str, float] = {}
@@ -472,9 +505,12 @@ class PaperLab:
             else:
                 break
 
+        last_bar = _last_bars(uni, by_date)
         for d in master_dates:
             if last is not None and d <= last:
                 continue
+            if d >= start_date and _late_symbols(_held(unit, real), d, master_dates, by_date, last_bar):
+                break             # 어젯밤 보유분 시가 봉 지연 → 보류(직전가 마크로 허위 야간수익 방지)
             cand: dict[str, Candle] = {}
             for s in uni:
                 c = by_date.get(s, {}).get(d)

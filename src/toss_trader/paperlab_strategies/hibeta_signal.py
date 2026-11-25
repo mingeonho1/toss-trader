@@ -6,7 +6,7 @@ PASS 지만 위험선호 레그가 TQQQ/SPXL/TECL(해외 레버리지 ETP)라 �
 변동성/인버스 레그는 **현금**으로 치환하면 4종이 그대로 Lane A PASS 한다(실계좌 가능·비레버리지).
 
 레그 매핑(experiments/c13a_signal_hibeta.py remap_leg 그대로, 동결):
-  위험선호 3x(TQQQ/SPXL/TECL/SOXL/…) → 고베타 바스켓(select_basket, 상위10 EW)
+  위험선호 3x(TQQQ/SPXL/TECL/SOXL/…) → 고베타 바스켓(select_basket, 상위10 EW, 월초 고정)
   변동성(UVXY/…)                      → 현금
   인버스(SQQQ/…)                      → 1차 **현금** / 변형 **PSQ(−1x)**
   채권/현금성(BSV→SHY, BIL→BIL, …)    → 허용 1x
@@ -26,7 +26,7 @@ from typing import Any, Mapping, Sequence
 from ..models import Candle
 from ..paperlab import Strategy
 from .ftlt import SIGNAL_SYMBOLS as FTLT_SYMS, decide_ftlt
-from .hibeta_basket import select_basket
+from .hibeta_basket import monthly_basket
 from .hibeta_universe import HIBETA_CANDIDATES
 from .holy_grail import SIGNAL_SYMBOLS as HG_SYMS, decide_holy_grail
 from .simple_rsi_uvxy import decide_simple_rsi
@@ -87,11 +87,12 @@ class _HibetaSignal(Strategy):
         raise NotImplementedError
 
     def decide(self, history: Mapping[str, Sequence[Candle]], state: dict[str, Any]) -> dict[str, float]:
+        # c13a: HIBETA 바스켓은 월간 리밸런스 합성가격 → 바스켓을 월초에 고정하고 신호는 레그만 in/out.
+        basket = monthly_basket(history, self._candidates, state,
+                                w_key="hib_basket", m_key="hib_month")
         sig = self._signal(history, state)
         if not sig:
             return {}
-        basket = (select_basket(history, self._candidates)
-                  if any(s in RISK_ON_3X for s in sig) else {})
         return remap_signal(sig, basket, inverse_to=self._inverse_to)
 
 

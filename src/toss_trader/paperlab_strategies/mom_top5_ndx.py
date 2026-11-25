@@ -14,6 +14,17 @@ from ._universes import NDX_100
 LOOKBACK = 252
 SKIP = 21
 TOP_N = 5
+STALE_SESSIONS = 3          # 마지막 봉이 기준일보다 3세션 넘게 뒤처진(캐시 멈춤) 심볼은 후보 제외
+
+
+def _lag_sessions(ref: Sequence[Candle], last_dt) -> int:
+    """기준 히스토리(ref)에서 last_dt 이후 세션 수."""
+    n = 0
+    for c in reversed(ref):
+        if c.dt <= last_dt:
+            break
+        n += 1
+    return n
 
 
 class MomTop5Ndx(Strategy):
@@ -29,20 +40,29 @@ class MomTop5Ndx(Strategy):
     def decide(self, history: Mapping[str, Sequence[Candle]], state: dict[str, Any]) -> dict[str, float]:
         # 오늘 날짜 = 유니버스에서 마지막 캔들이 있는 심볼의 최신 날짜.
         today = None
+        ref: Sequence[Candle] = []
         for s in self._universe:
             h = history.get(s)
             if h:
                 d = h[-1].dt
                 if today is None or d > today:
-                    today = d
+                    today, ref = d, h
         if today is None:
             return {}
+
+        def fresh(sym: str) -> bool:
+            h = history.get(sym)
+            return bool(h) and _lag_sessions(ref, h[-1].dt) <= STALE_SESSIONS
+
         period = [today.year, today.month]
-        if state.get("period") == period and state.get("weights"):
-            return {k: float(v) for k, v in state["weights"].items()}
+        cached = state.get("weights")
+        if state.get("period") == period and cached and all(fresh(k) for k in cached):
+            return {k: float(v) for k, v in cached.items()}
 
         scores: list[tuple[float, str]] = []
         for s in self._universe:
+            if not fresh(s):
+                continue          # 멈춘 캐시(예: INTC 09-22) → 영원히 미체결 pending 방지
             closes = [c.close for c in history.get(s, [])]
             if len(closes) < LOOKBACK + 1:
                 continue
