@@ -1223,7 +1223,7 @@ def main(argv: list[str] | None = None) -> int:
         pub = execute_step(Step("publish_records", [sys.executable or "python3",
                                                     str(SCRIPTS / "publish_records.py")],
                                 timeout=180.0))
-        print(f"publish_records: {pub.status} {pub.stdout.strip()[-200:]}")
+        print(f"publish_records: {pub.status} {(pub.stdout if pub.status == 'ok' else pub.detail or pub.stderr).strip()[-300:]}")
     return 0
 
 

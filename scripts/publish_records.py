@@ -156,6 +156,14 @@ def main(argv: list[str] | None = None) -> int:
         _git("commit", "-q", "-m", f"daily: 스코어보드·페이퍼 랩 기록 {stamp}", cwd=WT)
         push = _git("push", "-q", "-u", "origin", BRANCH, cwd=WT, check=False)
         if push.returncode != 0:
+            # 다른 곳에서 paper-log 에 먼저 푸시하면 non-fast-forward 로 영구 거부된다(2026-11 10일 정지).
+            # 원격 위로 리베이스하되 충돌은 로컬(맥 원장 = 진실의 원천) 쪽을 택하고 한 번 재시도.
+            _git("fetch", "-q", "origin", BRANCH, cwd=WT, check=False)
+            if _git("rebase", "-q", "-X", "theirs", f"origin/{BRANCH}", cwd=WT, check=False).returncode != 0:
+                _git("rebase", "--abort", cwd=WT, check=False)
+            else:
+                push = _git("push", "-q", "-u", "origin", BRANCH, cwd=WT, check=False)
+        if push.returncode != 0:
             print(f"❌ 푸시 실패(로컬 정리 생략): {push.stderr.strip()[:300]}", file=sys.stderr)
             return 1
         print(f"✅ {BRANCH} 푸시 완료 ({len(pairs)}개 파일)")

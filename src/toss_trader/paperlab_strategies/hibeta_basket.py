@@ -86,6 +86,24 @@ def _month(d) -> tuple[int, int]:
     return (d.year, d.month)
 
 
+def monthly_basket(history: Mapping[str, Sequence[Candle]], candidates: Sequence[str],
+                   state: dict[str, Any], *, w_key: str = "last_weights",
+                   m_key: str = "last_month") -> dict[str, float]:
+    """월초(QQQ 기준 새 달 첫 거래일)에 고른 바스켓을 그 달 내내 고정(c12s/c13a 월간 리밸런스).
+
+    결측 가드: 선택이 비면(종목 봉이 늦게 들어옴·워밍업) 직전 바스켓을 유지하고 달 표시를 갱신하지
+    않아 다음 거래일에 다시 고른다(빈 바스켓 → 전량 현금 청산 방지)."""
+    qh = history.get(BENCH) or []
+    if qh:
+        m_now = list(_month(qh[-1].dt))
+        if list(state.get(m_key) or ()) != m_now:
+            sel = select_basket(history, candidates)
+            if sel:
+                state[w_key] = sel
+                state[m_key] = m_now
+    return dict(state.get(w_key) or {})
+
+
 class HibetaBasket(Strategy):
     name = "hibeta_basket"
     fill_on = "close"
@@ -99,11 +117,4 @@ class HibetaBasket(Strategy):
         return [BENCH] + list(self._candidates)
 
     def decide(self, history: Mapping[str, Sequence[Candle]], state: dict[str, Any]) -> dict[str, float]:
-        qh = history.get(BENCH) or []
-        if not qh:
-            return dict(state.get("last_weights") or {})
-        m_now = _month(qh[-1].dt)
-        if tuple(state.get("last_month") or ()) != m_now:      # 월초 첫 거래일 → 리밸런스
-            state["last_weights"] = select_basket(history, self._candidates)
-            state["last_month"] = m_now
-        return dict(state.get("last_weights") or {})
+        return monthly_basket(history, self._candidates, state)
