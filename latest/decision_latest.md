@@ -1,6 +1,6 @@
 # 오늘의 판단 (데일리 결정 엔진)
 
-- 생성: `2026-11-25T21:27:31+00:00`  ·  ET 세션: `2026-11-25`  ·  장부: `/Users/mingh/github/toss-trader/data/paperlab`
+- 생성: `2026-11-26T21:27:16+00:00`  ·  ET 세션: `2026-11-25`  ·  장부: `/Users/mingh/github/toss-trader/data/paperlab`
 - 결정론적 · LLM 없음 · **주문 없음** · 멱등(같은 세션 날짜 재실행 = 동일 결과).
 - 규칙: `docs/loop/decision_rules.md` (사전등록 2026-09-29). 기대치: `docs/loop/backtest_expectations.json`.
 
@@ -72,7 +72,18 @@
 
 ## 🤖 LLM 판단 (gpt-6-astra)
 
-- 상태: **불가(unavailable)** · 모델 `gpt-6-astra` · 시도 1회 · prompt_hash `570ad040f6a3af08`
-- codex(GPT-6) 호출 불가(미로그인/타임아웃/오프라인 등) — 결정론적 판단이 그대로 유지된다.
-  - 사유: rc=1: OR: {"type":"error","status":400,"error":{"type":"invalid_request_error","message":"The 'gpt-6-astra' model requires a newer version of Codex. Please upgrade to the latest app or CLI and try again."}}
-- 에이전트 루프 킥: kicked (gui/501/com.tosstrader.agentloop)
+- 상태: **채택(accepted)** · 모델 `gpt-6-astra` · 시도 1회 · prompt_hash `6fc6b3135559a8f4`
+- 입장(stance): **hold_dca** · 추천 전략: `None` · 슬리브 0.0% · confidence 0.99
+- 무엇이 바뀌었나: 2026-11-24의 강등 이후 오늘 추가 상태 변경은 없고 관측 수는 42에서 43으로 늘었다. buffer_hibeta의 z는 -2.0328에서 -1.9582로 개선됐지만 DEMOTED를 유지한다. ftlt_hibeta는 -2.4448에서 -2.3594, ftlt_hibeta_psq는 -2.2445에서 -2.1699로 개선됐으나 여전히 부진하다. hibeta_basket은 -2.9605에서 -2.9568로 거의 변화가 없고 simple_hibeta는 -2.3389에서 -2.3633으로 악화했다. 실계좌 표시 선두 mom_top5_ndx는 계속 EVALUATING·실행 불가다. 전일 상세 손익이 없어 당일 수익률이나 누적손실의 전일 대비 증감은 판단하지 않는다.
+- 판단 근거: 추천 가능한 retail 전략 중 CANDIDATE 또는 LIVE_READY가 없어 DCA 유지·전략 추가 배분 0으로 판단한다. 신뢰도는 이 적격성 판단에 대한 것이며 괴리 원인에 대한 확신은 아니다. 고베타 전략들의 음의 z와 최근 급등락 기록은 불리한 시장 노출·레짐 영향을 우선 조사할 근거지만, 공통 노출의 동행을 독립 증거로 계산하거나 지속적 레짐 전환으로 확정할 수는 없다. n=43의 표본 노이즈도 남아 있다. 거래·비용 원장이 없어 수수료 기여는 판정 불가다. overnight_qqq의 z=2.0627은 음의 백테스트 기대 대비 상방 괴리이며, 누적수익률은 여전히 -6.67%다. mom_top5_ndx의 누적수익률·변동성·MDD가 모두 0인 상태는 정상 대기인지 검증해야 하므로 표시 선두를 투자 근거로 삼지 않는다.
+- 관찰 항목:
+  - buffer_hibeta의 z 경계 회복이 지속되는지 관찰하되 자동 복귀나 승격으로 해석하지 않는다.
+  - 고베타 전략들의 공통 보유 노출과 방어 신호 발생·집행 여부를 확인한다.
+  - overnight_qqq의 상대성과와 절대손실을 구분하고 진입·청산 시각 및 비용 가정을 백테스트와 맞춘다.
+  - mom_top5_ndx의 무수익 상태가 정상 현금 대기인지 신호·체결·평가 누락인지 확인한다.
+  - 평가 세션과 생성 시각의 차이는 원천 가격·장부·배치 일정 확인 전 지연으로 단정하지 않는다.
+- 적용된 강등: 없음
+- LLM 방출 요청(requests.jsonl · source=llm):
+  - `audit` [high]  — 기존 미결 감사를 n=43 기준으로 통합 갱신한다. 2026-11-25 원천 가격·장부 반영, n 산식과 생성 시각을 검증하고 mom_top5_ndx의 무수익 상태를 확인한다. 거래별 총손익과 비용을 분리해 ≤$10 매수 무료, 매도 SEC/TAF 최소 $0.01, 주간 환전 0.05%의 적용 및 중복 차감을 점검하고 기존 감사의 해소 여부를 보고한다.
+  - `investigate_divergence` [high] hibeta_basket — 기존 조사를 병합 갱신한다. z=-2.9568과 누적수익률 -39.36%의 원인을 공통 보유 노출·방어 신호·비용 전후 손익으로 분해한다. ftlt_hibeta, ftlt_hibeta_psq, simple_hibeta, buffer_hibeta의 기존 조사와 연계하되 동행을 독립 증거로 중복 계산하지 않는다.
+  - `investigate_divergence` [medium] overnight_qqq — 기존 조사를 n=43, z=2.0627 기준으로 갱신한다. 음의 백테스트 기대 대비 상방 괴리를 동일한 기간·수익률 정의·체결 시각·비용·노출 구간으로 재검증하고 노이즈, 비용, 시장 노출 기여를 분리한다. 양의 z만으로 구조적 개선을 확정하지 않는다.
