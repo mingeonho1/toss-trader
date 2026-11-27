@@ -21,6 +21,7 @@
 from __future__ import annotations
 
 import argparse
+import subprocess
 import sys
 import time
 from datetime import date, datetime, timezone
@@ -64,6 +65,17 @@ def _now() -> str:
 
 def _log(msg: str) -> None:
     print(f"{_now()} {msg}", flush=True)
+
+
+def _code_version() -> str:
+    """실행 코드 체크아웃의 git 짧은 SHA@브랜치(감사 2026-11-28 F1). 실패 시 'unknown'."""
+    try:
+        sha, branch = (subprocess.run(["git", "-C", str(ROOT), "rev-parse", *a, "HEAD"],
+                                      capture_output=True, text=True, timeout=5, check=True).stdout.strip()
+                       for a in (["--short"], ["--abbrev-ref"]))
+        return f"{sha}@{branch}"
+    except Exception:  # noqa: BLE001
+        return "unknown"
 
 
 # ─────────────────────────────────────────── 데이터 로딩(캐시 우선, 코어만 네트워크)
@@ -248,7 +260,8 @@ def run_forward(args: argparse.Namespace) -> int:
         summaries.append(lab.summarize(state))
 
     report = render_leaderboard(summaries, bench=_bench_closes(panel),
-                                generated=_now(), start_default=START_DATE)
+                                generated=f"{_now()} · code {_code_version()}",
+                                start_default=START_DATE)
     REPORTS.mkdir(parents=True, exist_ok=True)
     LEADERBOARD.write_text(report, encoding="utf-8")
     live = sum(1 for s in summaries if s["days_live"] > 0)
@@ -286,7 +299,8 @@ def run_backfill(args: argparse.Namespace, backfill_from: date) -> int:
         summaries.append(lab.summarize(state))
 
     report = render_backfill(summaries, bench=_bench_closes(panel),
-                             generated=_now(), backfill_from=backfill_from)
+                             generated=f"{_now()} · code {_code_version()}",
+                             backfill_from=backfill_from)
     REPORTS.mkdir(parents=True, exist_ok=True)
     BACKFILL_REPORT.write_text(report, encoding="utf-8")
     window = sum(1 for d in master if d >= backfill_from)

@@ -383,11 +383,20 @@ def reco_eligible(name: str, group: str) -> bool:
     return (name not in BENCHMARKS and not name.endswith("_moc") and group != "explore")
 
 
+def _never_exposed(r: SessionRecord) -> bool:
+    """장부 곡선이 한 번도 움직이지 않음(누적 0·변동성 0) = 체결 0건. 현금 대기만으로 vs QQQ 초과가
+    생겨 선두에 오르는 것을 막는다(감사 2026-11-28 F3: mom_top5_ndx 미체결 장부가 관찰 선두로 표시)."""
+    m = r.m
+    return (m is not None and m.n > 0 and m.cum is not None and m.vol is not None
+            and abs(m.cum) < 1e-12 and abs(m.vol) < 1e-12)
+
+
 def pick_top(finals: Mapping[str, SessionRecord], groups: Mapping[str, str], group: str,
              expect: Mapping[str, Any]) -> str | None:
-    """그룹의 자격 전략(벤치·`*_moc`·탐색 제외) 중 상태 우선 → 라이브 excess → 동결 backtest_cagr 최상위."""
+    """그룹의 자격 전략(벤치·`*_moc`·탐색·체결 0건 제외) 중 상태 우선 → 라이브 excess → 동결 backtest_cagr 최상위."""
     cands = [(n, r) for n, r in finals.items()
-             if groups.get(n) == group and reco_eligible(n, groups.get(n, group))]
+             if groups.get(n) == group and reco_eligible(n, groups.get(n, group))
+             and not _never_exposed(r)]
     if not cands:
         return None
 
