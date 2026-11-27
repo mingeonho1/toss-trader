@@ -181,6 +181,16 @@ class RecommendationGroupTest(unittest.TestCase):
         self.assertNotEqual(top, "lev_best")
         self.assertNotEqual(top, "qqq_bh")
 
+    def test_pick_top_skips_never_exposed_ledger(self) -> None:
+        flat = dd.SessionRecord(date="2026-11-27", state="EVALUATING", cand_consec=0,
+                                m=dd.Metrics(n=44, cum=0.0, annual=0.0, excess_qqq=0.13,
+                                             excess_tqqq=None, vol=0.0, mdd=0.0, z=0.65,
+                                             dd_ratio=0.0))
+        finals = {"mom_flat": flat, "retail_a": self._rec(-0.03)}
+        groups = {"mom_flat": "retail", "retail_a": "retail"}
+        self.assertEqual(dd.pick_top(finals, groups, "retail", {}), "retail_a")
+        self.assertIsNone(dd.pick_top({"mom_flat": flat}, {"mom_flat": "retail"}, "retail", {}))
+
 
 # ── 합성 장부 디렉터리 기반 통합/멱등/무-API ─────────────────────────────────────
 def _write_book(base: Path, name: str, curve, real=None) -> None:

@@ -1,57 +1,58 @@
-# 에이전트 팀 사이클 요약 — 2026-11-25 (weekly-sat)
+# 에이전트 팀 사이클 요약 — 2026-11-28 (weekly-sat)
 
-- 브랜치: `loop/2026-11-25` · 결정 메모: `docs/loop/decisions/2026-11-25.md`
-- **주문 없음 · 자동화 live 설치 없음.** 실계좌 전환은 사용자 승인 사항.
+- 브랜치: `loop/2026-11-28` · 결정 메모: `docs/loop/decisions/2026-11-28.md` · 감사: `reports/audits/2026-11-28_ledger-replay-gaps.md`
+- **주문 없음 · 자동화 live 설치 없음 · 실운영 체크아웃 수정 없음.** 실계좌 전환은 사용자 승인 사항.
 
 ## 1. 기록 건전성 (운영 우선)
 
-| 문제 | 원인 | 조치 |
+| 항목 | 결과 |
+|---|---|
+| paper-log 게시 | 11-24~11-28 매일 정상(11-26 추수감사절 휴장, 11-27 반일장 집계 정상). n 42→43→44 |
+| LLM 판사 | `gpt-6-astra` 11-27 채택 → U5 해결 |
+| **실운영 코드 버전 (CRITICAL)** | 매일 장부를 쓰는 `~/github/toss-trader`가 `upgrade/loop-engineering@92b7164`(#10)에 머물러 있다. **PR #11 수정(늦은 봉 대기, mom 최신성 필터, hibeta 월간 바스켓)은 운영에서 한 번도 돌지 않았다.** mom_top5_ndx가 0% 미체결로 남은 직접 원인이다. 루프는 이 체크아웃을 건드리지 않으므로 사용자 작업 U8로 넘긴다 |
+
+## 2. 판단 변화 (페이퍼 근거, 세션 2026-11-27, n=44)
+
+- 상태 전이 없음. **실계좌 추천 없음, 기본 DCA 유지**(LLM 판사도 hold_dca).
+- R2 장부 재생을 처음으로 실행했다. 2%p 넘는 괴리 8건이 모두 **장부 아티팩트**였고 재생 버그는 0건이다.
+  - `holy_grail`(레버ETP 관찰 선두): 장부 +9.12%는 11-09 TQQQ **신호** 봉 지연으로 TECL을 하루 더 보유한 허위 수익이었다. 재생은 −0.72%(z 0.61→0.22)라 **관찰 선두를 철회**한다.
+  - `mom_top5_ndx`: 장부 0%는 한 번도 체결되지 않은 결과다. 스펙대로 재생하면 −38.8%(z −3.19)다. INVALID를 유지한다.
+  - `overnight_tqqq`: +0.58%가 재생에서 −6.25%다. hibeta 3종은 11-20 봉 지연 아티팩트다. 오염 확정 4종(mom_top5_ndx, ftlt_hibeta_psq, simple_hibeta, overnight_tqqq)에는 주석만 단다(상태기계 불변).
+- `overnight_qqq` z +1.93은 장부와 재생이 같아 버그가 아니다. 11-23 하룻밤을 빼면 z가 약 1.0이라 승격하지 않는다.
+- 비용 통합 감사: 이중차감 없음. 주간 환전 0.05%는 paperlab에 아직 모델링돼 있지 않다.
+
+## 3. 코드 수정 (이번 PR)
+
+| ID | 내용 | 파일 |
 |---|---|---|
-| paper-log 11-16~11-25 미게시(10일) | `data/_publish` 워크트리가 origin/paper-log 와 분기(ahead 11 / behind 2) → 매일 non-fast-forward 거부, 실패 사유가 로그에 안 남음 | 로컬 우선 리베이스 후 밀린 기록 푸시 완료. `publish_records.py`: 푸시 거부 시 fetch→`rebase -X theirs`→1회 재시도(강제 푸시 없음). `daily_scoreboard.py`: 실패 사유 로그 출력. risk-officer APPROVE |
-| 장부 11-11 정지 | 11-13 허용 IP 미등록 → 캐시 폴백 | 로컬은 11-16부터 live 복귀·해소 |
-| 늦은 일봉 허위 수익 | 엔진이 늦게 도착한 바를 재계산하지 않음(overnight_tqqq +7.1% 허위) | 보유/목표 심볼 바가 없으면 그날 계산을 다음 실행으로 미룸(≤3세션 정지 캐시) |
-| mom_top5_ndx 42세션 미체결 | INTC 캐시 09-22 정지 + "전 목표 가격 필요" 규칙 | 3세션 넘게 낡은 심볼 제외 필터 |
-| hibeta 계열 | c13a(월간) 대비 매일 재선정, 종목 바 지연 시 전량 현금화 | 월간 바스켓 + 결측 시 기존 바스켓 유지 |
+| F2 | 늦은 봉 대기 대상을 보유·목표 심볼에서 **전략 universe 전체(신호 심볼 포함)**로 넓혔다. holy_grail 11-09가 재발하지 않는다. 장기 정지 심볼은 기존처럼 캐리포워드하므로 영구 정체는 없다 | `src/toss_trader/paperlab.py`, `tests/test_paperlab_late_bars.py` |
+| F1(일부) | paperlab 리포트 Generated 줄에 `code <sha>@<branch>`를 기록한다. 운영 코드 버전을 확인하는 용도 | `scripts/paperlab_run.py` |
+| F3 | 결정 엔진 `pick_top`에서 한 번도 노출되지 않은 장부(누적 0·변동성 0)를 선두 후보에서 뺀다. 표시 전용이고 상태 전이는 그대로다 | `scripts/loop/daily_decision.py`, `tests/test_daily_decision.py` |
 
-기존 원장은 덮어쓰지 않음.
+- F2 적용 후 R2 재생(`reports/2026-11-28_ledger_replay_postF2.md`)은 적용 전과 같았고 정체 전략은 0개였다.
 
-## 2. 판단 변화 (페이퍼 근거, 세션 2026-11-24, n=42)
+## 4. 편입/퇴출
 
-- 신규 DEMOTED 8종: buffer_hibeta, ftlt_hibeta, ftlt_hibeta_psq, hibeta_basket, simple_hibeta, lrs200_tqqq, simple_rsi_uvxy, tqqq_bh(벤치).
-- 감사 판정 **WEAKENED**: 독립 수익흐름은 2개(하이베타 바스켓, TQQQ 롱)뿐이고 하락장 한 사건을 여러 번 셈. z 분모가 백테스트 변동성이라 약 1.5배 부풀려짐. 실제 남는 괴리는 하이베타 실현 β ≈2.5(백테스트 1.6).
-- 결정: DEMOTED 유지(구제 안 함), 오염 7개 원장 표기(R2 확인 전 "보류"). RETIRED 도달 예상 ≈2026-12-23.
-- `mom_top5_ndx` = **INVALID**(관찰 선두 표시 철회). `overnight_qqq` z+2.45 는 버그 아님(레짐), 승격 안 함.
-- **실계좌 추천 없음 — 기본 DCA 유지.**
+- 편입 0, 퇴출 0. intel이 11-25로 최신이라 scout는 생략했다. 신규 카드도 없어 experimenter 실험도 없다.
 
-## 3. 편입/퇴출
+## 5. 되돌려 보낸 횟수·사유
 
-- 편입 없음. 정찰 카드 3장(`docs/pipeline/candidates/2026-11-25_*`) 중 2장 실험:
-  - c16a GEM 듀얼 모멘텀 — **FAIL**(홀드아웃 QQQ 대비 0.82×, DSR 0.03)
-  - c16b Faber GTAA — **FAIL**(0.72×, 연 6.6회 교체로 자체 kill 규칙 위반)
-  - pre-FOMC 드리프트 — 비용 후 엣지 미미로 보류
-- 퇴출 없음.
+- 0회. 실험(PASS/CONDITIONAL)이 없어 auditor 반박 단계를 거치지 않았다. auditor의 수정 요청 F2는 executor가 1회 만에 통과했다.
+- 실행 경로: 서브 계정(alt-agent)이 세션 권한에 막혀 Agent executor로 대신했다. U6의 원인은 `PYTHONPATH=` 접두였다. `.venv/bin/python <script>`로 실행해 해결했다.
 
-## 4. 되돌려 보낸 횟수·사유
+## 6. 통합 게이트
 
-- 0회. 실험 2건 모두 FAIL이라 auditor 반박 단계 불필요. 감사 R1(버그 수정)은 executor로 처리.
-- 실행 경로: 서브 계정(alt-agent) 실행이 권한 승인 문제로 차단 → Agent executor로 대체.
+- `verify.py --all`: 차단 0건(기존 F1/F11 경고 5건) · `pytest -q`: 871 passed, 2 skipped.
 
-## 5. 통합 게이트
+## 7. 미해결 (다음 사이클로, worktree `data/loop/requests.jsonl`)
 
-- `verify.py --all`: 차단 없음(기존 F11 경고만) · `pytest -q`: 869 passed, 2 skipped.
+- F4(누적 기준을 시작자본으로), F1 SHA 불일치 경보, R3 β 진단(**12-23 hibeta RETIRED 전에 필요**), R4 hot_rvol 스캔, R2-confirm(11-04~11-12 일별 덤프)
+- 반복 요청은 그룹 G1(hibeta 흐름 A), G2(TQQQ 롱 흐름 B), G3(overnight_qqq + 비용 감사)으로 묶어 소비한다.
 
-## 6. 미해결 (다음 사이클로)
+## 8. 사용자 결정 필요
 
-- R2 장부 재생 비교(`experiments/2026-11-25_ledger_replay.py`) — 세션 권한으로 실행 불가. 실행: `PYTHONPATH=src .venv/bin/python experiments/2026-11-25_ledger_replay.py`
-- R3 β 조정·라이브 변동성 z 진단 · R4 hot_rvol_swing 진입 재생 스캔 · R5 부칙 제안
-- 위 5건은 worktree `data/loop/requests.jsonl`에만 기록됨(메인 저장소 `data/loop/requests.jsonl`은 세션 쓰기 범위 밖이라 미반영).
-
-## 7. 사용자 결정 필요
-
-- U1 하이베타 6종 v2 원장(수정 코드, n=0) 신규 시작 여부
-- U2 R2 결과 반영 방식(메모만[기본] vs 원장 상태 교체)
-- U3 `mom_top5_ndx` 원장 리셋
-- U4 R5 부칙: (i) 벤치마크 상태 전이 제외 (ii) 동일 수익흐름 강등 묶기 — 결정권자 찬성, (iii)은 R3 후
-- U5 Codex CLI 업그레이드(GPT-6 판사 `gpt-6-astra` 불가)
-- U6 R2 재생 스크립트 실행 허용
-- 운영: agentloop `git fetch` SSL 타임아웃으로 10-10 이후 자동 사이클 rc=1 반복 — 네트워크 점검
+- **U8 (최우선)**: 이번 PR 병합 후 `~/github/toss-trader`를 `main`으로 전환·갱신한다(현재 `upgrade/loop-engineering`, 리포트 파일 6개가 수정된 상태). 다음 리포트의 SHA가 main과 같은지 확인한다. U1·U3의 전제 조건이다.
+- U1 hibeta v2 장부 / U3 mom_top5_ndx 리셋: 찬성 권고, U8 이후 시작.
+- U2 재생 반영 방식: (a) 주석만(권고).
+- U4 부칙 (i)(ii) 찬성, (iii)은 R3 후. 12-23 전에 결정이 필요하다.
+- 해결: U5(Codex), U6(재생 실행), U7(F2로 흡수).

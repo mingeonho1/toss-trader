@@ -37,7 +37,8 @@ __all__ = [
 ]
 
 _EPS = 1e-12
-LATE_BAR_WAIT_SESSIONS = 3      # 보유/목표 심볼 봉이 이만큼 이내로 늦으면 그 날 처리를 보류(다음 실행 재계산)
+LATE_BAR_WAIT_SESSIONS = 3      # 유니버스(신호 전용 포함)/보유/목표 심볼 봉이 이만큼 이내로 늦으면 그 날 처리를 보류
+                                # (다음 실행 재계산). 오버나이트 경로는 보유 심볼만 본다.
 
 
 def _last_bars(syms: Sequence[str], by_date: Mapping[str, Mapping[date, Candle]]) -> dict[str, date]:
@@ -399,9 +400,9 @@ class PaperLab:
         for d in master_dates:
             if last is not None and d <= last:
                 continue
-            if d >= start_date and _late_symbols(_held(unit, real) | set(pending or {}),
+            if d >= start_date and _late_symbols(set(uni) | _held(unit, real) | set(pending or {}),
                                                  d, master_dates, by_date, last_bar):
-                break             # 보유/목표 심볼 봉 지연 → 이 날부터 보류(last_date 미진행, 다음 실행에서 계산)
+                break             # 유니버스(신호 전용 포함)/보유/목표 심볼 봉 지연 → 이 날부터 보류(다음 실행에서 계산)
             # 오늘 캔들 반영(가시 히스토리 · 체결/마크 가격). 워밍업 구간(d<start)에도 히스토리는
             # 채워야 첫 거래일에 SMA200/RSI2 등 룩백 신호가 눈 뜬 채로 계산된다.
             close_px: dict[str, float] = {}

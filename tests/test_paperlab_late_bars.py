@@ -47,6 +47,21 @@ class _Hold(Strategy):
         return {"X": 1.0}
 
 
+class _SignalSwitch(Strategy):
+    """신호 전용 심볼 S(보유 안 함)의 등락으로 X/Y 중 하나를 보유(holy_grail 의 TQQQ RSI 류)."""
+    name = "signal_switch"
+    fill_on = "close"
+
+    def universe(self) -> list[str]:
+        return ["S", "X", "Y"]
+
+    def decide(self, history: Mapping[str, Sequence[Candle]], state: dict[str, Any]) -> dict[str, float]:
+        s = history["S"]
+        if len(s) < 2:
+            return {"X": 1.0}
+        return {"X": 1.0} if s[-1].close >= s[-2].close else {"Y": 1.0}
+
+
 class LateBarEngineTest(unittest.TestCase):
     def setUp(self) -> None:
         self.dates = _bizdays(date(2026, 11, 2), 8)
@@ -74,6 +89,28 @@ class LateBarEngineTest(unittest.TestCase):
         s = lab.run(s, self.dates, self.full)          # 다음 실행: 봉이 채워짐
         self.assertEqual(s["equity"], ref["equity"])
         self.assertEqual(s["unit"]["fills"], ref["unit"]["fills"])
+
+    def test_late_signal_symbol_defers(self) -> None:
+        # 감사 2026-11-28 F2: 보유하지 않는 신호 심볼 S 의 d 봉이 1세션 늦으면 d 를 처리하지 않는다.
+        px = [100.0, 102.0, 101.0, 104.0, 110.0, 108.0, 111.0, 105.0]
+        full = {
+            "S": _by_date("S", self.dates, px, px),
+            "X": _by_date("X", self.dates, px, [p * 1.01 for p in px]),
+            "Y": _by_date("Y", self.dates, px, [p * 0.98 for p in px]),
+        }
+        late = {s: dict(m) for s, m in full.items()}
+        late["S"].pop(self.dates[-1])
+
+        lab = PaperLab(_SignalSwitch())
+        ref = lab.run(lab.fresh_state(self.dates[0]), self.dates, full)
+
+        s = lab.run(lab.fresh_state(self.dates[0]), self.dates, late)
+        self.assertEqual(s["last_date"], self.dates[-2].isoformat(),
+                         "신호 전용 심볼 봉이 늦은 날은 처리하지 않아야 한다")
+        s = lab.run(s, self.dates, full)
+        self.assertEqual(s["equity"], ref["equity"])
+        self.assertEqual(s["unit"]["fills"], ref["unit"]["fills"])
+        self.assertEqual(s["pending"], ref["pending"])
 
     def test_overnight_late_bar_no_false_return(self) -> None:
         lab = PaperLab(OvernightTqqq())
