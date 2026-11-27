@@ -56,3 +56,12 @@
 {"type": "audit", "strategy": null, "reason": "기존 미결 감사를 n=43 기준으로 통합 갱신한다. 2026-11-25 원천 가격·장부 반영, n 산식과 생성 시각을 검증하고 mom_top5_ndx의 무수익 상태를 확인한다. 거래별 총손익과 비용을 분리해 ≤$10 매수 무료, 매도 SEC/TAF 최소 $0.01, 주간 환전 0.05%의 적용 및 중복 차감을 점검하고 기존 감사의 해소 여부를 보고한다.", "priority": "high", "source": "llm", "session_date": "2026-11-25"}
 {"type": "investigate_divergence", "strategy": "hibeta_basket", "reason": "기존 조사를 병합 갱신한다. z=-2.9568과 누적수익률 -39.36%의 원인을 공통 보유 노출·방어 신호·비용 전후 손익으로 분해한다. ftlt_hibeta, ftlt_hibeta_psq, simple_hibeta, buffer_hibeta의 기존 조사와 연계하되 동행을 독립 증거로 중복 계산하지 않는다.", "priority": "high", "source": "llm", "session_date": "2026-11-25"}
 {"type": "investigate_divergence", "strategy": "overnight_qqq", "reason": "기존 조사를 n=43, z=2.0627 기준으로 갱신한다. 음의 백테스트 기대 대비 상방 괴리를 동일한 기간·수익률 정의·체결 시각·비용·노출 구간으로 재검증하고 노이즈, 비용, 시장 노출 기여를 분리한다. 양의 z만으로 구조적 개선을 확정하지 않는다.", "priority": "medium", "source": "llm", "session_date": "2026-11-25"}
+{"type": "investigate_divergence", "strategy": "buffer_hibeta", "z": -2.1589, "session_date": "2026-11-27"}
+{"type": "investigate_divergence", "strategy": "ftlt_hibeta", "z": -2.5561, "session_date": "2026-11-27"}
+{"type": "investigate_divergence", "strategy": "ftlt_hibeta_psq", "z": -2.3377, "session_date": "2026-11-27"}
+{"type": "investigate_divergence", "strategy": "hibeta_basket", "z": -2.8036, "session_date": "2026-11-27"}
+{"type": "investigate_divergence", "strategy": "lrs200_tqqq", "z": -2.7826, "session_date": "2026-11-27"}
+{"type": "investigate_divergence", "strategy": "simple_hibeta", "z": -2.2388, "session_date": "2026-11-27"}
+{"type": "audit", "strategy": null, "reason": "기존 고우선순위 감사를 n=44 기준으로 병합 갱신한다. 원천 가격·장부 시각, 세션별 관측과 n 산식, mom_top5_ndx의 정상 대기 여부를 검증한다. 거래별 총손익과 비용을 분리하여 ≤$10 매수 무료, 매도 SEC/TAF 최소 $0.01, 주간 환전 0.05% 적용과 중복 차감을 확인하고 기존 감사의 해소 여부를 보고한다.", "priority": "high", "source": "llm", "session_date": "2026-11-27"}
+{"type": "investigate_divergence", "strategy": "hibeta_basket", "reason": "기존 조사를 병합 갱신한다. z=-2.8036, 누적수익률 -36.72%의 하방 괴리를 공통 보유 노출·방어 신호·체결·비용으로 분해한다. buffer_hibeta, ftlt_hibeta, ftlt_hibeta_psq, simple_hibeta의 기존 조사와 연계하되 동행을 독립적인 레짐 증거로 중복 계산하지 않는다.", "priority": "high", "source": "llm", "session_date": "2026-11-27"}
+{"type": "investigate_divergence", "strategy": "overnight_qqq", "reason": "기존 조사를 n=44, z=1.9346으로 갱신한다. 직전 제공 세션보다 상방 괴리가 줄었다. 백테스트와 관측의 기간·수익률 정의·체결 시각·비용·노출을 맞춰 노이즈와 시장 구간 효과를 구분하고, 비용 원장 없이 수수료 기여나 구조적 개선을 확정하지 않는다.", "priority": "medium", "source": "llm", "session_date": "2026-11-27"}

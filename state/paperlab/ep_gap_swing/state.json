@@ -3,20 +3,14 @@
   "name": "ep_gap_swing",
   "fill_on": "open",
   "start_date": "2026-09-28",
-  "last_date": "2026-11-25",
-  "pending": {
-    "NVDA": 0.5,
-    "ADI": 0.5
-  },
+  "last_date": "2026-11-27",
+  "pending": {},
   "last_applied": {
     "NVDA": 0.5,
     "ADI": 0.5
   },
   "strategy_state": {
-    "holds": {
-      "NVDA": 2,
-      "ADI": 2
-    }
+    "holds": {}
   },
   "unit": {
     "cash": 0.0,
@@ -337,6 +331,11 @@
       "2026-11-25",
       938.3705851538332,
       33.78683256145165
+    ],
+    [
+      "2026-11-27",
+      963.2574656209199,
+      34.6829059003026
     ]
   ],
   "real_contributed": 0.0

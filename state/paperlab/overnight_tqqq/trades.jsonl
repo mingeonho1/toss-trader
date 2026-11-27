@@ -81,6 +81,8 @@
 {"book": "unit", "dt": "2026-11-24", "symbol": "TQQQ", "side": "BUY", "qty": 23.004446620220058, "price": 46.19, "fee": 0.87, "realized": 0.0}
 {"book": "unit", "dt": "2026-11-25", "symbol": "TQQQ", "side": "SELL", "qty": 23.004446620220058, "price": 41.61, "fee": 0.98, "realized": -105.36036552060783}
 {"book": "unit", "dt": "2026-11-25", "symbol": "TQQQ", "side": "BUY", "qty": 21.106141459407038, "price": 45.27, "fee": 0.76, "realized": 0.0}
+{"book": "unit", "dt": "2026-11-27", "symbol": "TQQQ", "side": "SELL", "qty": 21.106141459407038, "price": 47.74, "fee": 1.04, "realized": 52.13216940473536}
+{"book": "unit", "dt": "2026-11-27", "symbol": "TQQQ", "side": "BUY", "qty": 20.588683587965036, "price": 48.85, "fee": 0.81, "realized": 0.0}
 {"book": "real", "dt": "2026-09-28", "symbol": "TQQQ", "side": "BUY", "qty": 0.46728971962616817, "price": 77.04, "fee": 0.0, "realized": 0.0}
 {"book": "real", "dt": "2026-09-29", "symbol": "TQQQ", "side": "SELL", "qty": 0.46728971962616817, "price": 78.13, "fee": 0.05, "realized": 0.5093457943925183}
 {"book": "real", "dt": "2026-09-29", "symbol": "TQQQ", "side": "BUY", "qty": 0.4706861063050932, "price": 77.46, "fee": 0.0, "realized": 0.0}
@@ -164,3 +166,5 @@
 {"book": "real", "dt": "2026-11-24", "symbol": "TQQQ", "side": "BUY", "qty": 0.8402481332925912, "price": 46.19, "fee": 0.0, "realized": 0.0}
 {"book": "real", "dt": "2026-11-25", "symbol": "TQQQ", "side": "SELL", "qty": 0.8402481332925912, "price": 41.61, "fee": 0.05, "realized": -3.8483364504800663}
 {"book": "real", "dt": "2026-11-25", "symbol": "TQQQ", "side": "BUY", "qty": 0.7712110630948691, "price": 45.27, "fee": 0.0, "realized": 0.0}
+{"book": "real", "dt": "2026-11-27", "symbol": "TQQQ", "side": "SELL", "qty": 0.7712110630948691, "price": 47.74, "fee": 0.05, "realized": 1.9048913258443259}
+{"book": "real", "dt": "2026-11-27", "symbol": "TQQQ", "side": "BUY", "qty": 0.7526635855097042, "price": 48.85, "fee": 0.0, "realized": 0.0}
