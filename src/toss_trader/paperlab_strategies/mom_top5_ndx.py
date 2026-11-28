@@ -8,7 +8,7 @@ from __future__ import annotations
 from typing import Any, Mapping, Sequence
 
 from ..models import Candle
-from ..paperlab import Strategy
+from ..paperlab import MAX_BAR_GAP_BDAYS, Strategy, bday_gap
 from ._universes import NDX_100
 
 LOOKBACK = 252
@@ -63,8 +63,12 @@ class MomTop5Ndx(Strategy):
         for s in self._universe:
             if not fresh(s):
                 continue          # 멈춘 캐시(예: INTC 09-22) → 영원히 미체결 pending 방지
-            closes = [c.close for c in history.get(s, [])]
+            hist = history.get(s, [])
+            closes = [c.close for c in hist]
             if len(closes) < LOOKBACK + 1:
+                continue
+            win = hist[-(LOOKBACK + 1):]          # 룩백 창 안 캐시 구멍(>5영업일) → 왜곡 순위 방지(F15 리뷰)
+            if any(bday_gap(a.dt, b.dt) > MAX_BAR_GAP_BDAYS for a, b in zip(win, win[1:])):
                 continue
             p_old = closes[-(LOOKBACK + 1)]
             p_recent = closes[-(SKIP + 1)]

@@ -17,6 +17,7 @@
   F11 레버리지/타이밍 주장 감사(고점대비 낙폭·합성 2x 배당 이중계상) 미언급
   F12 LLM 판단 레이어 안전: 주문 API/실행 플래그 참조 · codex 비-읽기전용 샌드박스
   F13 스테일 장부: 결정엔진/리더보드가 낡은 페이퍼 랩(일봉 소스 지연)으로 계산됨
+  F14 미배포 코드 운영: 페이퍼 랩 리포트 code SHA@브랜치 ≠ main 팁(warn)
 
 stdlib 만 사용한다.
 """
@@ -876,12 +877,42 @@ def check_f13_stale_books(ctx: Context) -> list[Finding]:
     return out
 
 
+# ── F14: 미배포 코드 운영(페이퍼 랩이 main 팁이 아닌 코드로 실행) ────────────────────
+# 실제 사고(감사 2026-11-28 F1): 수정이 main 에 머지됐는데 라이브 체크아웃은 옛 코드로 수 주 운영.
+# paperlab_run 이 리포트 Generated 줄에 `code <sha>@<branch>` 를 남긴다(PR #12). 그것을 기대
+# (origin/main, 없으면 main 팁)와 비교한다. 불일치는 warn(차단 아님). git·줄 없으면 생략.
+PAPERLAB_REPORT = "reports/paperlab_latest.md"
+_F14_SCOPE = (PAPERLAB_REPORT, "scripts/paperlab_run.py")
+_F14_CODE_RE = re.compile(r"Generated:\s*`[^`]*\bcode ([0-9a-f]{4,40})@([^`\s]+)`")
+
+
+def check_f14_code_version(ctx: Context) -> list[Finding]:
+    """페이퍼 랩 리포트의 code SHA@브랜치 ≠ main 팁 → warn(데이터·git 있을 때만)."""
+    if ctx.scope is not None and not ctx.any_in_scope(_F14_SCOPE):
+        return []
+    m = _F14_CODE_RE.search(ctx.read(PAPERLAB_REPORT) or "")
+    if not m:
+        return []                                    # 리포트/코드 줄 없음(구버전·unknown) → 생략.
+    sha, branch = m.group(1), m.group(2)
+    expected = next((out.strip() for ref in ("origin/main", "main")
+                     if (out := ctx.git("rev-parse", "--verify", "-q", ref))), None)
+    if not expected:
+        return []                                    # git 불가·main 없음 → 생략.
+    if branch == "main" and expected.startswith(sha):
+        return []
+    return [Finding(
+        "warn", "F14", PAPERLAB_REPORT,
+        f"페이퍼 랩이 code {sha}@{branch} 로 실행됨 — 기대는 main 팁({expected[:7]}@main).",
+        "라이브 체크아웃을 main 으로 전환·최신화(git switch main && git pull) 후 paperlab 을 "
+        "재실행하세요.")]
+
+
 # ── 집계 ─────────────────────────────────────────────────────────────────────
 ALL_CHECKS = (
     check_f1_fees, check_f2_result_paths, check_f3_prereg, check_f4_holdout_append,
     check_f5_lookahead, check_f6_survivorship, check_f7_signal_reuse,
     check_f8_tradability, check_f9_secrets, check_f10_real_money, check_f11_audit,
-    check_f12_llm_judge_safety, check_f13_stale_books,
+    check_f12_llm_judge_safety, check_f13_stale_books, check_f14_code_version,
 )
 
 

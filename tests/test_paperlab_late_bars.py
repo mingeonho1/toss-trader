@@ -62,6 +62,17 @@ class _SignalSwitch(Strategy):
         return {"X": 1.0} if s[-1].close >= s[-2].close else {"Y": 1.0}
 
 
+class _TqqqSignalSwitch(_SignalSwitch):
+    """holy_grail 류: 신호 전용 심볼이 ETF(TQQQ)."""
+    name = "tqqq_signal_switch"
+
+    def universe(self) -> list[str]:
+        return ["TQQQ", "X", "Y"]
+
+    def decide(self, history: Mapping[str, Sequence[Candle]], state: dict[str, Any]) -> dict[str, float]:
+        return super().decide({"S": history["TQQQ"]}, state)
+
+
 class LateBarEngineTest(unittest.TestCase):
     def setUp(self) -> None:
         self.dates = _bizdays(date(2026, 11, 2), 8)
@@ -112,6 +123,40 @@ class LateBarEngineTest(unittest.TestCase):
         self.assertEqual(s["unit"]["fills"], ref["unit"]["fills"])
         self.assertEqual(s["pending"], ref["pending"])
 
+    def test_signal_only_symbol_two_sessions_late_carries_forward(self) -> None:
+        # F15 리뷰: 신호 전용 심볼은 1세션만 대기 — 2세션 늦으면 정체 없이 캐리포워드(장부 전진).
+        px = [100.0, 102.0, 101.0, 104.0, 110.0, 108.0, 111.0, 105.0]
+        late = {"S": _by_date("S", self.dates[:-2], px, px),
+                "X": _by_date("X", self.dates, px, px),
+                "Y": _by_date("Y", self.dates, px, px)}
+        lab = PaperLab(_SignalSwitch())
+        s = lab.run(lab.fresh_state(self.dates[0]), self.dates, late)
+        self.assertEqual(s["last_date"], self.dates[-1].isoformat())
+
+    def test_signal_only_etf_two_sessions_late_defers(self) -> None:
+        # 2차 감사 A: holy_grail 류 — 신호 전용 TQQQ(ETF)가 2세션 늦으면 3세션 규칙으로 보류하고,
+        # 봉이 채워진 뒤 재실행 결과 = 완전 데이터 경로(11-09 류 오래된 신호 오염 방지).
+        px = [100.0, 102.0, 101.0, 104.0, 110.0, 108.0, 111.0, 105.0]
+        full = {"TQQQ": _by_date("TQQQ", self.dates, px, px),
+                "X": _by_date("X", self.dates, px, [p * 1.01 for p in px]),
+                "Y": _by_date("Y", self.dates, px, [p * 0.98 for p in px])}
+        late = {s: dict(m) for s, m in full.items()}
+        for d in self.dates[-2:]:
+            late["TQQQ"].pop(d)
+        lab = PaperLab(_TqqqSignalSwitch())
+        ref = lab.run(lab.fresh_state(self.dates[0]), self.dates, full)
+        s = lab.run(lab.fresh_state(self.dates[0]), self.dates, late)
+        self.assertEqual(s["last_date"], self.dates[-3].isoformat())
+        s = lab.run(s, self.dates, full)
+        self.assertEqual(s["equity"], ref["equity"])
+        self.assertEqual(s["unit"]["fills"], ref["unit"]["fills"])
+
+    def test_held_symbol_two_sessions_late_still_waits(self) -> None:
+        # 보유 심볼은 3세션 대기 유지(2세션 늦음 → 보류).
+        lab = PaperLab(_Hold())
+        s = lab.run(lab.fresh_state(self.dates[0]), self.dates, self._late("X", 2))
+        self.assertEqual(s["last_date"], self.dates[-3].isoformat())
+
     def test_overnight_late_bar_no_false_return(self) -> None:
         lab = PaperLab(OvernightTqqq())
         ref = lab.run(lab.fresh_state(self.dates[0]), self.dates, self.full)
@@ -151,6 +196,16 @@ class MomStaleFilterTest(unittest.TestCase):
     def test_recent_lag_within_3_sessions_kept(self) -> None:
         strat = MomTop5Ndx(["A", "B", "C", "D", "E", "F", "STALE"])
         self.assertIn("STALE", strat.decide(self._hist(stale_lag=3), {}))
+
+    def test_gap_in_lookback_window_excluded(self) -> None:
+        # F15 리뷰: 룩백 창 안에 >5영업일 캐시 구멍(전환일 갭) → 후보 제외. 창 밖 구멍·짧은 결측은 무해.
+        strat = MomTop5Ndx(["A", "B", "C", "D", "E", "F", "STALE"])
+        hist = self._hist(stale_lag=0)
+        hist["STALE"] = hist["STALE"][:-40] + hist["STALE"][-30:]       # 창 안 10영업일 구멍
+        self.assertNotIn("STALE", strat.decide(hist, {}))
+        hist2 = self._hist(stale_lag=0)
+        hist2["STALE"] = hist2["STALE"][:-40] + hist2["STALE"][-36:]    # 4봉 결측 = 5영업일 갭 → 유지
+        self.assertIn("STALE", strat.decide(hist2, {}))
 
     def test_cached_month_with_stale_symbol_recomputed(self) -> None:
         strat = MomTop5Ndx(["A", "B", "C", "D", "E", "F", "STALE"])

@@ -1,58 +1,48 @@
-# 에이전트 팀 사이클 요약 — 2026-11-28 (weekly-sat)
+# 에이전트 팀 사이클 요약 — 2026-11-28 사이클 2 (weekly-sat)
 
-- 브랜치: `loop/2026-11-28` · 결정 메모: `docs/loop/decisions/2026-11-28.md` · 감사: `reports/audits/2026-11-28_ledger-replay-gaps.md`
+- 브랜치: `loop/2026-11-28` · 결정 메모: `docs/loop/decisions/2026-11-28.md` §사이클 2(D6~D8) · 이전 사이클(같은 날 오전, PR #12) 요약은 git 이력 참조.
 - **주문 없음 · 자동화 live 설치 없음 · 실운영 체크아웃 수정 없음.** 실계좌 전환은 사용자 승인 사항.
 
-## 1. 기록 건전성 (운영 우선)
+## 1. 관측
 
-| 항목 | 결과 |
-|---|---|
-| paper-log 게시 | 11-24~11-28 매일 정상(11-26 추수감사절 휴장, 11-27 반일장 집계 정상). n 42→43→44 |
-| LLM 판사 | `gpt-6-astra` 11-27 채택 → U5 해결 |
-| **실운영 코드 버전 (CRITICAL)** | 매일 장부를 쓰는 `~/github/toss-trader`가 `upgrade/loop-engineering@92b7164`(#10)에 머물러 있다. **PR #11 수정(늦은 봉 대기, mom 최신성 필터, hibeta 월간 바스켓)은 운영에서 한 번도 돌지 않았다.** mom_top5_ndx가 0% 미체결로 남은 직접 원인이다. 루프는 이 체크아웃을 건드리지 않으므로 사용자 작업 U8로 넘긴다 |
+- paper-log는 오전 사이클 이후 새 세션이 없습니다(세션 2026-11-27, n=44, 상태 전이 없음, LLM 판사 hold_dca). 그래서 이번 사이클은 이월된 미결 항목(R3, R4, F4, F1 경보)을 처리했습니다.
+- 실운영 체크아웃은 여전히 `upgrade/loop-engineering@92b7164`입니다. U8은 미해결입니다.
 
-## 2. 판단 변화 (페이퍼 근거, 세션 2026-11-27, n=44)
+## 2. 판단 변화 (페이퍼 근거)
 
-- 상태 전이 없음. **실계좌 추천 없음, 기본 DCA 유지**(LLM 판사도 hold_dca).
-- R2 장부 재생을 처음으로 실행했다. 2%p 넘는 괴리 8건이 모두 **장부 아티팩트**였고 재생 버그는 0건이다.
-  - `holy_grail`(레버ETP 관찰 선두): 장부 +9.12%는 11-09 TQQQ **신호** 봉 지연으로 TECL을 하루 더 보유한 허위 수익이었다. 재생은 −0.72%(z 0.61→0.22)라 **관찰 선두를 철회**한다.
-  - `mom_top5_ndx`: 장부 0%는 한 번도 체결되지 않은 결과다. 스펙대로 재생하면 −38.8%(z −3.19)다. INVALID를 유지한다.
-  - `overnight_tqqq`: +0.58%가 재생에서 −6.25%다. hibeta 3종은 11-20 봉 지연 아티팩트다. 오염 확정 4종(mom_top5_ndx, ftlt_hibeta_psq, simple_hibeta, overnight_tqqq)에는 주석만 단다(상태기계 불변).
-- `overnight_qqq` z +1.93은 장부와 재생이 같아 버그가 아니다. 11-23 하룻밤을 빼면 z가 약 1.0이라 승격하지 않는다.
-- 비용 통합 감사: 이중차감 없음. 주간 환전 0.05%는 paperlab에 아직 모델링돼 있지 않다.
+- **실계좌 추천 없음, 기본 DCA 유지.** 편입 0건, 퇴출 0건입니다.
+- **R4 hot_rvol_swing 0거래는 BUG입니다.** 유니버스 224종목 중 196종목의 캐시가 09-22/25에서 멈춰 있었습니다(`_refresh_pairs`의 40개 상한 때문). 그래서 실제로는 28종목만 평가했습니다. 백테스트 기준으로는 44세션에 기대 진입이 8.07건이고, 0거래가 나올 확률은 3e-4입니다. 09-28~11-27 장부는 **유니버스 결함 구간**으로 표기하고 성과 비교에서 뺍니다(상태기계는 그대로).
+- **R3 β 진단은 WEAKENED입니다.** β를 보정한 z(M2) 기준으로 강등군 8개 중 6개가 −2보다 높습니다. 다만 사전등록한 선형 모델이 대조군 tqqq_bh를 잘못 판정해서, 결과를 본 뒤 M2로 바꿨습니다. 이 교체는 전략에 유리한 방향이었고 메모에 그대로 적었습니다. 진짜 부진에 가까운 건 hibeta_basket과 simple_hibeta이고 둘 다 경계선입니다(반도체·크립토 요인). M2 사양은 오늘 동결했습니다. R3-b는 12-16 전에 돌립니다.
+- **R6 의심(HIGH)**: 갱신 상한 40개 때문에 hibeta 후보 63개 중 앞쪽 약 22개(반도체+메가캡)만 갱신됐을 수 있습니다. 그렇다면 hibeta 6종과 mom_top5_ndx·ep_gap_swing이 잘린 유니버스로 기록된 셈입니다. 검증 전까지는 "의심"으로만 표기합니다.
 
 ## 3. 코드 수정 (이번 PR)
 
 | ID | 내용 | 파일 |
 |---|---|---|
-| F2 | 늦은 봉 대기 대상을 보유·목표 심볼에서 **전략 universe 전체(신호 심볼 포함)**로 넓혔다. holy_grail 11-09가 재발하지 않는다. 장기 정지 심볼은 기존처럼 캐리포워드하므로 영구 정체는 없다 | `src/toss_trader/paperlab.py`, `tests/test_paperlab_late_bars.py` |
-| F1(일부) | paperlab 리포트 Generated 줄에 `code <sha>@<branch>`를 기록한다. 운영 코드 버전을 확인하는 용도 | `scripts/paperlab_run.py` |
-| F3 | 결정 엔진 `pick_top`에서 한 번도 노출되지 않은 장부(누적 0·변동성 0)를 선두 후보에서 뺀다. 표시 전용이고 상태 전이는 그대로다 | `scripts/loop/daily_decision.py`, `tests/test_daily_decision.py` |
+| F4 | 누적수익 기준을 첫 장부값에서 시작자본 1000으로 바꿈(z·상태 불변 테스트 포함) | `scripts/loop/daily_decision.py` |
+| F14 | paperlab 리포트의 code SHA/브랜치가 main과 다르면 경고(warn). 실운영 미배포를 잡기 위한 검사 | `scripts/harness/checks.py` |
+| 신선도 | hot_rvol `decide()`가 최신 봉이 아닌 종목과 봉 간격이 5영업일을 넘는 종목을 건너뜀 | `paperlab_strategies/hot_rvol_swing.py` |
+| F15 | 유니버스 갱신을 별도 단계로 분리(`--refresh-universe-only`, ≤300종목, 900s, 실패해도 paperlab은 계속 실행). 스윙 유니버스에서 ETF 25종 제외. hot_rvol은 `group="leverage"`로 고정(실계좌 추천 자격이 조용히 생기는 것 방지) | `scripts/paperlab_run.py`, `scripts/daily_scoreboard.py` |
+| F15 완화 | 토스가 429/403을 반환하면 이후 Nasdaq만 사용. 캐시 구멍은 전체 재페치로 채우고, 실패하면 증분 갱신 없이 다음에 재시도. mom은 룩백 기간에 구멍이 있는 후보 제외. 늦은 봉 대기는 신호 전용 단일종목 1세션, ETF·보유·목표 종목 3세션. 갱신 로그 보강 | `src/toss_trader/paperlab.py`, `mom_top5_ndx.py`, `paperlab_run.py` |
 
-- F2 적용 후 R2 재생(`reports/2026-11-28_ledger_replay_postF2.md`)은 적용 전과 같았고 정체 전략은 0개였다.
+## 4. 되돌려 보낸 횟수·사유 (2회)
 
-## 4. 편입/퇴출
+1. risk-officer **조건부 승인**: 토스 429가 계속 나도 300종목을 반복 재시도해 계정 차단 위험이 있었습니다 → 429/403이 나면 Nasdaq으로 전환. auditor **WEAKENED**: 하루만 갱신에 실패해도 장부가 정체되고, 09-23~11-03 캐시 구멍이 영구히 남는 문제 → 완화 6건.
+2. auditor 2차 **WEAKENED**: 신호 전용 대기를 1세션으로 줄이면 ETF 신호(TQQQ 등)가 2~3세션 늦을 때 holy_grail 11-09 같은 오염이 다시 생길 수 있었습니다 → ETF는 3세션 유지. 전체 재페치 실패 시 증분 폴백으로 구멍이 영구화되는 문제 → 폴백 제거. 수정이 auditor 지정 사양과 같아 3차 검토는 생략했습니다.
+- 실행 경로: alt-agent가 헤드리스 권한에 막혀 있어 Agent(executor, auditor, risk-officer, decider)로 진행했습니다.
 
-- 편입 0, 퇴출 0. intel이 11-25로 최신이라 scout는 생략했다. 신규 카드도 없어 experimenter 실험도 없다.
+## 5. 통합 게이트
 
-## 5. 되돌려 보낸 횟수·사유
+- `verify.py --all`: 차단 0건(기존 F11 경고만). `pytest -q`: 899 passed, 2 skipped.
+- 확인하지 못한 부분: 갭 가드와 대기 분리가 백테스트 창 결과를 바꾸는지는 224종목 캐시가 실운영 체크아웃에만 있어 실측하지 못했습니다(R4-b에서 확인).
 
-- 0회. 실험(PASS/CONDITIONAL)이 없어 auditor 반박 단계를 거치지 않았다. auditor의 수정 요청 F2는 executor가 1회 만에 통과했다.
-- 실행 경로: 서브 계정(alt-agent)이 세션 권한에 막혀 Agent executor로 대신했다. U6의 원인은 `PYTHONPATH=` 접두였다. `.venv/bin/python <script>`로 실행해 해결했다.
+## 6. 사용자 결정 필요
 
-## 6. 통합 게이트
+- **U8 (최우선)**: `~/github/toss-trader`를 `main`으로 전환·갱신합니다. 그래야 PR #11, #12와 이번 F15가 운영에 반영됩니다. 배포 직후 `scripts/paperlab_run.py --refresh-universe-only`를 1회 수동 실행할 것을 권합니다(첫날 약 196종목 전체 재페치가 900s를 넘을 수 있음).
+- **U4(iii)**: hibeta군 RETIRED 연기 방식(z_M2 > −2면 n=63까지 연기) 승인 여부입니다. 승인이 없으면 **12-23**에 규칙대로 퇴출됩니다.
+- **U9 (신규)**: hot_rvol_swing 장부 리셋입니다. 시작은 U8+F15 배포 후 첫 세션입니다.
+- U1(hibeta v2) / U3(mom 리셋): 시작 조건에 "F15 배포 후"가 추가됐습니다.
 
-- `verify.py --all`: 차단 0건(기존 F1/F11 경고 5건) · `pytest -q`: 871 passed, 2 skipped.
+## 7. 미해결 (다음 사이클, `data/loop/requests.jsonl`)
 
-## 7. 미해결 (다음 사이클로, worktree `data/loop/requests.jsonl`)
-
-- F4(누적 기준을 시작자본으로), F1 SHA 불일치 경보, R3 β 진단(**12-23 hibeta RETIRED 전에 필요**), R4 hot_rvol 스캔, R2-confirm(11-04~11-12 일별 덤프)
-- 반복 요청은 그룹 G1(hibeta 흐름 A), G2(TQQQ 롱 흐름 B), G3(overnight_qqq + 비용 감사)으로 묶어 소비한다.
-
-## 8. 사용자 결정 필요
-
-- **U8 (최우선)**: 이번 PR 병합 후 `~/github/toss-trader`를 `main`으로 전환·갱신한다(현재 `upgrade/loop-engineering`, 리포트 파일 6개가 수정된 상태). 다음 리포트의 SHA가 main과 같은지 확인한다. U1·U3의 전제 조건이다.
-- U1 hibeta v2 장부 / U3 mom_top5_ndx 리셋: 찬성 권고, U8 이후 시작.
-- U2 재생 반영 방식: (a) 주석만(권고).
-- U4 부칙 (i)(ii) 찬성, (iii)은 R3 후. 12-23 전에 결정이 필요하다.
-- 해결: U5(Codex), U6(재생 실행), U7(F2로 흡수).
+- R6 실효 유니버스 검증, R3-b(12-16 전), R4-b hot_rvol 기대치 재산출(ETF 제외·생존편향), 배포 첫날 수동 갱신, G1~G3 그룹 요청.

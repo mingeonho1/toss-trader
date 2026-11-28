@@ -13,6 +13,7 @@
   --reset                     모든 페이퍼 장부 재초기화(시작일 = START_DATE).
   --no-refresh                포워드 코어 심볼 네트워크 갱신 생략(캐시만).
   --offline                   네트워크 전면 금지(캐시만; 누락 코어 심볼은 그냥 건너뜀).
+  --refresh-universe-only     전략 유니버스(hibeta→mom→swing) 종가만 정중히 갱신하고 종료(장부 전진 없음).
 
 사용:
   PYTHONPATH=src python scripts/paperlab_run.py                       # 포워드 전진 + 리더보드
@@ -51,6 +52,15 @@ CORE_SYMBOLS = ["QQQ", "TQQQ", "SQQQ"]   # 캐시에 없으면 1회 전체 히�
 REFRESH_SPACING = 1.6                  # 정중 폴링(≥1.5s)
 REFRESH_DAYS = 14
 MAX_REFRESH = 40                       # 포워드 갱신 심볼 상한(유계 유지; ≥1.5s 간격·429 즉시 중단)
+# 유니버스 갱신(별도 단계 `--refresh-universe-only`) 상한(결정 2026-11-28 D6/F15). paperlab 단계
+# 타임아웃(240s)을 넘지 않도록 코어 갱신과 분리한다.
+MAX_UNIVERSE_REFRESH = 300
+# 스윙 유니버스(단일종목)에서 뺄 ETF/레버리지 ETP — ETF_LIKE 가 못 덮는 R4 누출분
+# (reports/2026-11-28_hot_rvol_scan.md "ETF 누출").
+SWING_EXCLUDE = frozenset({
+    "BITX", "BOXX", "BSV", "CONL", "CURE", "DBB", "DRN", "FAS", "HIBL", "LABU", "MSTU", "PSQ",
+    "SCZ", "SGOV", "SH", "SPXL", "SVIX", "TECL", "TECS", "TIP", "TNA", "UUP", "VIXM", "VIXY", "VWO",
+})
 
 # 포워드 갱신 대상 ETP(신규 전략이 쓰는 레버리지/1x/현금성). assetclass="etf".
 REFRESH_ETPS = ["QQQ", "TQQQ", "SQQQ", "SPY", "SPXL", "TECL", "SOXL", "UVXY", "BSV",
@@ -94,34 +104,65 @@ def _load_from_cache(symbol: str) -> list[Candle] | None:
         return None
 
 
-def _fetch_full(symbol: str) -> list[Candle] | None:
-    """누락 코어 심볼 1회 전체 히스토리 페치(Yahoo→Nasdaq→Stooq). 429/실패면 None."""
+def _fetch_full(symbol: str, *, force: bool = False) -> list[Candle] | None:
+    """전체 히스토리 페치(Yahoo→Nasdaq→Stooq). force=False 면 캐시가 있으면 그대로(누락 코어 1회용),
+    force=True 면 캐시를 새 전체 히스토리로 교체(캐시 구멍 메우기). 429/실패면 None."""
     try:
-        return histdata.load_symbol(symbol, adjusted=True, force=False)
+        return histdata.load_symbol(symbol, adjusted=True, force=force)
     except Exception as exc:  # noqa: BLE001
         _log(f"full fetch failed {symbol}: {type(exc).__name__}: {exc}")
         return None
 
 
+def _cache_last_date(symbol: str) -> date | None:
+    """캐시 rows 의 마지막 날짜(없거나 읽기 실패면 None)."""
+    import json
+    try:
+        rows = json.loads(_cache_file(symbol).read_text(encoding="utf-8")).get("rows") or []
+        return date.fromisoformat(str(rows[-1]["d"])[:10]) if rows else None
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+
+
 def _polite_refresh(pairs: Sequence[tuple[str, str]], *,
                     client: Any = None, cutoff: Any = None,
-                    sleep: Callable[[float], None] = time.sleep) -> str | None:
+                    sleep: Callable[[float], None] = time.sleep,
+                    gap_fill: bool = False, stats: dict[str, int] | None = None) -> str | None:
     """(symbol, assetclass) 목록의 최근 종가만 정중히 갱신(새 거래일만 병합).
 
     라이브(client!=None)면 **토스 일봉 1차 + Nasdaq 폴백**, 아니면 Nasdaq 전용. 회귀: Nasdaq
     /historical 이 최신 완료 세션을 며칠 늦게 실어(2026-09-29 관측) 캐시가 정체 → 페이퍼 랩이
     첫 세션(2026-09-28)에서 못 벗어남. 토스는 완료 세션을 당일 저녁에 이미 제공(``cutoff`` 초과
     당일 미완료 캔들은 제외). ≥1.5s 간격, Nasdaq 폴백까지 실패하면 즉시 중단(정중).
+    토스 429/403(재시도 소진 포함)이 한 번이라도 나면 남은 심볼은 Nasdaq 전용(토스 추가 호출 없음).
+    ``gap_fill``: 캐시 마지막 봉이 최근 창(REFRESH_DAYS)보다 오래됐으면 증분 대신 전체 재페치
+    (영구 중간 구멍 방지; 실패하면 증분 없이 건너뛰어 다음 실행에서 재시도). ``stats``: done/empty/full/full_failed 집계.
     """
     import json
+    st = stats if stats is not None else {}
+    st.update(done=0, empty=0, full=0, full_failed=0)
+    ref = cutoff if isinstance(cutoff, date) else date.today()
     for i, (sym, assetclass) in enumerate(pairs):
         if i > 0:
             sleep(REFRESH_SPACING)
+        st["done"] = i + 1
+        if gap_fill:
+            last = _cache_last_date(sym)
+            if last is not None and (ref - last).days > REFRESH_DAYS:
+                if _fetch_full(sym, force=True) is not None:
+                    st["full"] += 1
+                    continue
+                st["full_failed"] += 1
+                continue        # 증분 금지: 최근 창만 붙이면 영구 중간 구멍 → 다음 실행에서 전체 재시도
         rows: list[dict] = []
         if client is not None:
             try:
                 rows = histdata.fetch_toss_recent(sym, days=REFRESH_DAYS, client=client, cutoff=cutoff)
-            except Exception:  # noqa: BLE001  토스 실패 → Nasdaq 폴백(여기선 중단 안 함)
+            except Exception as exc:  # noqa: BLE001  토스 실패 → Nasdaq 폴백(여기선 중단 안 함)
+                code = getattr(exc, "http_status", None)
+                if code in (429, 403):
+                    _log(f"toss {code} at {sym} → nasdaq-only for remaining {len(pairs) - i} symbols")
+                    client = None
                 rows = []
         if not rows:
             try:
@@ -129,6 +170,7 @@ def _polite_refresh(pairs: Sequence[tuple[str, str]], *,
             except Exception as exc:  # noqa: BLE001  429/네트워크/파싱 → 중단(정중)
                 return f"{sym}: {type(exc).__name__}: {exc}"
         if not rows:
+            st["empty"] += 1
             continue
         path = _cache_file(sym)
         try:
@@ -188,7 +230,7 @@ def _cached_universe() -> list[str]:
     syms: list[str] = []
     for p in sorted(HIST_CACHE.glob("*.json")):
         name = p.stem
-        if name.startswith("_") or name in ETF_LIKE:
+        if name.startswith("_") or name in ETF_LIKE or name in SWING_EXCLUDE:
             continue
         if name.isupper() or name.replace(".", "").isalpha():
             syms.append(name)
@@ -217,6 +259,50 @@ def _refresh_pairs(hibeta_uni: Sequence[str]) -> list[tuple[str, str]]:
     return pairs[:MAX_REFRESH]
 
 
+def _universe_refresh_pairs(hibeta_uni: Sequence[str], mom_uni: Sequence[str],
+                            swing_uni: Sequence[str]) -> list[tuple[str, str]]:
+    """유니버스 갱신 (symbol, "stocks") 목록. hibeta → mom → swing 순, 중복·코어(_refresh_pairs) 제외.
+    MAX_UNIVERSE_REFRESH 상한. 입력 유니버스는 이미 캐시 존재 기준으로 걸러진 것."""
+    seen = {s for s, _ in _refresh_pairs(hibeta_uni)}
+    pairs: list[tuple[str, str]] = []
+    for s in [*hibeta_uni, *mom_uni, *swing_uni]:
+        if s not in seen:
+            pairs.append((s, "stocks"))
+            seen.add(s)
+    return pairs[:MAX_UNIVERSE_REFRESH]
+
+
+def _live_client_cutoff() -> tuple[Any, Any]:
+    """라이브면 토스 1차(Nasdaq 지연 우회)용 (client, cutoff). 실패하면 (None, None) → Nasdaq 전용."""
+    try:
+        sys.path.insert(0, str(ROOT / "scripts"))
+        import daily_scoreboard as _sb       # noqa: PLC0415  (scripts/daily_scoreboard.py)
+        client = _sb._toss_client_or_none()
+        cutoff = _sb.latest_completed_us_session(client=client) if client is not None else None
+        return client, cutoff
+    except Exception:  # noqa: BLE001
+        return None, None
+
+
+# ─────────────────────────────────────────── 실행: 유니버스 갱신 전용(장부 전진 없음)
+def run_universe_refresh(args: argparse.Namespace) -> int:
+    if args.offline:
+        _log("universe refresh: offline → skipped")
+        return 0
+    hibeta_uni = _hibeta_cached()
+    mom_uni = [s for s in NDX_100 if _cache_file(s).exists()]
+    pairs = _universe_refresh_pairs(hibeta_uni, mom_uni, _cached_universe())
+    client, cutoff = _live_client_cutoff()
+    st: dict[str, int] = {}
+    stopped = _polite_refresh(pairs, client=client, cutoff=cutoff, gap_fill=True, stats=st)
+    remaining = len(pairs) - st.get("done", 0) + (1 if stopped else 0)   # 중단 심볼 포함 미처리 꼬리
+    _log(f"universe refresh: symbols={len(pairs)} "
+         f"source={'toss+nasdaq' if client is not None else 'nasdaq'} empty={st.get('empty', 0)} "
+         f"gap_full={st.get('full', 0)} gap_full_failed={st.get('full_failed', 0)} "
+         f"stopped={stopped} remaining={remaining}")
+    return 0
+
+
 # ─────────────────────────────────────────── 실행: 포워드 페이퍼
 def run_forward(args: argparse.Namespace) -> int:
     swing_uni = _cached_universe()
@@ -230,14 +316,7 @@ def run_forward(args: argparse.Namespace) -> int:
 
     if not args.offline and not args.no_refresh:
         pairs = _refresh_pairs(hibeta_uni)
-        client = cutoff = None
-        try:                                    # 라이브면 토스 1차(Nasdaq 지연 우회) — 실패해도 폴백.
-            sys.path.insert(0, str(ROOT / "scripts"))
-            import daily_scoreboard as _sb       # noqa: PLC0415  (scripts/daily_scoreboard.py)
-            client = _sb._toss_client_or_none()
-            cutoff = _sb.latest_completed_us_session(client=client) if client is not None else None
-        except Exception:  # noqa: BLE001
-            client = cutoff = None
+        client, cutoff = _live_client_cutoff()
         stopped = _polite_refresh(pairs, client=client, cutoff=cutoff)
         _log(f"refresh closes: symbols={len(pairs)} "
              f"source={'toss+nasdaq' if client is not None else 'nasdaq'} stopped={stopped}")
@@ -317,8 +396,12 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--no-refresh", action="store_true", help="skip network refresh of core closes")
     ap.add_argument("--offline", action="store_true", help="no network at all (cache only)")
     ap.add_argument("--backfill-only", action="store_true", help="run only the backfill replay")
+    ap.add_argument("--refresh-universe-only", action="store_true",
+                    help="only refresh strategy-universe closes (hibeta→mom→swing); no ledger advance")
     args = ap.parse_args(argv)
 
+    if args.refresh_universe_only:
+        return run_universe_refresh(args)
     rc = 0
     if args.backfill_from:
         bf = date.fromisoformat(args.backfill_from)

@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import Any, Mapping, Sequence
 
 from ..models import Candle
-from ..paperlab import Strategy
+from ..paperlab import MAX_BAR_GAP_BDAYS, Strategy, bday_gap
 from ._universes import DEFAULT_SWING_UNIVERSE, ETF_LIKE
 
 GAIN_MIN = 0.05
@@ -23,6 +23,9 @@ MAX_POS = 3
 class HotRvolSwing(Strategy):
     name = "hot_rvol_swing"
     fill_on = "open"
+    # 그룹 동결(2026-11-28 F15): SWING_EXCLUDE 로 레버ETP가 유니버스에서 빠져도 추론 그룹이 retail 로
+    # 바뀌어 실계좌 추천 자격이 조용히 생기지 않게 기존 분류를 명시한다. 변경은 decider·사용자 승인 사항.
+    group = "leverage"
 
     def __init__(self, universe: Sequence[str] | None = None) -> None:
         base = list(universe) if universe else list(DEFAULT_SWING_UNIVERSE)
@@ -43,6 +46,9 @@ class HotRvolSwing(Strategy):
         # 2) 새 신호 스캔(이미 보유중/여유슬롯 없으면 스킵).
         slots = MAX_POS - len(holds)
         if slots > 0:
+            # 신선도: 오늘(=history 최신 봉 날짜) 봉이 아닌 심볼은 신호 금지 — 정체 캐시 봉 재평가가
+            # 체결 불가 pending 을 만들어 장부를 영구 동결시키는 것 방지(감사 2026-11-28 R4).
+            today = max((h[-1].dt for h in history.values() if h), default=None)
             cands: list[tuple[float, str]] = []
             for s in self._universe:
                 if s in holds:
@@ -51,7 +57,11 @@ class HotRvolSwing(Strategy):
                 if not h or len(h) < VOL_WINDOW + 2:
                     continue
                 c = h[-1]
+                if c.dt != today:
+                    continue
                 prev = h[-2]
+                if bday_gap(prev.dt, c.dt) > MAX_BAR_GAP_BDAYS:   # 캐시 구멍 직후 첫 봉 → 허위 '하루 수익'
+                    continue
                 if prev.close <= 0 or c.high <= 0 or c.high <= c.low:
                     continue
                 gain = c.close / prev.close - 1.0

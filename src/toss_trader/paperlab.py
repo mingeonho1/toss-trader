@@ -39,6 +39,17 @@ __all__ = [
 _EPS = 1e-12
 LATE_BAR_WAIT_SESSIONS = 3      # 유니버스(신호 전용 포함)/보유/목표 심볼 봉이 이만큼 이내로 늦으면 그 날 처리를 보류
                                 # (다음 실행 재계산). 오버나이트 경로는 보유 심볼만 본다.
+SIGNAL_ONLY_WAIT_SESSIONS = 1   # 신호 전용(보유·목표 아님) 심볼은 1세션만 대기(갱신 꼬리 실패로 장부 정체 방지;
+                                # 감사 2026-11-28 F15 리뷰).
+_EXTRA_SIGNAL_ETF = {"TECL", "SPXL", "BSV", "PSQ", "SH", "UPRO"}   # ETF_LIKE 밖 ETF 신호(감사 2차 A)
+MAX_BAR_GAP_BDAYS = 5          # 연속 두 봉 사이 영업일 갭 상한(초과 = 캐시 구멍 → 신호 금지).
+
+
+def bday_gap(a: date, b: date) -> int:
+    """a 다음날부터 b 까지(포함)의 평일 수. 연속 거래일이면 1(주말 무시; 휴장 미반영)."""
+    days = (b - a).days
+    weeks, rem = divmod(max(days, 0), 7)
+    return weeks * 5 + sum(1 for i in range(1, rem + 1) if (a.weekday() + i) % 7 < 5)
 
 
 def _last_bars(syms: Sequence[str], by_date: Mapping[str, Mapping[date, Candle]]) -> dict[str, date]:
@@ -46,8 +57,9 @@ def _last_bars(syms: Sequence[str], by_date: Mapping[str, Mapping[date, Candle]]
 
 
 def _late_symbols(syms, d: date, master_dates: Sequence[date],
-                  by_date: Mapping[str, Mapping[date, Candle]], last_bar: Mapping[str, date]) -> list[str]:
-    """d 봉이 아직 안 들어온 심볼: 캐시가 d 이전에서 멈췄고 그 지연이 ≤LATE_BAR_WAIT_SESSIONS.
+                  by_date: Mapping[str, Mapping[date, Candle]], last_bar: Mapping[str, date],
+                  wait: int = LATE_BAR_WAIT_SESSIONS) -> list[str]:
+    """d 봉이 아직 안 들어온 심볼: 캐시가 d 이전에서 멈췄고 그 지연이 ≤wait(기본 LATE_BAR_WAIT_SESSIONS).
 
     이런 날을 직전가로 마크하고 last_date 를 넘기면, 나중에 봉이 채워져도 멱등 규칙(d<=last 스킵)
     때문에 재계산되지 않아 허위 수익이 남는다(감사 2026-11-25). 중간 결측(이후 봉 있음)·오래 멈춘
@@ -59,7 +71,7 @@ def _late_symbols(syms, d: date, master_dates: Sequence[date],
         lb = last_bar.get(s)
         if lb is None or lb >= d:
             continue
-        if len(master_dates) - bisect_right(master_dates, lb) <= LATE_BAR_WAIT_SESSIONS:
+        if len(master_dates) - bisect_right(master_dates, lb) <= wait:
             out.append(s)
     return out
 
@@ -397,12 +409,19 @@ class PaperLab:
 
         prev_d: date | None = last        # 직전 처리 거래일(월초 적립 판정용)
         last_bar = _last_bars(uni, by_date)
+        from .paperlab_strategies._universes import ETF_LIKE   # 지연 임포트(패키지 __init__ 순환 방지)
+        signal_etp = set(uni) & (set(ETF_LIKE) | set(_LEVERAGED_ETP) | _EXTRA_SIGNAL_ETF)
         for d in master_dates:
             if last is not None and d <= last:
                 continue
-            if d >= start_date and _late_symbols(set(uni) | _held(unit, real) | set(pending or {}),
-                                                 d, master_dates, by_date, last_bar):
-                break             # 유니버스(신호 전용 포함)/보유/목표 심볼 봉 지연 → 이 날부터 보류(다음 실행에서 계산)
+            if d >= start_date:
+                core = _held(unit, real) | set(pending or {}) | set(last_applied or {})
+                sig = set(uni) - core
+                etp = sig & signal_etp        # ETF 신호(holy_grail TQQQ RSI 등)는 3세션 유지
+                if (_late_symbols(core | etp, d, master_dates, by_date, last_bar)
+                        or _late_symbols(sig - etp, d, master_dates, by_date, last_bar,
+                                         wait=SIGNAL_ONLY_WAIT_SESSIONS)):
+                    break         # 보유/목표·ETF 신호(≤3)·주식 신호 전용(≤1) 봉 지연 → 이 날부터 보류(다음 실행에서 계산)
             # 오늘 캔들 반영(가시 히스토리 · 체결/마크 가격). 워밍업 구간(d<start)에도 히스토리는
             # 채워야 첫 거래일에 SMA200/RSI2 등 룩백 신호가 눈 뜬 채로 계산된다.
             close_px: dict[str, float] = {}
