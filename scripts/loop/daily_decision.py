@@ -64,6 +64,7 @@ EXCESS_KILL_MIN_N = 63
 RETIRE_SESSIONS = 21
 REGIME_QQQ_ABS = 0.03       # |오늘 QQQ 로그수익| ≥ 3% → regime_note
 TRADING_DAYS = 252
+UNIT_START = 1000.0         # 단위장부 시작자본(PaperLab unit_usd 기본값). 누적수익 기준(F4).
 
 BENCHMARKS = frozenset({"qqq_bh", "tqqq_bh"})
 GROUP_LABELS = {"retail": "실계좌", "leverage": "레버ETP", "explore": "탐색"}
@@ -190,7 +191,7 @@ def compute_metrics(curve: Sequence[tuple[str, float]], qqq: Mapping[str, float]
     if n == 0:
         return Metrics(0, None, None, None, None, None, 0.0, None, None)
     vals = [v for _, v in curve]
-    cum = vals[-1] / vals[0] - 1.0 if vals[0] > 0 else None
+    cum = vals[-1] / UNIT_START - 1.0             # 기준 = 시작자본(첫 장부값 아님; 감사 F4)
     annual = None
     if n >= 2 and vals[0] > 0:
         annual = (vals[-1] / vals[0]) ** (TRADING_DAYS / (n - 1)) - 1.0

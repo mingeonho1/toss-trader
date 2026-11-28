@@ -57,6 +57,28 @@ class MetricsZScoreTest(unittest.TestCase):
         self.assertIsNone(m.z)
 
 
+class CumBaseStartCapitalTest(unittest.TestCase):
+    """감사 F4: 누적수익 기준 = 시작자본(1000), 첫 장부값 아님. z·상태 전이는 불변."""
+
+    def test_cum_uses_start_capital_and_state_z_unchanged(self) -> None:
+        crash = math.log(0.67)
+        rets = [0.002] * 66 + [crash] + [0.0] * 4              # 승격 → 비킬 강등 경로 포함
+        qqq = dict(curve_from_returns([0.001] * 66 + [crash] + [0.0] * 4))
+        base = curve_from_returns(rets, start=dd.UNIT_START)
+        first_fee = curve_from_returns(rets, start=dd.UNIT_START * 0.992)  # 첫날 체결비용으로 첫 값<1000
+        h0 = dd.replay_strategy(base, qqq, {}, EXPECT)
+        h1 = dd.replay_strategy(first_fee, qqq, {}, EXPECT)
+        self.assertEqual([h.state for h in h0], [h.state for h in h1])
+        self.assertIn("CANDIDATE", [h.state for h in h1])
+        for a, b in zip(h0, h1):
+            if a.m.z is None:
+                self.assertIsNone(b.m.z)
+            else:
+                self.assertAlmostEqual(a.m.z, b.m.z, places=9)
+        self.assertAlmostEqual(h1[-1].m.cum, first_fee[-1][1] / 1000.0 - 1.0, places=12)
+        self.assertNotAlmostEqual(h1[-1].m.cum, first_fee[-1][1] / first_fee[0][1] - 1.0, places=6)
+
+
 class WarmupGatingTest(unittest.TestCase):
     def test_warmup_below_21_then_evaluating(self) -> None:
         strat = curve_from_returns([0.001] * 70)

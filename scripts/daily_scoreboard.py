@@ -1055,6 +1055,13 @@ def build_default_steps(*, offline: bool, creds: bool, et_now: datetime,
         Step("tax_report",
              [py, str(SCRIPTS / "run_dca.py"), "--tax-report"], timeout=120.0,
              skip_reason=None if creds else "자격증명 없음(양도세 생략)"),
+        # 전략 유니버스(hibeta→mom→swing) 종가 갱신 — paperlab **앞**, 별도 격리 단계(결정 2026-11-28
+        # D6/F15). 약 215종목 × 1.6s 라 paperlab 타임아웃(240s) 안에 못 넣는다. 실패/타임아웃이어도
+        # paperlab 은 계속 돈다(정체 심볼은 전략 신선도 가드가 건너뜀). offline 이면 스킵.
+        Step("paperlab_universe_refresh",
+             [py, str(SCRIPTS / "paperlab_run.py"), "--refresh-universe-only"],
+             timeout=900.0,
+             skip_reason=("offline 모드(네트워크 없음 — 유니버스 갱신 생략)" if offline else None)),
         # 공격형 포워드 페이퍼 랩(Lane A) — 키 불필요·멱등·주문 없음. 자체적으로 캐시 종가로
         # 매 새 거래일을 전진시키고 reports/paperlab_latest.md 를 쓴다(offline 이면 네트워크 없이).
         Step("paperlab",

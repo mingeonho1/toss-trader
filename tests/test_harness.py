@@ -430,3 +430,62 @@ def test_f13_skips_when_out_of_scope(tmp_path):
     _paperlab_state(tmp_path, "qqq_bh", "2026-09-28")
     # 관련 산출물/코드가 스코프에 없으면 생략(--changed 모드 대응).
     assert checks.check_f13_stale_books(ctx(tmp_path, scope=set())) == []
+
+
+# ── F14: 미배포 코드 운영(페이퍼 랩 code SHA@브랜치 ≠ main 팁) ─────────────────────
+def _paperlab_report(root: Path, code: str | None) -> None:
+    gen = "2026-11-28T01:00:00+00:00" + (f" · code {code}" if code else "")
+    write(root, "reports/paperlab_latest.md", f"# 페이퍼 랩\n\n- Generated: `{gen}`\n")
+
+
+def _main_repo(root: Path) -> str:
+    """main 브랜치 커밋 1개짜리 레포 → main 팁 전체 SHA."""
+    make_git_repo(root)
+    _git(root, "checkout", "-q", "-b", "main")
+    _git(root, "commit", "-q", "--allow-empty", "-m", "init")
+    return subprocess.run(["git", "rev-parse", "HEAD"], cwd=root, check=True,
+                          capture_output=True, text=True).stdout.strip()
+
+
+def test_f14_passes_when_main_tip(tmp_path):
+    tip = _main_repo(tmp_path)
+    _paperlab_report(tmp_path, f"{tip[:7]}@main")
+    assert checks.check_f14_code_version(ctx(tmp_path)) == []
+
+
+def test_f14_warns_on_stale_sha(tmp_path):
+    tip = _main_repo(tmp_path)
+    stale = "0000000" if not tip.startswith("0000000") else "1111111"
+    _paperlab_report(tmp_path, f"{stale}@main")
+    f = checks.check_f14_code_version(ctx(tmp_path))
+    assert codes(f, "warn") == ["F14"] and codes(f, "block") == []
+
+
+def test_f14_warns_on_non_main_branch(tmp_path):
+    # 실제 사고: 루프 브랜치 체크아웃으로 운영(SHA 가 같아도 브랜치가 main 이 아니면 경보).
+    tip = _main_repo(tmp_path)
+    _paperlab_report(tmp_path, f"{tip[:7]}@loop/2026-11-28")
+    f = checks.check_f14_code_version(ctx(tmp_path))
+    assert codes(f, "warn") == ["F14"]
+    assert "loop/2026-11-28" in f[0].message
+
+
+def test_f14_skips_without_code_line_or_git(tmp_path):
+    # 코드 줄 없음(구버전 리포트) / unknown → 생략.
+    _main_repo(tmp_path)
+    _paperlab_report(tmp_path, None)
+    assert checks.check_f14_code_version(ctx(tmp_path)) == []
+    _paperlab_report(tmp_path, "unknown")
+    assert checks.check_f14_code_version(ctx(tmp_path)) == []
+
+
+def test_f14_skips_when_git_unavailable(tmp_path):
+    # git 레포 아님(=기대 SHA 산출 불가) → 생략(차단·경보 없음).
+    _paperlab_report(tmp_path, "abc1234@main")
+    assert checks.check_f14_code_version(ctx(tmp_path)) == []
+
+
+def test_f14_skips_when_out_of_scope(tmp_path):
+    _main_repo(tmp_path)
+    _paperlab_report(tmp_path, "abc1234@feature")
+    assert checks.check_f14_code_version(ctx(tmp_path, scope=set())) == []

@@ -343,6 +343,30 @@ class RefreshClosesGatingTest(unittest.TestCase):
         self.assertLess(order.index("refresh_closes"), order.index("forward_paper"))
         self.assertLess(order.index("refresh_closes"), order.index("paperlab"))
 
+    def test_universe_refresh_step_between_refresh_and_paperlab(self) -> None:
+        # F15(결정 2026-11-28 D6): 유니버스 갱신은 별도 격리 단계, refresh_closes < 이것 < paperlab.
+        et_now = datetime(2026, 9, 28, 20, 30, tzinfo=timezone.utc)
+        steps = sb.build_default_steps(offline=False, creds=True, et_now=et_now,
+                                       seed_usd=100.0, py=sys.executable)
+        order = [s.name for s in steps]
+        i = order.index("paperlab_universe_refresh")
+        self.assertLess(order.index("refresh_closes"), i)
+        self.assertLess(i, order.index("paperlab"))
+        st = steps[i]
+        self.assertEqual(st.timeout, 900.0)
+        self.assertIsNone(st.skip_reason)
+        self.assertIn("--refresh-universe-only", list(st.argv or []))
+        self.assertIsNotNone(self._steps(offline=True, creds=False)
+                             ["paperlab_universe_refresh"].skip_reason)
+
+    def test_universe_refresh_failure_does_not_block_paperlab(self) -> None:
+        # 격리: 앞 단계가 실패(타임아웃 포함)해도 다음 단계는 실행된다.
+        bad = sb.Step("paperlab_universe_refresh",
+                      [sys.executable, "-c", "import sys; sys.exit(3)"], timeout=30.0)
+        nxt = sb.Step("paperlab", [sys.executable, "-c", "print('ok')"], timeout=30.0)
+        res = sb.execute_steps([bad, nxt])
+        self.assertEqual([r.status for r in res], ["failed", "ok"])
+
     def test_refresh_symbols_cover_paperlab_core_and_forward_universe(self) -> None:
         # forward_paper 유니버스 + paperlab 코어 ETP(레버리지/인버스/변동성)를 모두 포함.
         for sym in ("QQQ", "SPY", "TQQQ", "SQQQ", "UVXY", "QLD"):
